@@ -15,14 +15,14 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
 // Keep the getSupabaseClient function for backward compatibility
 export const getSupabaseClient = () => supabase;
 
-// Service role client for API routes (server-side only)
+// Server-side client using secret key for API routes
 export const createServiceRoleClient = () => {
-  const serviceKey = process.env.SUPABASE_SECRET_KEY;
-  if (!serviceKey) {
+  const secretKey = process.env.SUPABASE_SECRET_KEY;
+  if (!secretKey) {
     throw new Error('SUPABASE_SECRET_KEY is not configured');
   }
   
-  return createClient(supabaseUrl, serviceKey, {
+  return createClient(supabaseUrl, secretKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false

@@ -18,3 +18,18 @@ export const supabase = (() => {
   }
   return supabaseInstance;
 })();
+
+// Server-side client using secret key for API routes
+export const createServiceRoleClient = () => {
+  const secretKey = process.env.SUPABASE_SECRET_KEY;
+  if (!secretKey) {
+    throw new Error('SUPABASE_SECRET_KEY is not configured');
+  }
+  
+  return createClient(supabaseUrl, secretKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+};

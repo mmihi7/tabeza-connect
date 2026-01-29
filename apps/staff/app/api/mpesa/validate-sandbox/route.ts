@@ -202,17 +202,33 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Define the expected type for the bar data
+    interface BarMpesaStatusData {
+      mpesa_enabled: boolean;
+      mpesa_environment: string;
+      mpesa_business_shortcode: string;
+      mpesa_consumer_key_encrypted: string;
+      mpesa_consumer_secret_encrypted: string;
+      mpesa_passkey_encrypted: string;
+      mpesa_setup_completed: boolean;
+      mpesa_test_status: string;
+      mpesa_last_test_at: string;
+    }
+
+    // Type assertion to help TypeScript understand the structure
+    const barData = rawBarData as BarMpesaStatusData;
+
     // Quick validation status
     const status = {
-      mpesaEnabled: rawBarData.mpesa_enabled,
-      environment: rawBarData.mpesa_environment,
-      isSandbox: rawBarData.mpesa_environment === 'sandbox',
-      setupCompleted: rawBarData.mpesa_setup_completed,
-      lastTestStatus: rawBarData.mpesa_test_status,
-      lastTestAt: rawBarData.mpesa_last_test_at,
-      hasCredentials: !!(rawBarData.mpesa_consumer_key_encrypted && rawBarData.mpesa_consumer_secret_encrypted),
-      businessShortcode: rawBarData.mpesa_business_shortcode,
-      isStandardSandboxShortcode: rawBarData.mpesa_business_shortcode === '174379'
+      mpesaEnabled: barData.mpesa_enabled,
+      environment: barData.mpesa_environment,
+      isSandbox: barData.mpesa_environment === 'sandbox',
+      setupCompleted: barData.mpesa_setup_completed,
+      lastTestStatus: barData.mpesa_test_status,
+      lastTestAt: barData.mpesa_last_test_at,
+      hasCredentials: !!(barData.mpesa_consumer_key_encrypted && barData.mpesa_consumer_secret_encrypted),
+      businessShortcode: barData.mpesa_business_shortcode,
+      isStandardSandboxShortcode: barData.mpesa_business_shortcode === '174379'
     };
 
     return NextResponse.json({

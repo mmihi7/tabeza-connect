@@ -220,7 +220,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
         status: 'initiated', // Start with 'initiated' status
         metadata: {
           phone_number: normalizedPhoneNumber,
-          environment: process.env.MPESA_MOCK_MODE === 'true' ? 'sandbox' : (barMpesaData.mpesa_environment || 'sandbox'),
+          environment: process.env.MPESA_MOCK_MODE === 'true' ? 'sandbox' : ((barMpesaData.mpesa_environment as 'sandbox' | 'production') || 'sandbox'),
           initiated_at: new Date().toISOString()
         }
       })
@@ -244,7 +244,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
       bar_id: tab.bar_id,
       amount: amount,
       phone_number: normalizedPhoneNumber,
-      environment: process.env.MPESA_MOCK_MODE === 'true' ? 'sandbox' : (barMpesaData.mpesa_environment || 'sandbox'),
+      environment: process.env.MPESA_MOCK_MODE === 'true' ? 'sandbox' : ((barMpesaData.mpesa_environment as 'sandbox' | 'production') || 'sandbox'),
       mock_mode: process.env.MPESA_MOCK_MODE === 'true'
     });
 
@@ -357,7 +357,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
         bar_id: tab.bar_id,
         amount: amount,
         phone_number: normalizedPhoneNumber,
-        environment: barMpesaData.mpesa_environment || 'sandbox',
+        environment: (barMpesaData.mpesa_environment as 'sandbox' | 'production') || 'sandbox',
         stk_request_payload: {
           // STK request payload (sensitive data will be redacted by audit logger)
           BusinessShortCode: mpesaConfig.businessShortcode,
@@ -405,7 +405,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
         bar_id: tab.bar_id,
         amount: amount,
         phone_number: normalizedPhoneNumber,
-        environment: barMpesaData.mpesa_environment || 'sandbox',
+        environment: (barMpesaData.mpesa_environment as 'sandbox' | 'production') || 'sandbox',
         previous_status: 'initiated',
         new_status: 'stk_sent',
         transition_reason: 'STK Push successful'
@@ -447,7 +447,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
         bar_id: tab.bar_id,
         amount: amount,
         phone_number: normalizedPhoneNumber,
-        environment: process.env.MPESA_MOCK_MODE === 'true' ? 'sandbox' : (barMpesaData.mpesa_environment || 'sandbox'),
+        environment: process.env.MPESA_MOCK_MODE === 'true' ? 'sandbox' : ((barMpesaData.mpesa_environment as 'sandbox' | 'production') || 'sandbox'),
         error_message: stkError instanceof Error ? stkError.message : 'STK Push failed',
         error_code: 'STK_PUSH_FAILED',
         response_time_ms: Date.now() - startTime
@@ -460,7 +460,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
         bar_id: tab.bar_id,
         amount: amount,
         phone_number: normalizedPhoneNumber,
-        environment: process.env.MPESA_MOCK_MODE === 'true' ? 'sandbox' : (barMpesaData.mpesa_environment || 'sandbox'),
+        environment: process.env.MPESA_MOCK_MODE === 'true' ? 'sandbox' : ((barMpesaData.mpesa_environment as 'sandbox' | 'production') || 'sandbox'),
         previous_status: 'initiated',
         new_status: 'failed',
         transition_reason: 'STK Push failed',
