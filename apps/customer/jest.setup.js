@@ -47,6 +47,44 @@ Object.defineProperty(window, 'sessionStorage', {
 // Mock fetch
 global.fetch = jest.fn()
 
+// Mock Next.js Request and Response for API route testing
+global.Request = class MockRequest {
+  constructor(url, options = {}) {
+    this.url = url
+    this.method = options.method || 'GET'
+    this.headers = new Map(Object.entries(options.headers || {}))
+    this.body = options.body
+  }
+  
+  async json() {
+    return JSON.parse(this.body || '{}')
+  }
+}
+
+global.Response = class MockResponse {
+  constructor(body, options = {}) {
+    this.body = body
+    this.status = options.status || 200
+    this.headers = new Map(Object.entries(options.headers || {}))
+  }
+  
+  json() {
+    return JSON.parse(this.body)
+  }
+}
+
+// Mock NextRequest and NextResponse
+jest.mock('next/server', () => ({
+  NextRequest: global.Request,
+  NextResponse: {
+    json: (data, options = {}) => ({
+      json: () => Promise.resolve(data),
+      status: options.status || 200,
+      ...options
+    })
+  }
+}))
+
 // Mock toast hook
 jest.mock('@/components/ui/Toast', () => ({
   useToast: () => ({

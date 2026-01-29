@@ -1,11 +1,16 @@
 /**
- * Enhanced M-Pesa Callback Handler with Real-time Notifications
- * Processes M-Pesa payments and triggers real-time notifications and balance updates
- * Requirements: 3.1, 3.2, 3.3, 3.5, 6.1, 6.2, 4.1, 4.2
+ * Enhanced M-Pesa Callback Handler with Robust Parsing and Validation
+ * Implements task 4.1 and 4.2: Enhanced callback handling (critical path)
+ * Requirements: 3.2, 3.3, 3.4, 5.4, 5.5
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { 
+  logMpesaPaymentEvent,
+  logMpesaStateTransition,
+  type MpesaAuditLogData 
+} from '@tabeza/shared/lib/services/mpesa-audit-logger';
 
 interface MpesaCallbackMetadataItem {
   Name: string;
@@ -30,159 +35,511 @@ interface MpesaCallback {
   };
 }
 
-interface PaymentNotificationPayload {
-  paymentId: string;
-  tabId: string;
-  barId: string;
-  amount: number;
+interface CallbackValidationResult {
+  isValid: boolean;
+  errors: string[];
+  paymentId?: string;
+  tabId?: string;
+  amount?: number;
+}
+
+interface CallbackProcessingResult {
+  success: boolean;
+  paymentId?: string;
+  tabId?: string;
   status: 'success' | 'failed';
-  method: 'mpesa';
-  timestamp: string;
   mpesaReceiptNumber?: string;
-  transactionDate?: string;
-  phoneNumber?: string;
-  failureReason?: string;
-}
-
-interface TabAutoCloseNotificationPayload {
-  tabId: string;
-  barId: string;
-  paymentId: string;
-  previousStatus: 'overdue';
-  newStatus: 'closed';
-  finalBalance: number;
-  closedBy: 'system';
-  timestamp: string;
+  amount?: number;
+  error?: string;
 }
 
 /**
- * Process payment and trigger balance updates with notifications
- * Requirements: 4.1, 4.2 - Real-time balance updates and auto-close detection
+ * Task 4.1: Implement robust callback parsing and validation
+ * Parse CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata
+ * Find tab_payments by checkout_request_id
+ * Handle not found cases gracefully (log + return 200)
+ * Requirements: 3.2, 3.3
  */
-async function processPaymentBalanceUpdate(
-  supabase: any,
-  paymentId: string,
-  tabId: string,
-  paymentAmount: number,
-  paymentStatus: 'success' | 'failed'
-): Promise<void> {
+async function validateAndParseCallback(
+  callbackData: MpesaCallback,
+  supabase: any
+): Promise<CallbackValidationResult> {
+  const errors: string[] = [];
+  
   try {
-    // Only process successful payments for balance updates
-    if (paymentStatus !== 'success') {
-      console.log('Skipping balance update for failed payment:', paymentId);
-      return;
+    // Validate callback structure
+    if (!callbackData.Body?.stkCallback) {
+      errors.push('Invalid callback structure - missing stkCallback');
+      return { isValid: false, errors };
     }
 
-    // Log balance update for real-time subscriptions to pick up
-    console.log('Balance update triggered:', {
-      paymentId,
-      tabId,
-      amount: paymentAmount,
-      method: 'mpesa',
-      status: paymentStatus,
-      timestamp: new Date().toISOString()
-    });
+    const { stkCallback } = callbackData.Body;
+    const { CheckoutRequestID, ResultCode, ResultDesc, MerchantRequestID } = stkCallback;
 
-    // The existing tab_balances view and real-time subscriptions will handle
-    // the actual balance calculations and UI updates automatically
+    // Validate required fields - Requirements 3.2
+    if (!CheckoutRequestID || typeof CheckoutRequestID !== 'string') {
+      errors.push('Missing or invalid CheckoutRequestID');
+    }
 
-  } catch (error) {
-    console.error('Error processing payment balance update:', {
-      paymentId,
-      tabId,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-}
-async function triggerPaymentNotifications(
-  supabase: any,
-  payload: PaymentNotificationPayload
-): Promise<void> {
-  try {
-    // Get tab and bar information for multi-tenant filtering
-    const { data: tabData, error: tabError } = await supabase
-      .from('tabs')
-      .select('bar_id, tab_number')
-      .eq('id', payload.tabId)
+    if (ResultCode === undefined || ResultCode === null || typeof ResultCode !== 'number') {
+      errors.push('Missing or invalid ResultCode');
+    }
+
+    if (!ResultDesc || typeof ResultDesc !== 'string') {
+      errors.push('Missing or invalid ResultDesc');
+    }
+
+    if (!MerchantRequestID || typeof MerchantRequestID !== 'string') {
+      errors.push('Missing or invalid MerchantRequestID');
+    }
+
+    // If basic validation failed, return early
+    if (errors.length > 0) {
+      return { isValid: false, errors };
+    }
+
+    // Find tab_payments by checkout_request_id - Requirements 3.3
+    const { data: payment, error: findError } = await supabase
+      .from('tab_payments')
+      .select('id, tab_id, amount, status')
+      .eq('checkout_request_id', CheckoutRequestID)
+      .eq('method', 'mpesa')
       .single();
 
-    if (tabError || !tabData) {
-      console.error('Failed to get tab data for notifications:', {
-        tabId: payload.tabId,
-        error: tabError
+    if (findError || !payment) {
+      // Handle not found cases gracefully (log + return 200) - Requirements 3.3
+      console.log('Payment not found for CheckoutRequestID (graceful handling):', {
+        checkoutRequestId: CheckoutRequestID,
+        merchantRequestId: MerchantRequestID,
+        resultCode: ResultCode,
+        resultDesc: ResultDesc,
+        error: findError?.message || 'Payment not found'
       });
-      return;
+      
+      // This is not an error - return valid but indicate payment not found
+      return { 
+        isValid: true, 
+        errors: ['Payment not found - graceful handling'],
+        paymentId: undefined,
+        tabId: undefined
+      };
     }
 
-    // Requirement 6.2: Trigger real-time notifications via Supabase channels
-    // The real-time subscriptions in staff and customer apps will automatically
-    // receive these updates through their existing tab_payments subscriptions
+    // Validate payment is in correct state for callback processing
+    if (!['initiated', 'stk_sent'].includes(payment.status)) {
+      errors.push(`Payment in invalid state for callback: ${payment.status}`);
+      return { isValid: false, errors };
+    }
+
+    // Validate CallbackMetadata for successful payments
+    if (ResultCode === 0 && !stkCallback.CallbackMetadata?.Item) {
+      errors.push('Missing CallbackMetadata for successful payment');
+      return { isValid: false, errors };
+    }
+
+    return {
+      isValid: true,
+      errors: [],
+      paymentId: payment.id,
+      tabId: payment.tab_id,
+      amount: payment.amount
+    };
+
+  } catch (error) {
+    errors.push(`Callback validation error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    return { isValid: false, errors };
+  }
+}
+
+/**
+ * Task 4.2: Implement callback processing logic
+ * Task 5: Inline verification rules (no separate service)
+ * For ResultCode === 0: extract receipt + amount, update payment to 'success', resolve tab
+ * For other ResultCodes: update payment to 'failed'
+ * Ensure callback idempotency through database constraints
+ * Inline verification: verify amount matches and payment is in 'stk_sent' status
+ * Requirements: 3.4, 5.1, 5.2, 5.4, 5.5
+ */
+async function processValidCallback(
+  callbackData: MpesaCallback,
+  validationResult: CallbackValidationResult,
+  supabase: any
+): Promise<CallbackProcessingResult> {
+  const { stkCallback } = callbackData.Body;
+  const { CheckoutRequestID, ResultCode, ResultDesc } = stkCallback;
+  
+  try {
+    // Determine payment status based on ResultCode - Requirements 3.4
+    const paymentStatus = ResultCode === 0 ? 'success' : 'failed';
     
-    console.log('Payment notification triggered:', {
-      paymentId: payload.paymentId,
-      tabId: payload.tabId,
-      barId: tabData.bar_id,
-      status: payload.status,
-      amount: payload.amount,
-      method: payload.method
-    });
+    let mpesaReceiptNumber: string | undefined;
+    let transactionAmount: number | undefined;
+    let phoneNumber: string | undefined;
+    let transactionDate: string | undefined;
 
-    // Additional logging for successful payments with M-Pesa details
-    if (payload.status === 'success' && payload.mpesaReceiptNumber) {
-      console.log('M-Pesa payment details:', {
-        mpesaReceiptNumber: payload.mpesaReceiptNumber,
-        transactionDate: payload.transactionDate,
-        phoneNumber: payload.phoneNumber,
-        paymentId: payload.paymentId
+    // For successful payments, extract receipt and amount - Requirements 5.4
+    if (ResultCode === 0 && stkCallback.CallbackMetadata?.Item) {
+      const metadata = stkCallback.CallbackMetadata.Item;
+      
+      // Extract M-Pesa receipt number
+      const receiptItem = metadata.find(item => item.Name === 'MpesaReceiptNumber');
+      mpesaReceiptNumber = receiptItem?.Value?.toString();
+      
+      // Extract transaction amount for verification
+      const amountItem = metadata.find(item => item.Name === 'Amount');
+      transactionAmount = amountItem?.Value ? Number(amountItem.Value) : undefined;
+      
+      // Extract additional metadata
+      const phoneItem = metadata.find(item => item.Name === 'PhoneNumber');
+      phoneNumber = phoneItem?.Value?.toString();
+      
+      const dateItem = metadata.find(item => item.Name === 'TransactionDate');
+      transactionDate = dateItem?.Value?.toString();
+
+      // Validate required fields for successful payments
+      if (!mpesaReceiptNumber) {
+        console.error('Missing M-Pesa receipt number for successful payment:', {
+          checkoutRequestId: CheckoutRequestID,
+          paymentId: validationResult.paymentId
+        });
+        return {
+          success: false,
+          status: 'failed',
+          error: 'Missing M-Pesa receipt number for successful payment'
+        };
+      }
+    }
+
+    // Task 6: Log payment verification start
+    if (ResultCode === 0) {
+      await logMpesaPaymentEvent('payment_verified', {
+        tab_id: validationResult.tabId,
+        tab_payment_id: validationResult.paymentId,
+        checkout_request_id: CheckoutRequestID,
+        amount: validationResult.amount,
+        mpesa_receipt_number: mpesaReceiptNumber,
+        transaction_amount: transactionAmount,
+        phone_number: phoneNumber
       });
     }
 
+    // Task 5: Inline verification rules (no separate service)
+    // Requirements: 5.1, 5.2
+    if (ResultCode === 0) {
+      // Get current payment record to verify status and amount
+      const { data: currentPayment, error: fetchError } = await supabase
+        .from('tab_payments')
+        .select('id, amount, status, checkout_request_id')
+        .eq('id', validationResult.paymentId)
+        .single();
+
+      if (fetchError || !currentPayment) {
+        console.error('Failed to fetch payment for verification:', {
+          paymentId: validationResult.paymentId,
+          checkoutRequestId: CheckoutRequestID,
+          error: fetchError?.message || 'Payment not found'
+        });
+        return {
+          success: false,
+          status: 'failed',
+          error: 'Failed to fetch payment for verification'
+        };
+      }
+
+      // Verify payment is still in 'stk_sent' status - Requirements 5.2
+      if (currentPayment.status !== 'stk_sent') {
+        console.error('Payment verification failed - invalid status:', {
+          paymentId: validationResult.paymentId,
+          checkoutRequestId: CheckoutRequestID,
+          expectedStatus: 'stk_sent',
+          actualStatus: currentPayment.status,
+          verificationFailed: true
+        });
+
+        // Mark payment as failed due to verification failure
+        const { error: failError } = await supabase
+          .from('tab_payments')
+          .update({
+            status: 'failed',
+            updated_at: new Date().toISOString(),
+            metadata: {
+              ...callbackData,
+              processed_at: new Date().toISOString(),
+              verification_error: 'Payment not in stk_sent status',
+              expected_status: 'stk_sent',
+              actual_status: currentPayment.status,
+              verification_failed: true
+            }
+          })
+          .eq('id', validationResult.paymentId);
+
+        if (failError) {
+          console.error('Failed to mark payment as failed after verification error:', {
+            paymentId: validationResult.paymentId,
+            error: failError.message
+          });
+        }
+
+        return {
+          success: true, // Return success to prevent M-Pesa retries
+          paymentId: validationResult.paymentId,
+          tabId: validationResult.tabId,
+          status: 'failed',
+          amount: validationResult.amount
+        };
+      }
+
+      // Verify amount matches tab_payments.amount - Requirements 5.1
+      if (transactionAmount && Math.abs(transactionAmount - Number(currentPayment.amount)) > 0.01) {
+        console.error('Payment verification failed - amount mismatch:', {
+          paymentId: validationResult.paymentId,
+          checkoutRequestId: CheckoutRequestID,
+          expectedAmount: Number(currentPayment.amount),
+          actualAmount: transactionAmount,
+          difference: Math.abs(transactionAmount - Number(currentPayment.amount)),
+          verificationFailed: true
+        });
+
+        // Mark payment as failed due to amount mismatch
+        const { error: failError } = await supabase
+          .from('tab_payments')
+          .update({
+            status: 'failed',
+            updated_at: new Date().toISOString(),
+            metadata: {
+              ...callbackData,
+              processed_at: new Date().toISOString(),
+              verification_error: 'Amount mismatch',
+              expected_amount: Number(currentPayment.amount),
+              actual_amount: transactionAmount,
+              verification_failed: true
+            }
+          })
+          .eq('id', validationResult.paymentId);
+
+        if (failError) {
+          console.error('Failed to mark payment as failed after amount verification error:', {
+            paymentId: validationResult.paymentId,
+            error: failError.message
+          });
+        }
+
+        return {
+          success: true, // Return success to prevent M-Pesa retries
+          paymentId: validationResult.paymentId,
+          tabId: validationResult.tabId,
+          status: 'failed',
+          amount: validationResult.amount
+        };
+      }
+
+      console.log('Payment verification passed:', {
+        paymentId: validationResult.paymentId,
+        checkoutRequestId: CheckoutRequestID,
+        statusVerified: currentPayment.status === 'stk_sent',
+        amountVerified: !transactionAmount || Math.abs(transactionAmount - Number(currentPayment.amount)) <= 0.01,
+        expectedAmount: Number(currentPayment.amount),
+        actualAmount: transactionAmount
+      });
+    }
+
+    // Prepare update data with complete callback information
+    const updateData: any = {
+      status: paymentStatus,
+      updated_at: new Date().toISOString(),
+      metadata: {
+        ...callbackData,
+        processed_at: new Date().toISOString(),
+        mpesa_receipt_number: mpesaReceiptNumber,
+        phone_number: phoneNumber,
+        transaction_date: transactionDate,
+        transaction_amount: transactionAmount
+      }
+    };
+
+    // Add M-Pesa receipt to dedicated field for successful payments
+    if (paymentStatus === 'success' && mpesaReceiptNumber) {
+      updateData.mpesa_receipt = mpesaReceiptNumber;
+    }
+
+    // Update payment record - Requirements 5.5
+    // Database constraints ensure callback idempotency
+    const { error: updateError } = await supabase
+      .from('tab_payments')
+      .update(updateData)
+      .eq('id', validationResult.paymentId)
+      .eq('checkout_request_id', CheckoutRequestID); // Additional safety check
+
+    if (updateError) {
+      // Check if this is a constraint violation (idempotency)
+      if (updateError.code === '23505') { // Unique constraint violation
+        console.log('Callback idempotency: Payment already processed:', {
+          checkoutRequestId: CheckoutRequestID,
+          paymentId: validationResult.paymentId,
+          error: updateError.message
+        });
+        
+        // Return success for idempotent callbacks
+        return {
+          success: true,
+          paymentId: validationResult.paymentId,
+          tabId: validationResult.tabId,
+          status: paymentStatus,
+          mpesaReceiptNumber,
+          amount: validationResult.amount
+        };
+      }
+
+      console.error('Failed to update payment record:', {
+        paymentId: validationResult.paymentId,
+        checkoutRequestId: CheckoutRequestID,
+        error: updateError
+      });
+      
+      return {
+        success: false,
+        status: 'failed',
+        error: `Failed to update payment record: ${updateError.message}`
+      };
+    }
+
+    // Task 6: Log state transition to final status
+    await logMpesaStateTransition({
+      tab_id: validationResult.tabId,
+      tab_payment_id: validationResult.paymentId,
+      checkout_request_id: CheckoutRequestID,
+      amount: validationResult.amount,
+      phone_number: phoneNumber,
+      mpesa_receipt_number: mpesaReceiptNumber,
+      previous_status: 'stk_sent',
+      new_status: paymentStatus,
+      transition_reason: paymentStatus === 'success' ? 'Payment successful' : `Payment failed: ${ResultDesc}`
+    });
+
+    // Task 6: Log payment completion event
+    const completionAction = paymentStatus === 'success' ? 'payment_completed' : 'payment_failed';
+    await logMpesaPaymentEvent(completionAction, {
+      tab_id: validationResult.tabId,
+      tab_payment_id: validationResult.paymentId,
+      checkout_request_id: CheckoutRequestID,
+      amount: validationResult.amount,
+      phone_number: phoneNumber,
+      mpesa_receipt_number: mpesaReceiptNumber,
+      transaction_amount: transactionAmount,
+      result_code: ResultCode,
+      result_description: ResultDesc
+    });
+
+    console.log('Payment callback processed successfully:', {
+      paymentId: validationResult.paymentId,
+      tabId: validationResult.tabId,
+      checkoutRequestId: CheckoutRequestID,
+      status: paymentStatus,
+      amount: validationResult.amount,
+      mpesaReceiptNumber,
+      resultCode: ResultCode,
+      resultDesc: ResultDesc
+    });
+
+    return {
+      success: true,
+      paymentId: validationResult.paymentId,
+      tabId: validationResult.tabId,
+      status: paymentStatus,
+      mpesaReceiptNumber,
+      amount: validationResult.amount
+    };
+
   } catch (error) {
-    console.error('Error triggering payment notifications:', {
-      paymentId: payload.paymentId,
-      tabId: payload.tabId,
+    console.error('Error processing callback:', {
+      checkoutRequestId: CheckoutRequestID,
+      paymentId: validationResult.paymentId,
       error: error instanceof Error ? error.message : 'Unknown error'
     });
+    
+    return {
+      success: false,
+      status: 'failed',
+      error: `Callback processing error: ${error instanceof Error ? error.message : 'Unknown error'}`
+    };
   }
 }
 
 /**
- * Trigger real-time notifications for tab auto-closure events
- * Requirements: 6.1, 6.2 - Auto-close notifications for overdue tabs
+ * Handle successful payment processing including tab resolution
+ * Requirements: 5.4, 5.5 - Tab resolution after successful payment
  */
-async function triggerTabAutoCloseNotifications(
+async function handleSuccessfulPayment(
   supabase: any,
-  payload: TabAutoCloseNotificationPayload
+  processingResult: CallbackProcessingResult
 ): Promise<void> {
   try {
-    // Get tab information for notifications
+    // Check if tab needs to be resolved (closed) after successful payment
     const { data: tabData, error: tabError } = await supabase
       .from('tabs')
-      .select('tab_number')
-      .eq('id', payload.tabId)
+      .select('id, status, bar_id')
+      .eq('id', processingResult.tabId)
       .single();
 
     if (tabError || !tabData) {
-      console.error('Failed to get tab data for auto-close notifications:', {
-        tabId: payload.tabId,
+      console.error('Failed to get tab data for resolution:', {
+        tabId: processingResult.tabId,
+        paymentId: processingResult.paymentId,
         error: tabError
       });
       return;
     }
 
-    console.log('Tab auto-close notification triggered:', {
-      tabId: payload.tabId,
-      barId: payload.barId,
-      tabNumber: tabData.tab_number,
-      paymentId: payload.paymentId,
-      finalBalance: payload.finalBalance,
-      timestamp: payload.timestamp
-    });
+    // Only process overdue tabs for auto-closure
+    if (tabData.status === 'overdue') {
+      // Calculate current tab balance
+      const { data: balanceData, error: balanceError } = await supabase
+        .from('tab_balances')
+        .select('balance')
+        .eq('tab_id', processingResult.tabId)
+        .single();
+
+      if (balanceError) {
+        console.error('Failed to get tab balance for resolution:', {
+          tabId: processingResult.tabId,
+          paymentId: processingResult.paymentId,
+          error: balanceError
+        });
+        return;
+      }
+
+      // Auto-close tab if balance is zero or negative
+      if (balanceData && balanceData.balance <= 0) {
+        const { error: closeError } = await supabase
+          .from('tabs')
+          .update({
+            status: 'closed',
+            closed_at: new Date().toISOString(),
+            closed_by: 'system'
+          })
+          .eq('id', processingResult.tabId);
+
+        if (closeError) {
+          console.error('Failed to auto-close overdue tab:', {
+            tabId: processingResult.tabId,
+            paymentId: processingResult.paymentId,
+            error: closeError
+          });
+        } else {
+          console.log('Auto-closed overdue tab after successful payment:', {
+            tabId: processingResult.tabId,
+            paymentId: processingResult.paymentId,
+            balance: balanceData.balance,
+            mpesaReceiptNumber: processingResult.mpesaReceiptNumber
+          });
+        }
+      }
+    }
 
   } catch (error) {
-    console.error('Error triggering tab auto-close notifications:', {
-      tabId: payload.tabId,
-      paymentId: payload.paymentId,
+    console.error('Error handling successful payment:', {
+      tabId: processingResult.tabId,
+      paymentId: processingResult.paymentId,
       error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
@@ -190,10 +547,10 @@ async function triggerTabAutoCloseNotifications(
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const startTime = Date.now();
+  let callbackData: MpesaCallback;
   
   try {
     // Parse callback data
-    let callbackData: MpesaCallback;
     try {
       callbackData = await request.json();
     } catch (error) {
@@ -204,44 +561,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }, { status: 400 });
     }
 
-    // Validate callback structure
-    if (!callbackData.Body?.stkCallback) {
-      console.error('Invalid callback structure - missing stkCallback');
-      return NextResponse.json({
-        ResultCode: 1,
-        ResultDesc: 'Invalid callback structure'
-      }, { status: 400 });
-    }
-
-    const { stkCallback } = callbackData.Body;
-    const { CheckoutRequestID, ResultCode, ResultDesc } = stkCallback;
-
-    // Validate required fields
-    if (!CheckoutRequestID) {
-      console.error('Missing CheckoutRequestID in callback');
-      return NextResponse.json({
-        ResultCode: 1,
-        ResultDesc: 'Missing CheckoutRequestID'
-      }, { status: 400 });
-    }
-
-    if (ResultCode === undefined || ResultCode === null) {
-      console.error('Missing ResultCode in callback');
-      return NextResponse.json({
-        ResultCode: 1,
-        ResultDesc: 'Missing ResultCode'
-      }, { status: 400 });
-    }
-
     console.log('M-Pesa callback received:', {
-      checkoutRequestId: CheckoutRequestID,
-      resultCode: ResultCode,
-      resultDesc: ResultDesc,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      checkoutRequestId: callbackData.Body?.stkCallback?.CheckoutRequestID,
+      resultCode: callbackData.Body?.stkCallback?.ResultCode,
+      resultDesc: callbackData.Body?.stkCallback?.ResultDesc
     });
 
-    // Requirement 3.2 & 3.3: Determine payment status based on ResultCode
-    const paymentStatus = ResultCode === 0 ? 'success' : 'failed';
+    // Task 6: Log callback received event with raw callback JSON
+    const checkoutRequestId = callbackData.Body?.stkCallback?.CheckoutRequestID;
+    if (checkoutRequestId) {
+      await logMpesaPaymentEvent('payment_callback_received', {
+        checkout_request_id: checkoutRequestId,
+        callback_data: callbackData, // Raw callback JSON will be redacted by audit logger
+        response_time_ms: Date.now() - startTime
+      });
+    }
 
     // Create database client using secret key for server-side operations
     const supabase = createClient(
@@ -249,177 +584,73 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       process.env.SUPABASE_SECRET_KEY!
     );
 
-    // Requirement 3.1: Update corresponding tab_payments record
-    const { data: payment, error: findError } = await supabase
-      .from('tab_payments')
-      .select('id, tab_id, amount')
-      .eq('reference', CheckoutRequestID)
-      .eq('method', 'mpesa')
-      .single();
-
-    if (findError || !payment) {
-      console.error('Payment not found for CheckoutRequestID:', {
-        checkoutRequestId: CheckoutRequestID,
-        error: findError
+    // Task 4.1: Validate and parse callback with robust error handling
+    const validationResult = await validateAndParseCallback(callbackData, supabase);
+    
+    if (!validationResult.isValid) {
+      console.error('Callback validation failed:', {
+        errors: validationResult.errors,
+        checkoutRequestId: callbackData.Body?.stkCallback?.CheckoutRequestID
       });
       
-      // Still return success to prevent M-Pesa retries for unknown payments
+      // Return success to prevent M-Pesa retries for invalid callbacks
+      return NextResponse.json({
+        ResultCode: 0,
+        ResultDesc: 'Callback received but validation failed'
+      });
+    }
+
+    // Handle graceful case where payment was not found
+    if (validationResult.errors.includes('Payment not found - graceful handling')) {
+      // Log and return success (Requirements 3.3)
       return NextResponse.json({
         ResultCode: 0,
         ResultDesc: 'Callback received but payment not found'
       });
     }
 
-    // Requirement 3.5: Store complete callback data in metadata field
-    const { error: updateError } = await supabase
-      .from('tab_payments')
-      .update({
-        status: paymentStatus,
-        metadata: callbackData,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', payment.id);
-
-    if (updateError) {
-      console.error('Failed to update payment record:', {
-        paymentId: payment.id,
-        checkoutRequestId: CheckoutRequestID,
-        error: updateError
+    // Task 4.2: Process valid callback with idempotency protection
+    const processingResult = await processValidCallback(callbackData, validationResult, supabase);
+    
+    // Task 6: Log callback processing completion
+    await logMpesaPaymentEvent('payment_callback_processed', {
+      tab_id: validationResult.tabId,
+      tab_payment_id: validationResult.paymentId,
+      checkout_request_id: checkoutRequestId,
+      callback_data: callbackData,
+      processing_result: processingResult.success ? 'success' : 'failed',
+      processing_error: processingResult.error,
+      response_time_ms: Date.now() - startTime
+    });
+    
+    if (!processingResult.success) {
+      console.error('Callback processing failed:', {
+        error: processingResult.error,
+        checkoutRequestId: callbackData.Body?.stkCallback?.CheckoutRequestID,
+        paymentId: validationResult.paymentId
       });
       
+      // Return success to prevent M-Pesa retries for processing errors
       return NextResponse.json({
-        ResultCode: 1,
-        ResultDesc: 'Failed to update payment record'
-      }, { status: 500 });
+        ResultCode: 0,
+        ResultDesc: 'Callback received but processing failed'
+      });
     }
 
-    // Extract M-Pesa payment details for notifications
-    let mpesaReceiptNumber: string | undefined;
-    let transactionDate: string | undefined;
-    let phoneNumber: string | undefined;
-
-    if (paymentStatus === 'success' && stkCallback.CallbackMetadata?.Item) {
-      const metadata = stkCallback.CallbackMetadata.Item;
-      mpesaReceiptNumber = metadata.find(item => item.Name === 'MpesaReceiptNumber')?.Value?.toString();
-      transactionDate = metadata.find(item => item.Name === 'TransactionDate')?.Value?.toString();
-      phoneNumber = metadata.find(item => item.Name === 'PhoneNumber')?.Value?.toString();
-    }
-
-    // Requirement 6.1 & 6.2: Trigger real-time payment notifications and balance updates
-    const paymentNotificationPayload: PaymentNotificationPayload = {
-      paymentId: payment.id,
-      tabId: payment.tab_id,
-      barId: '', // Will be populated in triggerPaymentNotifications
-      amount: payment.amount,
-      status: paymentStatus,
-      method: 'mpesa',
-      timestamp: new Date().toISOString(),
-      mpesaReceiptNumber,
-      transactionDate,
-      phoneNumber,
-      failureReason: paymentStatus === 'failed' ? ResultDesc : undefined
-    };
-
-    // Trigger notifications (non-blocking)
-    triggerPaymentNotifications(supabase, paymentNotificationPayload).catch(error => {
-      console.error('Payment notification failed (non-blocking):', error);
-    });
-
-    // Requirement 4.1 & 4.2: Process balance updates with real-time notifications
-    processPaymentBalanceUpdate(
-      supabase,
-      payment.id,
-      payment.tab_id,
-      payment.amount,
-      paymentStatus
-    ).catch(error => {
-      console.error('Balance update failed (non-blocking):', error);
-    });
-
-    // Requirement 3.4: Auto-close overdue tabs with zero/negative balance after successful payment
-    if (paymentStatus === 'success') {
-      try {
-        // Check if tab is overdue and calculate balance
-        const { data: tabData, error: tabError } = await supabase
-          .from('tabs')
-          .select('id, status, bar_id')
-          .eq('id', payment.tab_id)
-          .single();
-
-        if (!tabError && tabData?.status === 'overdue') {
-          // Calculate tab balance
-          const { data: balanceData, error: balanceError } = await supabase
-            .from('tab_balances')
-            .select('balance')
-            .eq('tab_id', payment.tab_id)
-            .single();
-
-          if (!balanceError && balanceData && balanceData.balance <= 0) {
-            // Auto-close the overdue tab
-            const { error: closeError } = await supabase
-              .from('tabs')
-              .update({
-                status: 'closed',
-                closed_at: new Date().toISOString(),
-                closed_by: 'system'
-              })
-              .eq('id', payment.tab_id);
-
-            if (closeError) {
-              console.error('Failed to auto-close overdue tab:', {
-                tabId: payment.tab_id,
-                paymentId: payment.id,
-                error: closeError
-              });
-            } else {
-              console.log('Auto-closed overdue tab after successful payment:', {
-                tabId: payment.tab_id,
-                paymentId: payment.id,
-                balance: balanceData.balance
-              });
-
-              // Requirement 6.1 & 6.2: Trigger auto-close notifications
-              const autoCloseNotificationPayload: TabAutoCloseNotificationPayload = {
-                tabId: payment.tab_id,
-                barId: tabData.bar_id,
-                paymentId: payment.id,
-                previousStatus: 'overdue',
-                newStatus: 'closed',
-                finalBalance: balanceData.balance,
-                closedBy: 'system',
-                timestamp: new Date().toISOString()
-              };
-
-              // Trigger auto-close notifications (non-blocking)
-              triggerTabAutoCloseNotifications(supabase, autoCloseNotificationPayload).catch(error => {
-                console.error('Auto-close notification failed (non-blocking):', error);
-              });
-            }
-          }
-        }
-      } catch (autoCloseError) {
-        // Log error but don't fail the callback processing
-        console.error('Error during auto-close logic:', {
-          tabId: payment.tab_id,
-          paymentId: payment.id,
-          error: autoCloseError
-        });
-      }
+    // Handle successful payment processing - resolve tab if needed
+    if (processingResult.status === 'success' && processingResult.tabId) {
+      await handleSuccessfulPayment(supabase, processingResult);
     }
 
     const processingTime = Date.now() - startTime;
-
-    // Requirement 8.2: Ensure callback processing within 2 seconds
-    if (processingTime > 2000) {
-      console.warn(`Callback processing exceeded 2 second limit: ${processingTime}ms`);
-    }
-
+    
     console.log('M-Pesa callback processed successfully:', {
-      paymentId: payment.id,
-      tabId: payment.tab_id,
-      checkoutRequestId: CheckoutRequestID,
-      status: paymentStatus,
-      amount: payment.amount,
+      paymentId: processingResult.paymentId,
+      tabId: processingResult.tabId,
+      checkoutRequestId: callbackData.Body?.stkCallback?.CheckoutRequestID,
+      status: processingResult.status,
+      amount: processingResult.amount,
+      mpesaReceiptNumber: processingResult.mpesaReceiptNumber,
       processingTime: `${processingTime}ms`
     });
 
@@ -438,7 +669,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       processingTime: `${processingTime}ms`
     });
 
-    // Requirement 6.2: Handle callback processing errors gracefully
     // Return success to prevent M-Pesa from retrying on our internal errors
     return NextResponse.json({
       ResultCode: 0,

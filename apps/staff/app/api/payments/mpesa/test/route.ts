@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { loadMpesaConfigFromBar, type BarMpesaData } from '@tabeza/shared/lib/services/mpesa-config';
+import { validateSandboxConfiguration } from '@tabeza/shared/lib/services/mpesa-sandbox-validator';
 
 /**
  * Test M-Pesa credentials by attempting OAuth token generation
@@ -89,6 +90,37 @@ export async function POST(request: NextRequest) {
         },
         { status: 400 }
       );
+    }
+
+    // Perform sandbox-specific validation if in sandbox mode
+    if (mpesaConfig.environment === 'sandbox') {
+      console.log('🧪 Performing sandbox configuration validation...');
+      const sandboxValidation = validateSandboxConfiguration(mpesaConfig, {
+        strictMode: false, // Use warnings instead of errors for non-critical issues
+        validateCallbackUrl: false // Skip actual HTTP checks for now
+      });
+
+      if (!sandboxValidation.isValid) {
+        console.error('❌ Sandbox validation failed:', sandboxValidation.errors);
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Sandbox configuration validation failed',
+            details: {
+              errors: sandboxValidation.errors,
+              warnings: sandboxValidation.warnings,
+              recommendations: sandboxValidation.recommendations
+            }
+          },
+          { status: 400 }
+        );
+      }
+
+      if (sandboxValidation.warnings.length > 0) {
+        console.warn('⚠️ Sandbox validation warnings:', sandboxValidation.warnings);
+      }
+
+      console.log('✅ Sandbox configuration validation passed');
     }
 
     // Test OAuth token generation

@@ -4,14 +4,13 @@ import { supabase } from './supabase';
 interface Bar {
   id: string;
   name: string;
-  business_hours: {
-    enabled: boolean;
-    type: string;
-    simple?: {
-      open: string;
-      close: string;
-    };
+  business_hours_mode?: string;
+  business_hours_simple?: {
+    openTime: string;
+    closeTime: string;
+    closeNextDay?: boolean;
   };
+  business_24_hours?: boolean;
 }
 
 interface Tab {
@@ -29,16 +28,21 @@ interface Payment {
   amount: string;
 }
 
-// Business hours check for TypeScript
-export const isWithinBusinessHours = (businessHours: any): boolean => {
+// Business hours check for TypeScript - Updated to match database schema
+export const isWithinBusinessHours = (bar: Bar): boolean => {
   try {
-    // If business hours not enabled, always open
-    if (!businessHours?.enabled) {
+    // If 24 hours mode, always open
+    if (bar.business_24_hours) {
       return true;
     }
     
-    // Only handle 'simple' type for MVP
-    if (businessHours.type !== 'simple' || !businessHours.simple) {
+    // If no business hours mode set or not simple mode, default to open
+    if (!bar.business_hours_mode || bar.business_hours_mode !== 'simple') {
+      return true;
+    }
+    
+    // If no simple hours configured, default to open
+    if (!bar.business_hours_simple) {
       return true;
     }
     
@@ -48,15 +52,15 @@ export const isWithinBusinessHours = (businessHours: any): boolean => {
     const currentTotalMinutes = currentHour * 60 + currentMinute;
     
     // Parse open time (format: "HH:MM")
-    const [openHour, openMinute] = businessHours.simple.open.split(':').map(Number);
+    const [openHour, openMinute] = bar.business_hours_simple.openTime.split(':').map(Number);
     const openTotalMinutes = openHour * 60 + openMinute;
     
     // Parse close time
-    const [closeHour, closeMinute] = businessHours.simple.close.split(':').map(Number);
+    const [closeHour, closeMinute] = bar.business_hours_simple.closeTime.split(':').map(Number);
     const closeTotalMinutes = closeHour * 60 + closeMinute;
     
     // Handle overnight hours (e.g., 20:00 to 04:00)
-    if (closeTotalMinutes < openTotalMinutes) {
+    if (bar.business_hours_simple.closeNextDay || closeTotalMinutes < openTotalMinutes) {
       // Venue is open overnight: current time >= open OR current time <= close
       return currentTotalMinutes >= openTotalMinutes || currentTotalMinutes <= closeTotalMinutes;
     } else {
@@ -78,7 +82,7 @@ export const canCreateNewTab = async (barId: string): Promise<{
   try {
     const { data: bar, error } = await supabase
       .from('bars')
-      .select('name, business_hours')
+      .select('name, business_hours_mode, business_hours_simple, business_24_hours')
       .eq('id', barId)
       .single() as { data: Bar | null, error: any };
     
@@ -91,10 +95,10 @@ export const canCreateNewTab = async (barId: string): Promise<{
       };
     }
     
-    const isOpen = isWithinBusinessHours(bar.business_hours);
+    const isOpen = isWithinBusinessHours(bar);
     
     if (!isOpen) {
-      const openTime = bar.business_hours?.simple?.open || 'tomorrow';
+      const openTime = bar.business_hours_simple?.openTime || 'tomorrow';
       return {
         canCreate: false,
         message: `${bar.name} is currently closed`,
@@ -127,7 +131,13 @@ export const checkTabOverdueStatus = async (tabId: string): Promise<{
       .from('tabs')
       .select(`
         *,
-        bar:bars(*)
+        bar:bars(
+          id,
+          name,
+          business_hours_mode,
+          business_hours_simple,
+          business_24_hours
+        )
       `)
       .eq('id', tabId)
       .single() as { data: Tab | null, error: any };
@@ -160,7 +170,7 @@ export const checkTabOverdueStatus = async (tabId: string): Promise<{
     const balance = ordersTotal - paymentsTotal;
     
     // Check business hours
-    const isOpen = isWithinBusinessHours(tab.bar.business_hours);
+    const isOpen = isWithinBusinessHours(tab.bar);
     
     // Determine if overdue
     const isOverdue = balance > 0 && !isOpen && tab.status === 'open';

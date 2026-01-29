@@ -345,9 +345,9 @@ function isRetryableError(error: any): boolean {
     return true;
   }
   
-  // OAuth errors might be retryable (token might have expired)
+  // OAuth errors are not retryable - fail immediately as per requirements
   if (error instanceof MpesaOAuthError) {
-    return true;
+    return false;
   }
   
   // STK Push errors with response codes (Safaricom API errors) are not retryable

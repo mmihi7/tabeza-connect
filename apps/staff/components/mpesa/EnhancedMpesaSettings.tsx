@@ -11,6 +11,7 @@ import CredentialValidation from './CredentialValidation';
 import EnvironmentSwitcher from './EnvironmentSwitcher';
 import ProductionReadinessChecklist from './ProductionReadinessChecklist';
 import TransactionMonitor from './TransactionMonitor';
+import MpesaSandboxSetup from '../MpesaSandboxSetup';
 
 interface MpesaSettings {
   mpesa_enabled: boolean;
@@ -387,6 +388,25 @@ export default function EnhancedMpesaSettings({
                 onValidationComplete={handleValidationComplete}
               />
             </div>
+
+            {/* Sandbox Setup Guide */}
+            {settings.mpesa_environment === 'sandbox' && (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Sandbox Configuration</h3>
+                <MpesaSandboxSetup 
+                  barData={{
+                    mpesa_enabled: settings.mpesa_enabled,
+                    mpesa_environment: settings.mpesa_environment,
+                    mpesa_business_shortcode: settings.mpesa_business_shortcode,
+                    mpesa_consumer_key_encrypted: settings.mpesa_consumer_key === '••••••••••••••••' ? 'encrypted' : null,
+                    mpesa_consumer_secret_encrypted: settings.mpesa_consumer_secret === '••••••••••••••••' ? 'encrypted' : null,
+                    mpesa_passkey_encrypted: settings.mpesa_passkey === '••••••••••••••••' ? 'encrypted' : null,
+                    mpesa_callback_url: null // This is set globally
+                  }}
+                  barId={barId}
+                />
+              </div>
+            )}
 
             {/* Enable M-PESA Toggle */}
             {settings.mpesa_setup_completed && (

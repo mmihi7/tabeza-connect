@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { encryptToBytea } from '@tabeza/shared/lib/services/mpesa-encryption'
+import { loadMpesaConfigFromBar, type BarMpesaData } from '@tabeza/shared/lib/services/mpesa-config'
+import { validateSandboxConfiguration } from '@tabeza/shared/lib/services/mpesa-sandbox-validator'
 
 export const runtime = 'nodejs'
 
@@ -41,6 +43,53 @@ export async function POST(req: Request) {
     const encryptedConsumerKey = mpesa_consumer_key ? encryptToBytea(mpesa_consumer_key) : null
     const encryptedConsumerSecret = mpesa_consumer_secret ? encryptToBytea(mpesa_consumer_secret) : null
     const encryptedPasskey = finalPasskey ? encryptToBytea(finalPasskey) : null
+
+    // Validate sandbox configuration if enabled and in sandbox mode
+    if (mpesa_enabled && mpesa_environment === 'sandbox') {
+      console.log('[MPESA SETTINGS] Validating sandbox configuration...')
+      
+      // Create a temporary config for validation
+      const tempBarData: BarMpesaData = {
+        mpesa_enabled: true,
+        mpesa_environment: mpesa_environment,
+        mpesa_business_shortcode: finalShortcode,
+        mpesa_consumer_key_encrypted: encryptedConsumerKey || '',
+        mpesa_consumer_secret_encrypted: encryptedConsumerSecret || '',
+        mpesa_passkey_encrypted: encryptedPasskey || ''
+      }
+
+      try {
+        const tempConfig = loadMpesaConfigFromBar(tempBarData)
+        const sandboxValidation = validateSandboxConfiguration(tempConfig, {
+          strictMode: false, // Allow warnings
+          validateCallbackUrl: false // Skip HTTP checks during save
+        })
+
+        if (!sandboxValidation.isValid) {
+          console.error('[MPESA SETTINGS] Sandbox validation failed:', sandboxValidation.errors)
+          return NextResponse.json({
+            error: 'Sandbox configuration validation failed',
+            details: {
+              errors: sandboxValidation.errors,
+              warnings: sandboxValidation.warnings,
+              recommendations: sandboxValidation.recommendations
+            }
+          }, { status: 400 })
+        }
+
+        if (sandboxValidation.warnings.length > 0) {
+          console.warn('[MPESA SETTINGS] Sandbox validation warnings:', sandboxValidation.warnings)
+        }
+
+        console.log('[MPESA SETTINGS] Sandbox configuration validation passed')
+      } catch (validationError: any) {
+        console.error('[MPESA SETTINGS] Sandbox validation error:', validationError)
+        return NextResponse.json({
+          error: 'Failed to validate sandbox configuration',
+          details: validationError.message
+        }, { status: 400 })
+      }
+    }
 
     // Update the bars table with M-Pesa settings (no callback URL - it's global)
     const { data, error } = await supabase

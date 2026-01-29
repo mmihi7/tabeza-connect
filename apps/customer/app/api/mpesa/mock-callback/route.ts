@@ -32,12 +32,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Find the payment record
+    // Find the payment record using checkout_request_id field
     const supabase = createServiceRoleClient();
     const { data: payment, error: findError } = await supabase
       .from('tab_payments')
       .select('id, tab_id, amount')
-      .eq('reference', checkoutRequestId)
+      .eq('checkout_request_id', checkoutRequestId)
       .eq('method', 'mpesa')
       .single();
 
@@ -68,15 +68,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     };
 
-    // Update payment status
+    // Update payment status with enhanced M-Pesa data
     const paymentStatus = success ? 'success' : 'failed';
+    const mockReceiptNumber = success ? `MOCK${Date.now()}` : undefined;
+    
+    const updateData: any = {
+      status: paymentStatus,
+      metadata: {
+        ...mockCallbackData,
+        processed_at: new Date().toISOString(),
+        mock_mode: true
+      },
+      updated_at: new Date().toISOString()
+    };
+
+    // Add M-Pesa receipt to dedicated field for successful payments
+    if (success && mockReceiptNumber) {
+      updateData.mpesa_receipt = mockReceiptNumber;
+    }
+
     const { error: updateError } = await supabase
       .from('tab_payments')
-      .update({
-        status: paymentStatus,
-        metadata: mockCallbackData,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', payment.id);
 
     if (updateError) {

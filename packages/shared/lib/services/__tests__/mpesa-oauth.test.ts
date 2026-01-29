@@ -25,8 +25,9 @@ const testConfig: MpesaConfig = {
   businessShortcode: '174379',
   passkey: 'test_passkey',
   callbackUrl: 'https://example.com/callback',
-  oauthUrl: 'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials',
+  oauthUrl: 'https://sandbox.safaricom.co.ke/oauth/v1/generate',
   stkPushUrl: 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest',
+  stkQueryUrl: 'https://sandbox.safaricom.co.ke/mpesa/stkpushquery/v1/query',
 };
 
 describe('M-Pesa OAuth Token Service', () => {
@@ -44,6 +45,7 @@ describe('M-Pesa OAuth Token Service', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
+        text: () => Promise.resolve(JSON.stringify(mockResponse)),
         json: () => Promise.resolve(mockResponse),
       } as Response);
 
@@ -56,8 +58,9 @@ describe('M-Pesa OAuth Token Service', () => {
           method: 'GET',
           headers: {
             'Authorization': 'Basic dGVzdF9jb25zdW1lcl9rZXk6dGVzdF9jb25zdW1lcl9zZWNyZXQ=',
-            'Content-Type': 'application/json',
+            'Accept': 'application/json',
           },
+          signal: expect.any(AbortSignal),
         }
       );
     });
@@ -70,6 +73,7 @@ describe('M-Pesa OAuth Token Service', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
+        text: () => Promise.resolve(JSON.stringify(mockResponse)),
         json: () => Promise.resolve(mockResponse),
       } as Response);
 
@@ -83,7 +87,7 @@ describe('M-Pesa OAuth Token Service', () => {
     });
 
     it('should handle authentication errors', async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetch.mockResolvedValue({
         ok: false,
         status: 401,
         statusText: 'Unauthorized',
@@ -91,8 +95,7 @@ describe('M-Pesa OAuth Token Service', () => {
       } as Response);
 
       await expect(getOAuthToken(testConfig)).rejects.toThrow(MpesaOAuthError);
-      // The actual error message will be "OAuth request failed: unknown unknown error" due to mock limitations
-      await expect(getOAuthToken(testConfig)).rejects.toThrow('OAuth request failed');
+      await expect(getOAuthToken(testConfig)).rejects.toThrow('OAuth failed 401: Invalid credentials');
     });
 
     it('should handle network errors', async () => {
@@ -104,6 +107,7 @@ describe('M-Pesa OAuth Token Service', () => {
     it('should handle invalid response format', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
+        text: () => Promise.resolve(JSON.stringify({ invalid: 'response' })),
         json: () => Promise.resolve({ invalid: 'response' }),
       } as Response);
 
@@ -120,6 +124,7 @@ describe('M-Pesa OAuth Token Service', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
+        text: () => Promise.resolve(JSON.stringify(mockResponse)),
         json: () => Promise.resolve(mockResponse),
       } as Response);
 
@@ -139,6 +144,7 @@ describe('M-Pesa OAuth Token Service', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
+        text: () => Promise.resolve(JSON.stringify(mockResponse)),
         json: () => Promise.resolve(mockResponse),
       } as Response);
 
@@ -164,6 +170,7 @@ describe('M-Pesa OAuth Token Service', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
+        text: () => Promise.resolve(JSON.stringify(mockResponse1)),
         json: () => Promise.resolve(mockResponse1),
       } as Response);
 
@@ -178,6 +185,7 @@ describe('M-Pesa OAuth Token Service', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
+        text: () => Promise.resolve(JSON.stringify(mockResponse2)),
         json: () => Promise.resolve(mockResponse2),
       } as Response);
 

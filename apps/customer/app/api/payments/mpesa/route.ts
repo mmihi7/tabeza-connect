@@ -13,6 +13,16 @@ import {
   MpesaConfigurationError,
   type BarMpesaData 
 } from '@tabeza/shared';
+import { 
+  validatePaymentRequest, 
+  checkPendingMpesaPayments,
+  type PaymentValidationRequest 
+} from '@tabeza/shared/lib/services/payment-validation';
+import { 
+  logMpesaPaymentEvent,
+  logMpesaStateTransition,
+  type MpesaAuditLogData 
+} from '@tabeza/shared/lib/services/mpesa-audit-logger';
 
 interface MpesaPaymentRequest {
   tabId: string;
@@ -103,46 +113,62 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
 
     const normalizedPhoneNumber = phoneValidation.normalized!;
 
-    // Verify tab exists and get bar M-Pesa configuration
-    const supabase = createServiceRoleClient();
-    const { data: tabWithBar, error: tabError } = await supabase
-      .from('tabs')
-      .select(`
-        id, 
-        status, 
-        bar_id,
-        bars!inner(
-          id,
-          mpesa_enabled,
-          mpesa_environment,
-          mpesa_business_shortcode,
-          mpesa_consumer_key_encrypted,
-          mpesa_consumer_secret_encrypted,
-          mpesa_passkey_encrypted,
-          mpesa_callback_url
-        )
-      `)
-      .eq('id', tabId)
-      .single();
+    // Requirement 2.1: Enhanced payment validation logic
+    const validationRequest: PaymentValidationRequest = {
+      tabId,
+      amount,
+      phoneNumber: normalizedPhoneNumber
+    };
 
-    if (tabError || !tabWithBar) {
-      console.error('Tab not found:', { tabId, error: tabError });
+    const validationResult = await validatePaymentRequest(validationRequest);
+    if (!validationResult.isValid) {
       return NextResponse.json(
-        { success: false, error: 'Tab not found' },
-        { status: 404 }
-      );
-    }
-
-    // Validate tab status (allow both open and overdue tabs for payments)
-    if (tabWithBar.status !== 'open' && tabWithBar.status !== 'overdue') {
-      return NextResponse.json(
-        { success: false, error: 'Tab is not available for payments' },
+        { success: false, error: validationResult.error },
         { status: 400 }
       );
     }
 
+    const tab = validationResult.tab!;
+
+    // Requirement 1.4: Check for existing pending M-Pesa payments
+    const hasPendingPayments = await checkPendingMpesaPayments(tabId);
+    if (hasPendingPayments) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'A payment is already in progress for this tab. Please wait for it to complete.' 
+        },
+        { status: 409 }
+      );
+    }
+
+    // Get bar M-Pesa configuration
+    const supabase = createServiceRoleClient();
+    const { data: barData, error: barError } = await supabase
+      .from('bars')
+      .select(`
+        id,
+        mpesa_enabled,
+        mpesa_environment,
+        mpesa_business_shortcode,
+        mpesa_consumer_key_encrypted,
+        mpesa_consumer_secret_encrypted,
+        mpesa_passkey_encrypted,
+        mpesa_callback_url
+      `)
+      .eq('id', tab.bar_id)
+      .single();
+
+    if (barError || !barData) {
+      console.error('Failed to get bar M-Pesa configuration:', { barId: tab.bar_id, error: barError });
+      return NextResponse.json(
+        { success: false, error: 'Payment configuration not found' },
+        { status: 404 }
+      );
+    }
+
     // Load M-Pesa configuration for this bar
-    const barData = tabWithBar.bars[0] as BarMpesaData;
+    const barMpesaData = barData as BarMpesaData;
     let mpesaConfig;
     
     // Check if mock mode is enabled BEFORE trying to load real config
@@ -163,10 +189,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
     } else {
       // Only load real config if not in mock mode
       try {
-        mpesaConfig = loadMpesaConfigFromBar(barData);
+        mpesaConfig = loadMpesaConfigFromBar(barMpesaData);
       } catch (error) {
         console.error('M-Pesa configuration error for bar:', { 
-          barId: tabWithBar.bar_id, 
+          barId: tab.bar_id, 
           error: error instanceof Error ? error.message : 'Unknown error' 
         });
         
@@ -184,14 +210,19 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
       }
     }
 
-    // Requirement 1.1: Create pending payment record in tab_payments table
+    // Requirement 2.2: Create tab_payments record with status='initiated'
     const { data: payment, error: paymentError } = await supabase
       .from('tab_payments')
       .insert({
         tab_id: tabId,
         amount: amount,
         method: 'mpesa',
-        status: 'pending'
+        status: 'initiated', // Start with 'initiated' status
+        metadata: {
+          phone_number: normalizedPhoneNumber,
+          environment: process.env.MPESA_MOCK_MODE === 'true' ? 'sandbox' : (barMpesaData.mpesa_environment || 'sandbox'),
+          initiated_at: new Date().toISOString()
+        }
       })
       .select()
       .single();
@@ -204,7 +235,18 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
       );
     }
 
-    console.log('Payment record created:', { paymentId: payment.id, tabId, amount });
+    console.log('Payment record created with initiated status:', { paymentId: payment.id, tabId, amount });
+
+    // Task 6: Log payment initiation event
+    await logMpesaPaymentEvent('payment_initiated', {
+      tab_id: tabId,
+      tab_payment_id: payment.id,
+      bar_id: tab.bar_id,
+      amount: amount,
+      phone_number: normalizedPhoneNumber,
+      environment: process.env.MPESA_MOCK_MODE === 'true' ? 'sandbox' : (barMpesaData.mpesa_environment || 'sandbox'),
+      mock_mode: process.env.MPESA_MOCK_MODE === 'true'
+    });
 
     try {
       // Handle mock mode
@@ -214,11 +256,17 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
         // Generate mock checkout request ID
         const mockCheckoutRequestId = `mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
-        // Update payment record with mock checkout request ID
+        // Update payment record with mock checkout request ID and status
         const { error: updateError } = await supabase
           .from('tab_payments')
           .update({ 
-            reference: mockCheckoutRequestId,
+            checkout_request_id: mockCheckoutRequestId,
+            status: 'stk_sent', // Update to 'stk_sent' status
+            metadata: {
+              ...payment.metadata,
+              stk_sent_at: new Date().toISOString(),
+              mock_mode: true
+            },
             updated_at: new Date().toISOString()
           })
           .eq('id', payment.id);
@@ -226,6 +274,52 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
         if (updateError) {
           console.error('Failed to update payment with mock checkout request ID:', updateError);
         }
+
+        // Task 6: Log state transition from initiated to stk_sent
+        await logMpesaStateTransition({
+          tab_id: tabId,
+          tab_payment_id: payment.id,
+          checkout_request_id: mockCheckoutRequestId,
+          bar_id: tab.bar_id,
+          amount: amount,
+          phone_number: normalizedPhoneNumber,
+          environment: 'sandbox',
+          previous_status: 'initiated',
+          new_status: 'stk_sent',
+          transition_reason: 'Mock STK Push successful'
+        });
+
+        // Task 6: Log STK Push request (mock)
+        await logMpesaPaymentEvent('payment_stk_sent', {
+          tab_id: tabId,
+          tab_payment_id: payment.id,
+          checkout_request_id: mockCheckoutRequestId,
+          bar_id: tab.bar_id,
+          amount: amount,
+          phone_number: normalizedPhoneNumber,
+          environment: 'sandbox',
+          stk_request_payload: {
+            // Mock STK request payload (redacted)
+            BusinessShortCode: 'mock_shortcode',
+            TransactionType: 'CustomerPayBillOnline',
+            Amount: Math.round(amount),
+            PartyA: normalizedPhoneNumber,
+            PartyB: 'mock_shortcode',
+            PhoneNumber: normalizedPhoneNumber,
+            CallBackURL: 'mock_callback_url',
+            AccountReference: `TAB${tabId.slice(-8)}`,
+            TransactionDesc: 'Tab Payment',
+            mock_mode: true
+          },
+          stk_response: {
+            ResponseCode: '0',
+            ResponseDescription: 'Success. Request accepted for processing',
+            MerchantRequestID: `mock_merchant_${Date.now()}`,
+            CheckoutRequestID: mockCheckoutRequestId,
+            mock_mode: true
+          },
+          response_time_ms: Date.now() - startTime
+        });
 
         // Simulate successful STK push response
         const responseTime = Date.now() - startTime;
@@ -244,18 +338,56 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
       }
 
       // Requirement 2.1: Send STK Push request to Safaricom
-      const stkResponse = await sendSTKPush({
+      const stkStartTime = Date.now();
+      const stkRequest = {
         phoneNumber: normalizedPhoneNumber,
         amount: Math.round(amount), // Ensure integer amount
         accountReference: `TAB${tabId.slice(-8)}`, // Use last 8 chars of tab ID
         transactionDesc: 'Tab Payment'
-      }, mpesaConfig);
+      };
 
-      // Requirement 2.2: Update payment record with checkout request ID
+      const stkResponse = await sendSTKPush(stkRequest, mpesaConfig);
+      const stkResponseTime = Date.now() - stkStartTime;
+
+      // Task 6: Log STK Push request and response (with redacted payload)
+      await logMpesaPaymentEvent('payment_stk_sent', {
+        tab_id: tabId,
+        tab_payment_id: payment.id,
+        checkout_request_id: stkResponse.CheckoutRequestID,
+        bar_id: tab.bar_id,
+        amount: amount,
+        phone_number: normalizedPhoneNumber,
+        environment: barMpesaData.mpesa_environment || 'sandbox',
+        stk_request_payload: {
+          // STK request payload (sensitive data will be redacted by audit logger)
+          BusinessShortCode: mpesaConfig.businessShortcode,
+          TransactionType: 'CustomerPayBillOnline',
+          Amount: Math.round(amount),
+          PartyA: normalizedPhoneNumber,
+          PartyB: mpesaConfig.businessShortcode,
+          PhoneNumber: normalizedPhoneNumber,
+          CallBackURL: mpesaConfig.callbackUrl,
+          AccountReference: `TAB${tabId.slice(-8)}`,
+          TransactionDesc: 'Tab Payment',
+          // Password and Timestamp will be redacted by audit logger
+          Password: '[WILL_BE_REDACTED]',
+          Timestamp: '[TIMESTAMP]'
+        },
+        stk_response: stkResponse,
+        response_time_ms: stkResponseTime
+      });
+
+      // Requirement 2.2: Update payment record with checkout request ID and status
       const { error: updateError } = await supabase
         .from('tab_payments')
         .update({ 
-          reference: stkResponse.CheckoutRequestID,
+          checkout_request_id: stkResponse.CheckoutRequestID,
+          status: 'stk_sent', // Update to 'stk_sent' status
+          metadata: {
+            ...payment.metadata,
+            merchant_request_id: stkResponse.MerchantRequestID,
+            stk_sent_at: new Date().toISOString()
+          },
           updated_at: new Date().toISOString()
         })
         .eq('id', payment.id);
@@ -264,6 +396,20 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
         console.error('Failed to update payment with checkout request ID:', updateError);
         // Don't fail the request since STK Push was successful
       }
+
+      // Task 6: Log state transition from initiated to stk_sent
+      await logMpesaStateTransition({
+        tab_id: tabId,
+        tab_payment_id: payment.id,
+        checkout_request_id: stkResponse.CheckoutRequestID,
+        bar_id: tab.bar_id,
+        amount: amount,
+        phone_number: normalizedPhoneNumber,
+        environment: barMpesaData.mpesa_environment || 'sandbox',
+        previous_status: 'initiated',
+        new_status: 'stk_sent',
+        transition_reason: 'STK Push successful'
+      });
 
       const responseTime = Date.now() - startTime;
       console.log('M-Pesa payment initiated successfully:', {
@@ -293,6 +439,33 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
           updated_at: new Date().toISOString()
         })
         .eq('id', payment.id);
+
+      // Task 6: Log payment failure
+      await logMpesaPaymentEvent('payment_failed', {
+        tab_id: tabId,
+        tab_payment_id: payment.id,
+        bar_id: tab.bar_id,
+        amount: amount,
+        phone_number: normalizedPhoneNumber,
+        environment: process.env.MPESA_MOCK_MODE === 'true' ? 'sandbox' : (barMpesaData.mpesa_environment || 'sandbox'),
+        error_message: stkError instanceof Error ? stkError.message : 'STK Push failed',
+        error_code: 'STK_PUSH_FAILED',
+        response_time_ms: Date.now() - startTime
+      });
+
+      // Task 6: Log state transition from initiated to failed
+      await logMpesaStateTransition({
+        tab_id: tabId,
+        tab_payment_id: payment.id,
+        bar_id: tab.bar_id,
+        amount: amount,
+        phone_number: normalizedPhoneNumber,
+        environment: process.env.MPESA_MOCK_MODE === 'true' ? 'sandbox' : (barMpesaData.mpesa_environment || 'sandbox'),
+        previous_status: 'initiated',
+        new_status: 'failed',
+        transition_reason: 'STK Push failed',
+        error_message: stkError instanceof Error ? stkError.message : 'STK Push failed'
+      });
 
       // Requirement 2.3 & 5.4: Return descriptive error message
       let errorMessage = 'STK Push request failed';

@@ -4,7 +4,7 @@
  * Requirements: 2.1
  */
 
-import { type MpesaConfig, loadMpesaConfig } from './mpesa-config';
+import { type MpesaConfig } from './mpesa-config';
 
 export interface OAuthTokenResponse {
   access_token: string;
