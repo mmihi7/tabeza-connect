@@ -1,0 +1,294 @@
+{
+  "packages": {
+    "receipt-schema": {
+      "structure": {
+        "valid": true,
+        "issues": [],
+        "packageInfo": {
+          "name": "@tabeza/receipt-schema",
+          "version": "1.0.0",
+          "main": "dist/index.js",
+          "types": "dist/index.d.ts"
+        }
+      },
+      "build": {
+        "valid": true,
+        "issues": [],
+        "buildInfo": {
+          "distExists": true,
+          "files": [
+            "index.js",
+            "index.d.ts"
+          ],
+          "jsFiles": 5,
+          "dtsFiles": 5
+        }
+      },
+      "dependencies": {
+        "valid": true,
+        "issues": [],
+        "dependencyInfo": {
+          "dependencies": [
+            "zod"
+          ],
+          "devDependencies": [
+            "@types/node",
+            "typescript",
+            "jest",
+            "@types/jest",
+            "ts-jest",
+            "eslint"
+          ],
+          "peerDependencies": [
+            "zod"
+          ]
+        }
+      },
+      "publish": {
+        "valid": true,
+        "issues": [],
+        "publishInfo": {
+          "packageName": "@tabeza/receipt-schema",
+          "version": "1.0.0",
+          "registry": "https://registry.npmjs.org/",
+          "alreadyPublished": false,
+          "packOutput": "\n> @tabeza/receipt-schema@1.0.0 prepack\n> npm run build\n\n\n> @tabeza/receipt-schema@1.0.0 build\n> tsc\n\ntabeza-receipt-schema-1.0.0.tgz\n",
+          "includedFiles": 5
+        }
+      },
+      "consumption": {
+        "valid": true,
+        "issues": [],
+        "consumptionInfo": {
+          "packageName": "@tabeza/receipt-schema",
+          "canImportCommonJS": true,
+          "canImportESM": false,
+          "canImportTypes": true
+        }
+      }
+    },
+    "escpos-parser": {
+      "structure": {
+        "valid": false,
+        "issues": [
+          "Missing publishConfig section",
+          "Missing or empty files field - specify which files to publish"
+        ],
+        "packageInfo": {
+          "name": "@tabeza/escpos-parser",
+          "version": "1.0.0",
+          "main": "dist/index.js",
+          "types": "dist/index.d.ts"
+        }
+      },
+      "build": {
+        "valid": true,
+        "issues": [],
+        "buildInfo": {
+          "distExists": true,
+          "files": [
+            "index.js",
+            "index.d.ts"
+          ],
+          "jsFiles": 17,
+          "dtsFiles": 17
+        }
+      },
+      "dependencies": {
+        "valid": true,
+        "issues": [],
+        "dependencyInfo": {
+          "dependencies": [
+            "@tabeza/receipt-schema"
+          ],
+          "devDependencies": [
+            "@types/node",
+            "typescript",
+            "jest",
+            "@types/jest",
+            "ts-jest",
+            "fast-check",
+            "eslint"
+          ],
+          "peerDependencies": [],
+          "workspaceDeps": [
+            "@tabeza/receipt-schema"
+          ]
+        }
+      },
+      "publish": {
+        "valid": true,
+        "issues": [],
+        "publishInfo": {
+          "packageName": "@tabeza/escpos-parser",
+          "version": "1.0.0",
+          "registry": "https://registry.npmjs.org/",
+          "alreadyPublished": false,
+          "packOutput": "tabeza-escpos-parser-1.0.0.tgz\n",
+          "includedFiles": 1
+        }
+      },
+      "consumption": {
+        "valid": true,
+        "issues": [],
+        "consumptionInfo": {
+          "packageName": "@tabeza/escpos-parser",
+          "canImportCommonJS": true,
+          "canImportESM": false,
+          "canImportTypes": true
+        }
+      }
+    },
+    "tax-rules": {
+      "structure": {
+        "valid": false,
+        "issues": [
+          "Missing publishConfig section"
+        ],
+        "packageInfo": {
+          "name": "@tabeza/tax-rules",
+          "version": "1.0.0",
+          "main": "dist/index.js",
+          "types": "dist/index.d.ts"
+        }
+      },
+      "build": {
+        "valid": true,
+        "issues": [],
+        "buildInfo": {
+          "distExists": true,
+          "files": [
+            "index.js",
+            "index.d.ts"
+          ],
+          "jsFiles": 7,
+          "dtsFiles": 7
+        }
+      },
+      "dependencies": {
+        "valid": true,
+        "issues": [],
+        "dependencyInfo": {
+          "dependencies": [
+            "zod"
+          ],
+          "devDependencies": [
+            "@types/node",
+            "typescript",
+            "jest",
+            "@types/jest",
+            "ts-jest",
+            "fast-check",
+            "eslint",
+            "@typescript-eslint/eslint-plugin",
+            "@typescript-eslint/parser"
+          ],
+          "peerDependencies": []
+        }
+      },
+      "publish": {
+        "valid": true,
+        "issues": [],
+        "publishInfo": {
+          "packageName": "@tabeza/tax-rules",
+          "version": "1.0.0",
+          "registry": "https://registry.npmjs.org/",
+          "alreadyPublished": false,
+          "packOutput": "tabeza-tax-rules-1.0.0.tgz\n",
+          "includedFiles": 1
+        }
+      },
+      "consumption": {
+        "valid": true,
+        "issues": [],
+        "consumptionInfo": {
+          "packageName": "@tabeza/tax-rules",
+          "canImportCommonJS": true,
+          "canImportESM": false,
+          "canImportTypes": true
+        }
+      }
+    },
+    "validation": {
+      "structure": {
+        "valid": false,
+        "issues": [
+          "Missing publishConfig section"
+        ],
+        "packageInfo": {
+          "name": "@tabeza/validation",
+          "version": "1.0.0",
+          "main": "dist/index.js",
+          "types": "dist/index.d.ts"
+        }
+      },
+      "build": {
+        "valid": true,
+        "issues": [],
+        "buildInfo": {
+          "distExists": true,
+          "files": [
+            "index.js",
+            "index.d.ts"
+          ],
+          "jsFiles": 21,
+          "dtsFiles": 21
+        }
+      },
+      "dependencies": {
+        "valid": true,
+        "issues": [],
+        "dependencyInfo": {
+          "dependencies": [
+            "@tabeza/receipt-schema",
+            "zod"
+          ],
+          "devDependencies": [
+            "@types/node",
+            "typescript",
+            "jest",
+            "@types/jest",
+            "ts-jest",
+            "fast-check",
+            "eslint",
+            "@typescript-eslint/eslint-plugin",
+            "@typescript-eslint/parser"
+          ],
+          "peerDependencies": [],
+          "workspaceDeps": [
+            "@tabeza/receipt-schema"
+          ]
+        }
+      },
+      "publish": {
+        "valid": true,
+        "issues": [],
+        "publishInfo": {
+          "packageName": "@tabeza/validation",
+          "version": "1.0.0",
+          "registry": "https://registry.npmjs.org/",
+          "alreadyPublished": false,
+          "packOutput": "tabeza-validation-1.0.0.tgz\n",
+          "includedFiles": 1
+        }
+      },
+      "consumption": {
+        "valid": true,
+        "issues": [],
+        "consumptionInfo": {
+          "packageName": "@tabeza/validation",
+          "canImportCommonJS": true,
+          "canImportESM": false,
+          "canImportTypes": true
+        }
+      }
+    }
+  },
+  "summary": {
+    "totalIssues": 4,
+    "valid": false,
+    "packagesValidated": 4,
+    "dryRun": false,
+    "timestamp": "2026-01-30T13:00:02.741Z"
+  }
+}

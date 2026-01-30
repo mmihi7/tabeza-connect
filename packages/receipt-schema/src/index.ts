@@ -177,6 +177,36 @@ export const SCHEMA_VERSION = '1.0.0';
 export const SCHEMA_NAME = 'TABEZA Receipt Schema';
 export const SCHEMA_DESCRIPTION = 'Session-based, multi-order transaction truth infrastructure';
 
+// Export version management utilities
+export {
+  // Version constants
+  CURRENT_SCHEMA_VERSION,
+  MINIMUM_SUPPORTED_VERSION,
+  
+  // Version types
+  type VersionCompatibilityResult,
+  type SchemaVersionMetadata,
+  
+  // Version validation functions
+  parseVersion,
+  compareVersions,
+  checkVersionCompatibility,
+  getMigrationPath,
+  
+  // Backward compatibility utilities
+  isDataCompatible,
+  migrateData,
+  validateAgentCompatibility,
+  
+  // Migration utilities
+  hasBreakingChanges,
+  getBreakingChanges,
+  getMigrationInstructions,
+  
+  // Version registry
+  VERSION_REGISTRY
+} from './version';
+
 /**
  * Get schema information
  */

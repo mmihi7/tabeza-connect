@@ -526,7 +526,7 @@ describe('TABEZA Receipt Schema', () => {
       expect(totals.paid).toBe(1500);  // 800 + 700
       expect(totals.balance).toBe(0);
       expect(totals.total_events).toBe(4);
-      expect(totals.sale_events).toBe(2);
+      expect(totals.sale_events).toBe(4); // 2 SALE events + 2 PARTIAL_BILL events
 
       const validation = validateCompleteSession(completeSession);
       expect(validation.valid).toBe(true);

@@ -12,6 +12,9 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",
+    "@tabeza/validation": "workspace:*",
+    "@tabeza/tax-rules": "workspace:*",
+    "@tabeza/escpos-parser": "workspace:*",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"
   },

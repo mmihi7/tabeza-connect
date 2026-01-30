@@ -1,0 +1,93 @@
+{
+  "packages": {
+    "packages/shared": {
+      "valid": true,
+      "issues": [],
+      "packageName": "@tabeza/shared",
+      "sourceIssues": []
+    },
+    "packages/escpos-parser": {
+      "valid": true,
+      "issues": [],
+      "packageName": "@tabeza/escpos-parser",
+      "sourceIssues": []
+    },
+    "packages/tax-rules": {
+      "valid": true,
+      "issues": [],
+      "packageName": "@tabeza/tax-rules",
+      "sourceIssues": []
+    },
+    "packages/validation": {
+      "valid": true,
+      "issues": [],
+      "packageName": "@tabeza/validation",
+      "sourceIssues": []
+    },
+    "packages/receipt-schema": {
+      "valid": true,
+      "issues": [],
+      "packageName": "@tabeza/receipt-schema",
+      "sourceIssues": []
+    }
+  },
+  "apps": {
+    "apps/customer": {
+      "valid": true,
+      "issues": [],
+      "packageName": "@tabeza/customer",
+      "sourceIssues": [
+        "apps\\customer\\next.config.js: Contains forbidden import/usage: require\\(['\"]path['\"]",
+        "apps\\customer\\next.config.js: Contains forbidden import/usage: __dirname"
+      ],
+      "buildIssues": [
+        "Build output contains OS dependencies: app\\page.js",
+        "Build output contains OS dependencies: pages\\_document.js",
+        "Build output contains OS dependencies: pages\\_error.js",
+        "Build output contains OS dependencies: app\\cart\\page.js",
+        "Build output contains OS dependencies: app\\chat\\page.js",
+        "Build output contains OS dependencies: app\\menu\\page.js",
+        "Build output contains OS dependencies: app\\payment\\page.js",
+        "Build output contains OS dependencies: app\\privacy\\page.js",
+        "Build output contains OS dependencies: app\\start\\page.js",
+        "Build output contains OS dependencies: app\\tab\\page.js",
+        "Build output contains OS dependencies: app\\terms\\page.js",
+        "Build output contains OS dependencies: app\\tokens\\page.js",
+        "Build output contains OS dependencies: app\\_not-found\\page.js"
+      ]
+    },
+    "apps/staff": {
+      "valid": true,
+      "issues": [],
+      "packageName": "@tabeza/staff",
+      "sourceIssues": [
+        "apps\\staff\\next.config.js: Contains forbidden import/usage: require\\(['\"]path['\"]",
+        "apps\\staff\\next.config.js: Contains forbidden import/usage: __dirname"
+      ],
+      "buildIssues": [
+        "Build output contains OS dependencies: app\\page.js",
+        "Build output contains OS dependencies: pages\\_document.js",
+        "Build output contains OS dependencies: pages\\_error.js",
+        "Build output contains OS dependencies: app\\learn-more\\page.js",
+        "Build output contains OS dependencies: app\\login\\page.js",
+        "Build output contains OS dependencies: app\\menu\\page.js",
+        "Build output contains OS dependencies: app\\overdue\\page.js",
+        "Build output contains OS dependencies: app\\privacy\\page.js",
+        "Build output contains OS dependencies: app\\reports\\page.js",
+        "Build output contains OS dependencies: app\\settings\\page.js",
+        "Build output contains OS dependencies: app\\signup\\page.js",
+        "Build output contains OS dependencies: app\\terms\\page.js",
+        "Build output contains OS dependencies: app\\_not-found\\page.js",
+        "Build output contains OS dependencies: app\\tabs\\[id]\\page.js",
+        "Build output contains OS dependencies: app\\tabs\\[id]\\add-order\\page.js",
+        "Build output contains OS dependencies: app\\tabs\\[id]\\quick-order\\page.js"
+      ]
+    }
+  },
+  "environment": [],
+  "summary": {
+    "totalIssues": 33,
+    "valid": false,
+    "timestamp": "2026-01-30T12:50:45.078Z"
+  }
+}

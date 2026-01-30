@@ -73,14 +73,14 @@ This implementation plan converts the architectural restructure design into disc
 - [x] 5. Checkpoint - Verify pure logic extraction
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 6. Prepare receipt-schema for independent publishing
-  - [ ] 6.1 Configure receipt-schema as standalone npm package
+- [x] 6. Prepare receipt-schema for independent publishing
+  - [x] 6.1 Configure receipt-schema as standalone npm package
     - Update package.json for independent publishing
     - Set up semantic versioning configuration
     - Configure npm publish scripts
     - _Requirements: 2.1, 2.4, 8.1_
   
-  - [ ] 6.2 Add schema version compatibility utilities
+  - [x] 6.2 Add schema version compatibility utilities
     - Create version validation functions
     - Add backward compatibility checking
     - Implement migration utilities for breaking changes
@@ -90,7 +90,7 @@ This implementation plan converts the architectural restructure design into disc
     - **Property 5: Schema Version Compatibility**
     - **Validates: Requirements 2.3, 6.1, 6.3**
   
-  - [ ] 6.4 Add comprehensive schema validation tests
+  - [x] 6.4 Add comprehensive schema validation tests
     - Ensure all schema changes include validation tests
     - Test cross-version data consistency
     - _Requirements: 9.4, 6.5_
@@ -99,20 +99,20 @@ This implementation plan converts the architectural restructure design into disc
     - **Property 11: Cross-Version Data Consistency**
     - **Validates: Requirements 6.5**
 
-- [ ] 7. Remove infrastructure components from cloud system
-  - [ ] 7.1 Remove packages/printer-agent directory
+- [-] 7. Remove infrastructure components from cloud system
+  - [x] 7.1 Remove packages/printer-agent directory
     - Delete Windows Service code and dependencies
     - Remove print spooler monitoring components
     - Clean up any references in other packages
     - _Requirements: 4.5, 1.1_
   
-  - [ ] 7.2 Remove packages/virtual-printer directory
+  - [x] 7.2 Remove packages/virtual-printer directory
     - Delete print capture and OS-dependent components
     - Preserve any pure logic that was extracted earlier
     - Clean up imports and references
     - _Requirements: 4.5, 1.1_
   
-  - [ ] 7.3 Update package.json and workspace configuration
+  - [x] 7.3 Update package.json and workspace configuration
     - Remove infrastructure packages from workspace
     - Clean up dependencies and scripts
     - Update build pipeline configuration
@@ -122,33 +122,33 @@ This implementation plan converts the architectural restructure design into disc
     - **Property 1: Cloud System Purity**
     - **Validates: Requirements 1.1, 1.4**
 
-- [ ] 8. Create agent repository structure planning
-  - [ ] 8.1 Design agent repository structure
+- [x] 8. Create agent repository structure planning
+  - [x] 8.1 Design agent repository structure
     - Plan directory structure for Windows agent
     - Design package.json for agent system
     - Plan npm linking strategy for shared packages
     - _Requirements: 1.2, 8.2, 8.5_
   
-  - [ ] 8.2 Create agent system component specifications
+  - [x] 8.2 Create agent system component specifications
     - Specify Windows Service architecture
     - Define SQLite database schema and operations
     - Plan print spooler integration approach
     - _Requirements: 4.2, 4.3, 4.4_
   
-  - [ ] 8.3 Plan schema consumption strategy for agent
+  - [x] 8.3 Plan schema consumption strategy for agent
     - Design npm package consumption approach
     - Plan version compatibility checking
     - Design local development linking strategy
     - _Requirements: 2.2, 6.2, 8.2_
 
-- [ ] 9. Update cloud system to use extracted packages
-  - [ ] 9.1 Update imports to use new pure logic packages
+- [x] 9. Update cloud system to use extracted packages
+  - [x] 9.1 Update imports to use new pure logic packages
     - Replace virtual-printer imports with escpos-parser
     - Update tax calculation imports to use tax-rules package
     - Update validation imports to use validation package
     - _Requirements: 3.2_
   
-  - [ ] 9.2 Update build configuration for new packages
+  - [x] 9.2 Update build configuration for new packages
     - Configure Turbo to build new packages
     - Update TypeScript configuration for new imports
     - Configure Next.js to transpile new packages
@@ -158,14 +158,14 @@ This implementation plan converts the architectural restructure design into disc
     - **Property 12: Migration Functional Preservation**
     - **Validates: Requirements 7.1, 7.2**
 
-- [ ] 10. Implement deployment independence validation
-  - [ ] 10.1 Configure separate deployment pipelines
+- [x] 10. Implement deployment independence validation
+  - [x] 10.1 Configure separate deployment pipelines
     - Set up Vercel deployment for cloud system only
     - Plan MSI installer approach for agent system
     - Configure npm publishing for shared packages
     - _Requirements: 5.1, 5.2, 5.3_
   
-  - [ ] 10.2 Create deployment validation scripts
+  - [x] 10.2 Create deployment validation scripts
     - Script to validate cloud system has no OS dependencies
     - Script to validate agent system is self-contained
     - Script to validate schema publishing process
@@ -175,8 +175,8 @@ This implementation plan converts the architectural restructure design into disc
     - **Property 9: Deployment Independence**
     - **Validates: Requirements 5.5**
 
-- [ ] 11. Create migration validation and rollback procedures
-  - [ ] 11.1 Create migration validation scripts
+- [-] 11. Create migration validation and rollback procedures
+  - [x] 11.1 Create migration validation scripts
     - Script to validate architectural boundary enforcement
     - Script to validate component placement correctness
     - Script to validate dependency purity
@@ -186,7 +186,7 @@ This implementation plan converts the architectural restructure design into disc
     - **Property 3: Architectural Boundary Enforcement**
     - **Validates: Requirements 1.3**
   
-  - [ ] 11.3 Create rollback procedures
+  - [-] 11.3 Create rollback procedures
     - Document rollback steps for each migration phase
     - Create rollback validation scripts
     - Test rollback procedures in safe environment

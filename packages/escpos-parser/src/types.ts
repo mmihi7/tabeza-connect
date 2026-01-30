@@ -28,6 +28,8 @@ export interface FormatDetectionResult {
     estimatedLines?: number;
     hasControlChars?: boolean;
     hasPrintCommands?: boolean;
+    attempted_formats?: Array<{ format: PrintFormat; confidence: number }>;
+    error?: string;
   };
 }
 

@@ -53,7 +53,13 @@ const withPWA = require('next-pwa')({
 
 const nextConfig = {
   // Configure for monorepo - transpile shared packages
-  transpilePackages: ['@tabeza/shared'],
+  transpilePackages: [
+    '@tabeza/shared',
+    '@tabeza/validation',
+    '@tabeza/tax-rules',
+    '@tabeza/escpos-parser',
+    '@tabeza/receipt-schema'
+  ],
   
   // Environment variables for client-side access
   env: {
@@ -71,6 +77,10 @@ const nextConfig = {
     config.resolve.alias = {
       ...config.resolve.alias,
       '@tabeza/shared': path.resolve(__dirname, '../../packages/shared'),
+      '@tabeza/validation': path.resolve(__dirname, '../../packages/validation'),
+      '@tabeza/tax-rules': path.resolve(__dirname, '../../packages/tax-rules'),
+      '@tabeza/escpos-parser': path.resolve(__dirname, '../../packages/escpos-parser'),
+      '@tabeza/receipt-schema': path.resolve(__dirname, '../../packages/receipt-schema'),
     };
     
     return config;

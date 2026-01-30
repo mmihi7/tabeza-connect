@@ -4,12 +4,39 @@
   "description": "TABEZA Canonical Receipt Schema - Session-based, multi-order transaction truth",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tabeza/tabeza.git",
+    "directory": "packages/receipt-schema"
+  },
+  "homepage": "https://github.com/tabeza/tabeza/tree/main/packages/receipt-schema",
+  "bugs": {
+    "url": "https://github.com/tabeza/tabeza/issues"
+  },
+  "author": "TABEZA Team",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "test": "jest",
     "test:watch": "jest --watch",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src --ext .ts",
+    "prepublishOnly": "npm run build && npm test",
+    "prepack": "npm run build",
+    "version": "npm run build && npm test",
+    "postversion": "git push && git push --tags"
   },
   "keywords": [
     "receipt",
@@ -17,7 +44,11 @@
     "session",
     "transaction",
     "audit",
-    "immutable"
+    "immutable",
+    "tabeza",
+    "pos",
+    "restaurant",
+    "bar"
   ],
   "dependencies": {
     "zod": "^3.22.0"
@@ -29,6 +60,9 @@
     "@types/jest": "^29.0.0",
     "ts-jest": "^29.0.0",
     "eslint": "^8.0.0"
+  },
+  "peerDependencies": {
+    "zod": "^3.22.0"
   },
   "jest": {
     "preset": "ts-jest",

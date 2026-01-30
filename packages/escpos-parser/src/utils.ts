@@ -72,7 +72,7 @@ export function validateParsingResult(result: ParsingResult): boolean {
   
   const hasTotal = result.receipt.totals && result.receipt.totals.total > 0;
   
-  return hasItems && hasTotal;
+  return Boolean(hasItems && hasTotal);
 }
 
 /**

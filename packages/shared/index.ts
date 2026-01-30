@@ -31,6 +31,11 @@ export * from './lib/services/tab-resolution';
 // Export diagnostic services
 export * from './lib/diagnostics/environment-validator';
 
+// Re-export pure logic packages for convenience
+export * from '@tabeza/validation';
+export * from '@tabeza/tax-rules';
+export * from '@tabeza/escpos-parser';
+
 // Note: React hooks and components are not exported here to avoid server-side import issues
 // Import them directly from their specific paths when needed in client components:
 // - './hooks/useRealtimeSubscription'

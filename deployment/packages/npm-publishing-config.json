@@ -1,0 +1,73 @@
+{
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "packages": {
+    "@tabeza/receipt-schema": {
+      "description": "TABEZA Canonical Receipt Schema - Session-based, multi-order transaction truth",
+      "keywords": ["receipt", "schema", "session", "transaction", "audit", "immutable", "tabeza", "pos", "restaurant", "bar"],
+      "publishable": true,
+      "standalone": true,
+      "priority": "high"
+    },
+    "@tabeza/escpos-parser": {
+      "description": "Pure ESC/POS parsing logic extracted from TABEZA Virtual Printer - serverless compatible",
+      "keywords": ["escpos", "parser", "receipt", "pos", "pure-logic", "serverless"],
+      "publishable": true,
+      "standalone": false,
+      "dependencies": ["@tabeza/receipt-schema"],
+      "priority": "medium"
+    },
+    "@tabeza/tax-rules": {
+      "description": "TABEZA Tax Rules Engine - Pure tax calculation logic for KRA compliance",
+      "keywords": ["tax", "kra", "kenya", "vat", "compliance", "pure-logic", "serverless"],
+      "publishable": true,
+      "standalone": true,
+      "priority": "medium"
+    },
+    "@tabeza/validation": {
+      "description": "TABEZA Validation Library - Pure validation logic for cross-system consistency",
+      "keywords": ["validation", "business-rules", "data-sanitization", "cross-system", "pure-logic", "serverless"],
+      "publishable": true,
+      "standalone": false,
+      "dependencies": ["@tabeza/receipt-schema"],
+      "priority": "low"
+    }
+  },
+  "publishOrder": [
+    "@tabeza/receipt-schema",
+    "@tabeza/tax-rules", 
+    "@tabeza/escpos-parser",
+    "@tabeza/validation"
+  ],
+  "versionStrategy": {
+    "type": "independent",
+    "semver": true,
+    "prerelease": {
+      "enabled": true,
+      "tags": ["alpha", "beta", "rc"]
+    }
+  },
+  "automation": {
+    "githubActions": {
+      "enabled": true,
+      "triggers": ["tag", "manual"],
+      "environments": ["staging", "production"]
+    },
+    "npmScripts": {
+      "prepublish": ["build", "test", "lint"],
+      "postpublish": ["tag", "notify"]
+    }
+  },
+  "security": {
+    "twoFactorAuth": true,
+    "packageSigning": true,
+    "vulnerabilityScanning": true
+  },
+  "distribution": {
+    "cdn": "unpkg",
+    "mirrors": ["jsdelivr"],
+    "documentation": "https://docs.tabeza.com/packages"
+  }
+}

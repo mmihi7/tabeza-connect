@@ -44,7 +44,7 @@ export {
 export type {
   // Core validation types
   ValidationResult,
-  ValidationError,
+  TabezaValidationErrorType as ValidationError,
   ValidationWarning,
   BusinessRuleValidation,
   BusinessRuleResult,
