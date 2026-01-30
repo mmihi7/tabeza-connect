@@ -13,14 +13,9 @@ import { DualOutputManager, DualOutputConfig, ProcessedOutput } from './dual-out
 import { SyncQueue, SyncConfig, DEFAULT_SYNC_CONFIG } from './sync-queue';
 import { SecurityManager, SecurityConfig, DEFAULT_SECURITY_CONFIG } from './security-manager';
 import { CompleteReceiptSession as CanonicalReceipt } from '@tabeza/receipt-schema';
+import { ReceiptDelivery } from '../types/receipt';
 
-// Legacy type alias for backward compatibility
-export interface ReceiptDelivery {
-  qr_code?: string;
-  digital_receipt_url?: string;
-  sms_sent?: boolean;
-  email_sent?: boolean;
-}
+// Legacy type alias for backward compatibility - removed duplicate interface
 
 export interface VirtualPrinterConfig {
   merchantId: string;
@@ -41,12 +36,12 @@ export interface ProcessingStats {
 
 export class VirtualPrinterEngine extends EventEmitter {
   private config: VirtualPrinterConfig;
-  private formatDetector: FormatDetector;
-  private receiptParser: ReceiptParser;
-  private printCapture: PrintCaptureLayer;
-  private dualOutput: DualOutputManager;
-  private syncQueue: SyncQueue;
-  private securityManager: SecurityManager;
+  private formatDetector!: FormatDetector;
+  private receiptParser!: ReceiptParser;
+  private printCapture!: PrintCaptureLayer;
+  private dualOutput!: DualOutputManager;
+  private syncQueue!: SyncQueue;
+  private securityManager!: SecurityManager;
   private isRunning: boolean = false;
   private stats: ProcessingStats;
 
@@ -206,7 +201,7 @@ export class VirtualPrinterEngine extends EventEmitter {
 
       // 2. Apply security measures
       const signature = this.securityManager.signReceipt(receipt);
-      receipt.signature = signature.signature;
+      (receipt as any).signature = signature.signature;
 
       // 3. Attach compliance hints (metadata only)
       const complianceHints = createDefaultHints(receipt);
@@ -319,7 +314,7 @@ export class VirtualPrinterEngine extends EventEmitter {
 
     // Apply security
     const signature = this.securityManager.signReceipt(receipt);
-    receipt.signature = signature.signature;
+    (receipt as any).signature = signature.signature;
 
     // Attach compliance hints
     const complianceHints = createDefaultHints(receipt);
@@ -356,7 +351,38 @@ export class VirtualPrinterEngine extends EventEmitter {
    * Verify receipt integrity
    */
   verifyReceiptIntegrity(receipt: CanonicalReceipt, signature: any): any {
-    return this.securityManager.verifyReceipt(receipt, signature);
+    // Convert CompleteReceiptSession to the format expected by security manager
+    const legacyFormat = {
+      receipt_id: receipt.session.tabeza_receipt_id,
+      merchant: {
+        id: receipt.session.merchant.id,
+        name: receipt.session.merchant.name,
+        kra_pin: receipt.session.merchant.kra_pin,
+        location: receipt.session.merchant.location,
+        address: receipt.session.merchant.address,
+        phone: receipt.session.merchant.phone,
+        email: receipt.session.merchant.email
+      },
+      transaction: {
+        timestamp: receipt.session.opened_at,
+        currency: receipt.session.currency,
+        reference: receipt.session.session_reference
+      },
+      items: receipt.events.flatMap(event => event.items || []),
+      totals: receipt.totals || {
+        subtotal: 0,
+        tax: 0,
+        discount: 0,
+        service_charge: 0,
+        total: 0
+      },
+      footer: {
+        notes: 'Session-based receipt',
+        qr_code: receipt.session.session_reference
+      }
+    };
+    
+    return this.securityManager.verifyReceipt(legacyFormat as any, signature);
   }
 
   /**

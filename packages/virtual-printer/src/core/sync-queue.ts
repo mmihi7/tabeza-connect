@@ -154,13 +154,12 @@ export class SyncQueue extends EventEmitter {
         fetch(endpoint, { 
           method: 'HEAD', 
           mode: 'no-cors',
-          cache: 'no-cache',
           signal: AbortSignal.timeout(5000) // 5 second timeout
         })
       );
 
       // If any endpoint responds, we're online
-      await Promise.any(promises);
+      await Promise.race(promises); // Use Promise.race instead of Promise.any for better compatibility
       return true;
     } catch (error) {
       return false;

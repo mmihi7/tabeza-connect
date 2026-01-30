@@ -44,7 +44,8 @@ export {
   // Schema validation helpers
   validateEventTotals,
   validateSessionTotals,
-  canCloseSession
+  canCloseSession,
+  computeSessionTotals
 } from './session';
 
 // ============================================================================

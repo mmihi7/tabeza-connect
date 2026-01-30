@@ -298,3 +298,52 @@ export function canCloseSession(session: ReceiptSession, events: ReceiptEvent[])
     events.every(event => event.parsed_confidence > 0.5) // All events must be reasonably parsed
   );
 }
+
+/**
+ * Compute session totals from events (alias for createSessionTotals)
+ */
+export function computeSessionTotals(events: ReceiptEvent[]): SessionTotals {
+  const aggregated = events.reduce((acc, event) => {
+    // Handle different event types
+    const multiplier = event.type === 'REFUND' || event.type === 'VOID' ? -1 : 1;
+    
+    return {
+      subtotal: acc.subtotal + (event.totals.subtotal * multiplier),
+      tax: acc.tax + (event.totals.tax * multiplier),
+      discount: acc.discount + (event.totals.discount * multiplier),
+      service_charge: acc.service_charge + (event.totals.service_charge * multiplier),
+      total: acc.total + (event.totals.total * multiplier)
+    };
+  }, { subtotal: 0, tax: 0, discount: 0, service_charge: 0, total: 0 });
+
+  // Calculate payments
+  const paid = events
+    .filter(event => event.payment?.status === 'COMPLETED')
+    .reduce((sum, event) => sum + (event.payment?.amount || 0), 0);
+
+  // Count events by type
+  const eventCounts = events.reduce((counts, event) => {
+    counts.total_events++;
+    switch (event.type) {
+      case 'SALE':
+      case 'PARTIAL_BILL':
+        counts.sale_events++;
+        break;
+      case 'REFUND':
+        counts.refund_events++;
+        break;
+      case 'VOID':
+        counts.void_events++;
+        break;
+    }
+    return counts;
+  }, { total_events: 0, sale_events: 0, refund_events: 0, void_events: 0 });
+
+  return {
+    ...aggregated,
+    paid,
+    balance: aggregated.total - paid,
+    ...eventCounts,
+    computed_at: new Date().toISOString()
+  };
+}

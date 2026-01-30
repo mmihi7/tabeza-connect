@@ -1,0 +1,51 @@
+{
+  "name": "@tabeza/printer-agent",
+  "version": "1.0.0",
+  "description": "TABEZA Printer Agent - Windows Service for receipt capture and processing",
+  "main": "dist/service.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/service.js",
+    "install-service": "node dist/install-service.js",
+    "uninstall-service": "node dist/uninstall-service.js",
+    "install-printer": "powershell -ExecutionPolicy Bypass -File ./scripts/install-printer.ps1",
+    "uninstall-printer": "powershell -ExecutionPolicy Bypass -File ./scripts/uninstall-printer.ps1",
+    "test-installation": "powershell -ExecutionPolicy Bypass -File ./scripts/test-installation.ps1",
+    "status": "powershell -Command \"Get-Service 'TabezaPrinterAgent'; Get-Printer 'TABEZA Virtual Printer'\"",
+    "logs": "powershell -Command \"Get-Content '$env:ProgramData\\TABEZA\\Logs\\tabeza-agent.log' -Tail 50\"",
+    "health-check": "powershell -Command \"Get-Content '$env:ProgramData\\TABEZA\\Logs\\tabeza-agent.log' | Select-String 'health'\"",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "keywords": [
+    "windows-service",
+    "printer",
+    "receipt",
+    "pos",
+    "tabeza"
+  ],
+  "dependencies": {
+    "@tabeza/virtual-printer": "workspace:*",
+    "@tabeza/receipt-schema": "workspace:*",
+    "node-windows": "^1.0.0-beta.8",
+    "better-sqlite3": "^9.2.2",
+    "chokidar": "^3.5.3",
+    "winston": "^3.11.0",
+    "winston-daily-rotate-file": "^4.7.1",
+    "node-cron": "^3.0.3",
+    "axios": "^1.6.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/better-sqlite3": "^7.6.8",
+    "typescript": "^5.3.0",
+    "jest": "^29.0.0",
+    "@types/jest": "^29.0.0",
+    "ts-jest": "^29.0.0"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node"
+  }
+}

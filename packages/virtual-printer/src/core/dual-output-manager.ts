@@ -224,7 +224,7 @@ export class DualOutputManager extends EventEmitter {
       }
     }
 
-    return results;
+    return results as { method: string; status: "failed" | "sent" | "pending"; recipient?: string; error?: string; }[];
   }
 
   /**

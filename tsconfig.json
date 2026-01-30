@@ -1,0 +1,53 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM"],
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitThis": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "baseUrl": ".",
+    "paths": {
+      "@tabeza/shared": ["./packages/shared/src"],
+      "@tabeza/shared/*": ["./packages/shared/src/*"],
+      "@tabeza/receipt-schema": ["./packages/receipt-schema/src"],
+      "@tabeza/receipt-schema/*": ["./packages/receipt-schema/src/*"],
+      "@tabeza/validation": ["./packages/validation/src"],
+      "@tabeza/validation/*": ["./packages/validation/src/*"],
+      "@tabeza/tax-rules": ["./packages/tax-rules/src"],
+      "@tabeza/tax-rules/*": ["./packages/tax-rules/src/*"],
+      "@tabeza/escpos-parser": ["./packages/escpos-parser/src"],
+      "@tabeza/escpos-parser/*": ["./packages/escpos-parser/src/*"]
+    }
+  },
+  "include": [
+    "packages/*/src/**/*",
+    "apps/*/src/**/*",
+    "apps/*/**/*.ts",
+    "apps/*/**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    ".next",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
+}

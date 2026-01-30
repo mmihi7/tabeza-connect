@@ -173,8 +173,8 @@ export function sanitizeReceiptData(receipt: any): CanonicalReceipt {
   // Sanitize items
   if (sanitized.items && Array.isArray(sanitized.items)) {
     sanitized.items = sanitized.items
-      .filter(item => item && typeof item === 'object')
-      .map(item => ({
+      .filter((item: any) => item && typeof item === 'object')
+      .map((item: any) => ({
         ...item,
         name: item.name?.trim() || 'Unknown Item',
         qty: Math.max(1, Number(item.qty) || 1),

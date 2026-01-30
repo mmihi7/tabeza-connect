@@ -1,0 +1,51 @@
+{
+  "name": "@tabeza/tax-rules",
+  "version": "1.0.0",
+  "description": "TABEZA Tax Rules Engine - Pure tax calculation logic for KRA compliance",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src --ext .ts"
+  },
+  "keywords": [
+    "tax",
+    "kra",
+    "kenya",
+    "vat",
+    "compliance",
+    "pure-logic",
+    "serverless"
+  ],
+  "dependencies": {
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "jest": "^29.0.0",
+    "@types/jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "fast-check": "^3.15.0",
+    "eslint": "^8.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "collectCoverageFrom": [
+      "src/**/*.ts",
+      "!src/**/*.test.ts",
+      "!src/**/*.d.ts"
+    ]
+  },
+  "files": [
+    "dist/**/*",
+    "README.md"
+  ]
+}

@@ -377,6 +377,7 @@ export class ReceiptParser {
       subtotal,
       tax,
       discount,
+      service_charge: 0, // Add missing service_charge field
       total: total || subtotal + tax - discount
     };
   }
