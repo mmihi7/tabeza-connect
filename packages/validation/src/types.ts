@@ -137,7 +137,7 @@ export const ReceiptValidationResultSchema = z.object({
 // ============================================================================
 
 export type ValidationResult = z.infer<typeof ValidationResultSchema>;
-export type ValidationError = z.infer<typeof ValidationErrorSchema>;
+export type TabezaValidationErrorType = z.infer<typeof ValidationErrorSchema>;
 export type ValidationWarning = z.infer<typeof ValidationWarningSchema>;
 export type BusinessRuleValidation = z.infer<typeof BusinessRuleValidationSchema>;
 export type BusinessRuleResult = z.infer<typeof BusinessRuleResultSchema>;
