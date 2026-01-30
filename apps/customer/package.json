@@ -17,9 +17,6 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",
     "@tabeza/shared": "workspace:*",
-    "@tabeza/validation": "workspace:*",
-    "@tabeza/tax-rules": "workspace:*",
-    "@tabeza/escpos-parser": "workspace:*",
     "@vercel/analytics": "^1.6.1",
     "@vercel/speed-insights": "^1.3.1",
     "lucide-react": "^0.462.0",

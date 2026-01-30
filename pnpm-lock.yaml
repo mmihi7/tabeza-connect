@@ -66,18 +66,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.89.0
         version: 2.89.0
-      '@tabeza/escpos-parser':
-        specifier: workspace:*
-        version: link:../../packages/escpos-parser
       '@tabeza/shared':
         specifier: workspace:*
         version: link:../../packages/shared
-      '@tabeza/tax-rules':
-        specifier: workspace:*
-        version: link:../../packages/tax-rules
-      '@tabeza/validation':
-        specifier: workspace:*
-        version: link:../../packages/validation
       '@vercel/analytics':
         specifier: ^1.6.1
         version: 1.6.1(next@15.5.9(@babel/core@7.28.5)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)
@@ -172,18 +163,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.89.0
         version: 2.89.0
-      '@tabeza/escpos-parser':
-        specifier: workspace:*
-        version: link:../../packages/escpos-parser
       '@tabeza/shared':
         specifier: workspace:*
         version: link:../../packages/shared
-      '@tabeza/tax-rules':
-        specifier: workspace:*
-        version: link:../../packages/tax-rules
-      '@tabeza/validation':
-        specifier: workspace:*
-        version: link:../../packages/validation
       '@vercel/analytics':
         specifier: ^1.6.1
         version: 1.6.1(next@15.5.9(@babel/core@7.28.5)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)
