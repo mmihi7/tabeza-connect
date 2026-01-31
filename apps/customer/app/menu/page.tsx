@@ -3116,7 +3116,7 @@ export default function MenuPage() {
       {/* Payment Section - Always Visible */}
       {balance > 0 && (
         <div ref={paymentRef} className="p-4">
-          {/* Section Header - NEW */}
+          {/* Section Header */}
           <div className="mb-3">
             <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">PAYMENT</h2>
           </div>
@@ -3129,15 +3129,68 @@ export default function MenuPage() {
               </div>
             </div>
           )}
-          
-          <div className="bg-white border-b border-gray-100 overflow-hidden rounded-lg">
-            <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50">
-              <div>
-                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Payment</h2>
-                <p className="text-sm text-gray-600 mt-1">Outstanding balance: {tempFormatCurrency(balance)}</p>
+
+          {/* Payment History */}
+          {payments && payments.length > 0 && (
+            <div className="mb-4 bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <div className="p-3 bg-gray-50 border-b border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-700">Payment History</h3>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {payments
+                  .filter(payment => payment.status === 'success')
+                  .map((payment, index) => (
+                    <div key={payment.id} className="p-3 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                          payment.method === 'mpesa' 
+                            ? 'bg-green-100 text-green-600' 
+                            : payment.method === 'cash'
+                            ? 'bg-orange-100 text-orange-600'
+                            : 'bg-blue-100 text-blue-600'
+                        }`}>
+                          {payment.method === 'mpesa' ? (
+                            <Phone size={14} />
+                          ) : payment.method === 'cash' ? (
+                            <DollarSign size={14} />
+                          ) : (
+                            <CreditCardIcon size={14} />
+                          )}
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {tempFormatCurrency(payment.amount)}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {payment.method === 'mpesa' && payment.mpesa_receipt && (
+                              <span>Receipt: {payment.mpesa_receipt}</span>
+                            )}
+                            {payment.method === 'cash' && payment.reference && (
+                              <span>Ref: {payment.reference}</span>
+                            )}
+                            {!payment.mpesa_receipt && !payment.reference && (
+                              <span className="capitalize">{payment.method} payment</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-gray-500">
+                          {new Date(payment.created_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
               </div>
             </div>
-            
+          )}
+          
+          <div className="bg-white border-b border-gray-100 overflow-hidden rounded-lg">
             <div className="bg-white p-4">
               <div className="flex border-b border-gray-200 mb-4">
                 {paymentSettings.mpesa_enabled && (
