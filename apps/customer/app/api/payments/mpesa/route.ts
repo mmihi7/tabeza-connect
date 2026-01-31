@@ -236,8 +236,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
         mpesa_business_shortcode,
         mpesa_consumer_key_encrypted,
         mpesa_consumer_secret_encrypted,
-        mpesa_passkey_encrypted,
-        mpesa_callback_url
+        mpesa_passkey_encrypted
       `)
       .eq('id', tab.bar_id)
       .single();
