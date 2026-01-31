@@ -190,18 +190,22 @@ async function attemptSTKPush(
     // Handle response
     if (!response.ok) {
       const errorText = await response.text();
-      let errorData: STKPushErrorResponse | null = null;
+      let errorData: STKPushErrorResponse | Record<string, unknown> | null = null;
       
       try {
-        errorData = JSON.parse(errorText);
+        errorData = JSON.parse(errorText) as STKPushErrorResponse | Record<string, unknown>;
       } catch {
         // Response is not JSON
       }
       
+      const description = (errorData as STKPushErrorResponse)?.ResponseDescription
+        ?? (errorData as { errorMessage?: string })?.errorMessage
+        ?? (errorText && errorText.length < 300 ? errorText : null);
+      const detail = description ? ` - ${description}` : (errorText ? ` - ${errorText.slice(0, 200)}` : '');
       throw new STKPushError(
-        `STK Push request failed: ${response.status} ${response.statusText}`,
-        errorData?.ResponseCode,
-        errorData?.ResponseDescription || errorText,
+        `STK Push request failed: ${response.status} ${response.statusText}${detail}`,
+        (errorData as STKPushErrorResponse)?.ResponseCode,
+        (errorData as STKPushErrorResponse)?.ResponseDescription || errorText,
         response.status,
         errorData
       );
