@@ -10,7 +10,9 @@ import { randomBytes } from 'crypto';
  * Create a virtual printer instance with sensible defaults
  */
 export function createVirtualPrinter(
-  merchantId: string,
+  barId: string,
+  supabaseUrl: string,
+  supabaseKey: string,
   options: {
     secretKey?: string;
     forwardToPhysicalPrinter?: boolean;
@@ -19,7 +21,7 @@ export function createVirtualPrinter(
   } = {}
 ): VirtualPrinterEngine {
   const secretKey = options.secretKey || generateSecretKey();
-  const config = createDefaultConfig(merchantId, secretKey);
+  const config = createDefaultConfig(barId, barId, supabaseUrl, supabaseKey, secretKey);
   
   // Apply options
   if (options.forwardToPhysicalPrinter !== undefined) {
@@ -46,7 +48,7 @@ export function generateSecretKey(): string {
  * Create a test receipt for development and testing
  */
 export function createTestReceipt(
-  merchantId: string,
+  barId: string,
   options: {
     merchantName?: string;
     items?: Array<{
@@ -82,7 +84,7 @@ export function createTestReceipt(
   return {
     receipt_id: `receipt_${Date.now()}`,
     merchant: {
-      id: merchantId,
+      id: barId,
       name: options.merchantName || 'Test Merchant',
       kra_pin: options.includeKraPin ? 'P051234567M' : undefined,
       location: 'Test Location',
@@ -157,13 +159,15 @@ Total:                 350.00
 /**
  * Create a development/testing configuration
  */
-export function createDevelopmentConfig(merchantId: string) {
+export function createDevelopmentConfig(barId: string, supabaseUrl: string, supabaseKey: string) {
   return {
-    merchantId,
+    barId,
+    supabaseUrl,
+    supabaseKey,
     printCapture: {
       platform: 'linux',
       captureMethod: 'cups',
-      merchantId,
+      barId,
       printerFilters: []
     },
     dualOutput: {

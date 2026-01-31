@@ -1,126 +1,133 @@
 /**
- * Test script for TABEZA Virtual Printer Engine
- * Run with: node test-virtual-printer.js
+ * Test script for Tabeza Virtual Printer
+ * Demonstrates how POS receipts are converted to Tabeza orders
  */
 
-const { VirtualPrinterEngine, createDefaultConfig } = require('./packages/virtual-printer/dist/core/virtual-printer-engine.js');
+const { createVirtualPrinter } = require('./packages/virtual-printer/dist/index.js');
 
-console.log('🖨️  Testing TABEZA Virtual Printer Engine...\n');
+// Test configuration (replace with your actual values)
+const TEST_CONFIG = {
+  barId: 'your-bar-uuid-here', // Replace with actual Tabeza bar ID
+  supabaseUrl: 'https://your-project.supabase.co', // Replace with your Supabase URL
+  supabaseKey: 'your-supabase-service-key' // Replace with your service role key
+};
 
 async function testVirtualPrinter() {
+  console.log('🚀 Testing Tabeza Virtual Printer...\n');
+
   try {
-    // Test 1: Create configuration
-    console.log('1️⃣ Creating virtual printer configuration...');
-    const config = createDefaultConfig('test-merchant-001', 'test-secret-key-123456789012345678901234567890');
-    console.log('✅ Configuration created for merchant:', config.merchantId);
+    // Create virtual printer instance
+    const virtualPrinter = createVirtualPrinter(
+      TEST_CONFIG.barId,
+      TEST_CONFIG.supabaseUrl,
+      TEST_CONFIG.supabaseKey,
+      {
+        forwardToPhysicalPrinter: false, // Don't print to paper
+        generateQRCode: false,           // Orders go directly to customer app
+        printerFilters: ['*']            // Capture all print jobs
+      }
+    );
 
-    // Test 2: Initialize engine
-    console.log('\n2️⃣ Initializing virtual printer engine...');
-    const engine = new VirtualPrinterEngine(config);
-    console.log('✅ Engine initialized');
+    // Set up event listeners
+    virtualPrinter.on('started', () => {
+      console.log('✅ Virtual printer started successfully');
+    });
 
-    // Test 3: Get system status
-    console.log('\n3️⃣ Checking system status...');
-    const status = engine.getSystemStatus();
-    console.log('✅ System status:');
-    console.log('   Running:', status.isRunning);
-    console.log('   Components initialized:', Object.keys(status.components).length);
+    virtualPrinter.on('orderCreated', (data) => {
+      console.log('📦 Order created successfully:');
+      console.log(`   Tab ID: ${data.tabId}`);
+      console.log(`   Order ID: ${data.orderId}`);
+      console.log(`   Items: ${data.items.length}`);
+      console.log(`   Total: $${data.total.toFixed(2)}`);
+    });
 
-    // Test 4: Get current stats
-    console.log('\n4️⃣ Getting processing statistics...');
-    const stats = engine.getStats();
-    console.log('✅ Current stats:');
-    console.log('   Total jobs processed:', stats.totalJobsProcessed);
-    console.log('   Successful parsing:', stats.successfulParsing);
-    console.log('   Failed parsing:', stats.failedParsing);
-    console.log('   Average processing time:', stats.averageProcessingTime, 'ms');
+    virtualPrinter.on('customerNotified', (data) => {
+      console.log('🔔 Customer notification sent:');
+      console.log(`   Message: ${data.message}`);
+    });
 
-    // Test 5: Test manual receipt processing
-    console.log('\n5️⃣ Testing manual receipt processing...');
-    const sampleReceiptData = `
-TABEZA TEST RESTAURANT
-123 Test Street, Nairobi
-Tel: +254 700 123456
-KRA PIN: P051234567A
---------------------------
-Table: 5
-Order #: 001
-Date: ${new Date().toLocaleDateString()}
-Time: ${new Date().toLocaleTimeString()}
---------------------------
-1x Ugali                50.00
-1x Sukuma Wiki          80.00
-1x Soda                 60.00
---------------------------
-Subtotal:              190.00
-VAT (16%):              30.40
-Total:                 220.40
---------------------------
-Payment: M-PESA
-Ref: QH7RTXM2
-Amount: 220.40 KES
-Status: COMPLETED
---------------------------
-Thank you for dining with us!
-Visit: www.tabeza.com
-    `.trim();
+    // Start the virtual printer
+    await virtualPrinter.start();
 
-    try {
-      const result = await engine.processReceiptManually(
-        sampleReceiptData,
-        'test-merchant-001'
-      );
+    // Test with sample POS receipts
+    console.log('\n🧾 Testing with sample POS receipts...\n');
+
+    // Sample receipt 1: Table service
+    const tableReceipt = `
+      MARIO'S PIZZERIA
+      123 Main Street, Downtown
+      Phone: (555) 123-4567
       
-      console.log('✅ Receipt processed successfully:');
-      console.log('   Receipt ID:', result.receipt.tabeza_receipt_id);
-      console.log('   Merchant:', result.receipt.session.merchant.name);
-      console.log('   Total events:', result.receipt.events.length);
-      console.log('   Has signature:', !!result.signature);
+      Table: 12
+      Server: Sarah
+      Date: ${new Date().toLocaleDateString()}
+      Time: ${new Date().toLocaleTimeString()}
       
-    } catch (parseError) {
-      console.log('⚠️  Receipt processing test skipped (expected in test environment)');
-      console.log('   Reason:', parseError.message);
-    }
+      2x Margherita Pizza     24.00
+      1x Caesar Salad         12.00
+      3x Soft Drink            9.00
+      1x Tiramisu              8.00
+      
+      Subtotal:               53.00
+      Tax (8%):                4.24
+      Total:                  57.24
+      
+      Thank you for dining with us!
+    `;
 
-    // Test 6: Get updated stats
-    console.log('\n6️⃣ Getting updated statistics...');
-    const updatedStats = engine.getStats();
-    console.log('✅ Updated stats:');
-    console.log('   Total jobs processed:', updatedStats.totalJobsProcessed);
-    console.log('   Successful parsing:', updatedStats.successfulParsing);
-    console.log('   Failed parsing:', updatedStats.failedParsing);
+    console.log('Processing table receipt...');
+    await virtualPrinter.processPrintJob(tableReceipt);
 
-    // Test 7: Test configuration access
-    console.log('\n7️⃣ Testing configuration access...');
-    const currentConfig = engine.getConfig();
-    console.log('✅ Configuration accessible:');
-    console.log('   Merchant ID:', currentConfig.merchantId);
-    console.log('   Print capture enabled:', !!currentConfig.printCapture);
-    console.log('   Dual output enabled:', !!currentConfig.dualOutput);
-    console.log('   Sync enabled:', !!currentConfig.sync);
+    // Sample receipt 2: Phone order
+    const phoneReceipt = `
+      BURGER PALACE
+      456 Oak Avenue
+      
+      Phone Order: 555-987-6543
+      Customer: John Smith
+      
+      1x Double Cheeseburger  12.99
+      1x Large Fries           4.99
+      1x Chocolate Shake       5.99
+      2x Onion Rings           7.98
+      
+      Subtotal:               31.95
+      Tax:                     2.56
+      Total:                  34.51
+      
+      Ready for pickup in 15 minutes
+    `;
 
-    console.log('\n🎉 Virtual Printer Engine test completed successfully!');
-    console.log('\n📋 Summary:');
-    console.log('   ✅ Configuration creation: PASSED');
-    console.log('   ✅ Engine initialization: PASSED');
-    console.log('   ✅ System status check: PASSED');
-    console.log('   ✅ Statistics access: PASSED');
-    console.log('   ✅ Configuration access: PASSED');
-    console.log('   ⚠️  Manual processing: SKIPPED (test environment)');
+    console.log('\nProcessing phone order receipt...');
+    await virtualPrinter.processPrintJob(phoneReceipt);
+
+    // Display statistics
+    console.log('\n📊 Processing Statistics:');
+    const stats = virtualPrinter.getStats();
+    console.log(`   Total jobs processed: ${stats.totalJobsProcessed}`);
+    console.log(`   Successful parsing: ${stats.successfulParsing}`);
+    console.log(`   Failed parsing: ${stats.failedParsing}`);
+    console.log(`   Average processing time: ${stats.averageProcessingTime.toFixed(2)}ms`);
+
+    console.log('\n✅ Test completed successfully!');
+    console.log('\n💡 Next steps:');
+    console.log('   1. Replace test configuration with your actual Tabeza bar details');
+    console.log('   2. Set up your POS system to print to the Tabeza Virtual Printer');
+    console.log('   3. Configure receipt parsing rules for your specific POS format');
+    console.log('   4. Test with real orders from your POS system');
 
   } catch (error) {
     console.error('❌ Test failed:', error.message);
-    console.error('\n🔍 Error details:');
-    console.error(error.stack);
-    
-    console.log('\n💡 Troubleshooting tips:');
-    console.log('   1. Make sure you\'ve built the virtual-printer package: cd packages/virtual-printer && pnpm build');
-    console.log('   2. Check that all dependencies are installed: pnpm install');
-    console.log('   3. Verify the package structure is correct');
-    
-    process.exit(1);
+    console.log('\n🔧 Troubleshooting:');
+    console.log('   - Check your Supabase configuration');
+    console.log('   - Verify the bar ID exists in your Tabeza system');
+    console.log('   - Ensure the service role key has proper permissions');
   }
 }
 
 // Run the test
-testVirtualPrinter();
+if (require.main === module) {
+  testVirtualPrinter().catch(console.error);
+}
+
+module.exports = { testVirtualPrinter };
