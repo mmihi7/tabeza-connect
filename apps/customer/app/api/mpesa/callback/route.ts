@@ -357,9 +357,10 @@ async function processValidCallback(
       }
     };
 
-    // Add M-Pesa receipt to dedicated field for successful payments
+    // Add M-Pesa receipt to both dedicated field and reference field for successful payments
     if (paymentStatus === 'success' && mpesaReceiptNumber) {
       updateData.mpesa_receipt = mpesaReceiptNumber;
+      updateData.reference = mpesaReceiptNumber; // Store in reference field for UI display
     }
 
     // Update payment record - Requirements 5.5

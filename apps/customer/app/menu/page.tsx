@@ -1364,7 +1364,10 @@ export default function MenuPage() {
           .select('*')
           .eq('tab_id', currentTab.id)
           .order('created_at', { ascending: false });
-        if (!paymentsError) setPayments(paymentsData || []);
+        
+        if (!paymentsError && paymentsData) {
+          setPayments(paymentsData);
+        }
       } catch (error) {
         console.error('Error loading payments:', error);
       }
@@ -3139,53 +3142,67 @@ export default function MenuPage() {
               <div className="divide-y divide-gray-100">
                 {payments
                   .filter(payment => payment.status === 'success')
-                  .map((payment, index) => (
-                    <div key={payment.id} className="p-3 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          payment.method === 'mpesa' 
-                            ? 'bg-green-100 text-green-600' 
-                            : payment.method === 'cash'
-                            ? 'bg-orange-100 text-orange-600'
-                            : 'bg-blue-100 text-blue-600'
-                        }`}>
-                          {payment.method === 'mpesa' ? (
-                            <Phone size={14} />
-                          ) : payment.method === 'cash' ? (
-                            <DollarSign size={14} />
-                          ) : (
-                            <CreditCardIcon size={14} />
-                          )}
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {tempFormatCurrency(payment.amount)}
+                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                  .map((payment, index) => {
+                    // Debug log to see payment data
+                    console.log('💳 Payment display data:', {
+                      id: payment.id,
+                      method: payment.method,
+                      amount: payment.amount,
+                      mpesa_receipt: payment.reference,
+                      reference: payment.reference,
+                      status: payment.status,
+                      mpesa_transactions: payment.reference ? [{ mpesa_receipt_number: payment.reference }] : []
+                    });
+                    
+                    return (
+                      <div key={payment.id} className="p-3 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            payment.method === 'mpesa' 
+                              ? 'bg-green-100 text-green-600' 
+                              : payment.method === 'cash'
+                              ? 'bg-orange-100 text-orange-600'
+                              : 'bg-blue-100 text-blue-600'
+                          }`}>
+                            {payment.method === 'mpesa' ? (
+                              <Phone size={14} />
+                            ) : payment.method === 'cash' ? (
+                              <DollarSign size={14} />
+                            ) : (
+                              <CreditCardIcon size={14} />
+                            )}
                           </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {tempFormatCurrency(payment.amount)}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {payment.method === 'mpesa' && payment.reference ? (
+                                <span>Receipt: {payment.reference}</span>
+                              ) : payment.method === 'cash' && payment.reference ? (
+                                <span>Ref: {payment.reference}</span>
+                              ) : payment.method === 'card' && payment.reference ? (
+                                <span>Card: {payment.reference}</span>
+                              ) : (
+                                <span className="capitalize">{payment.method} payment</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
                           <div className="text-xs text-gray-500">
-                            {payment.method === 'mpesa' && payment.mpesa_receipt && (
-                              <span>Receipt: {payment.mpesa_receipt}</span>
-                            )}
-                            {payment.method === 'cash' && payment.reference && (
-                              <span>Ref: {payment.reference}</span>
-                            )}
-                            {!payment.mpesa_receipt && !payment.reference && (
-                              <span className="capitalize">{payment.method} payment</span>
-                            )}
+                            {new Date(payment.created_at).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
                           </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-xs text-gray-500">
-                          {new Date(payment.created_at).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
               </div>
             </div>
           )}

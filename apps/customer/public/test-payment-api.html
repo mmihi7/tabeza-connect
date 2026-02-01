@@ -72,14 +72,17 @@
         
         <p class="info" style="padding:10px; margin:10px 0;">
           <strong>Tab ID <code>__test__</code></strong>: tests <strong>STK push only</strong> (no tab/bar DB). To get a <strong>real response from Safaricom</strong>, set <code>MPESA_MOCK_MODE=false</code> in root <code>.env</code> and restart the app — otherwise you get a mock response (<code>mock_checkout_...</code>) and no request is sent.<br>
+          <strong>⚠️ CRITICAL: USE ONLY SANDBOX TEST NUMBERS</strong>: <code>254708374149</code>, <code>254711040400</code>, <code>254711040401</code>, <code>254711040402</code>, <code>254711040403</code><br>
+          <strong>🚨 NEVER USE REAL PHONE NUMBERS</strong> - Real numbers trigger real money transfers even in sandbox!<br>
+          <strong>Mock Callback Testing</strong>: Available when <code>MPESA_MOCK_MODE=true</code> OR <code>ALLOW_MOCK_CALLBACK_IN_PRODUCTION=true</code><br>
           Audit log file: <code>MPESA_AUDIT_LOG_FILE=./logs/mpesa-audit.log</code>.
         </p>
         <form id="testForm">
             <label for="tabId">Tab ID (<code>__test__</code> = initiation only, or real UUID for full flow):</label>
             <input type="text" id="tabId" value="__test__" placeholder="__test__ or 550e8400-e29b-41d4-a716-446655440000" required>
             
-            <label for="phoneNumber">Phone Number (Kenyan):</label>
-            <input type="text" id="phoneNumber" value="254711432437" required>
+            <label for="phoneNumber">Phone Number (Kenyan - USE TEST NUMBERS ONLY):</label>
+            <input type="text" id="phoneNumber" value="254708374149" required>
             
             <label for="amount">Amount (KES):</label>
             <input type="number" id="amount" value="100" min="1" required>

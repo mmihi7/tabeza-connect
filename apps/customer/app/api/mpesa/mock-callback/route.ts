@@ -14,10 +14,13 @@ interface MockCallbackRequest {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  // Only allow in mock mode
-  if (process.env.MPESA_MOCK_MODE !== 'true') {
+  // Allow mock callback in development OR if explicitly enabled for testing
+  const allowMockCallback = process.env.MPESA_MOCK_MODE === 'true' || 
+                           process.env.ALLOW_MOCK_CALLBACK_IN_PRODUCTION === 'true';
+  
+  if (!allowMockCallback) {
     return NextResponse.json(
-      { error: 'Mock callback only available in mock mode' },
+      { error: 'Mock callback not available in this environment' },
       { status: 403 }
     );
   }
@@ -82,9 +85,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       updated_at: new Date().toISOString()
     };
 
-    // Add M-Pesa receipt to dedicated field for successful payments
+    // Add M-Pesa receipt to both dedicated field and reference field for successful payments
     if (success && mockReceiptNumber) {
       updateData.mpesa_receipt = mockReceiptNumber;
+      updateData.reference = mockReceiptNumber; // Store in reference field for UI display
     }
 
     const { error: updateError } = await supabase
@@ -163,7 +167,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 }
 
 export async function GET(): Promise<NextResponse> {
-  if (process.env.MPESA_MOCK_MODE !== 'true') {
+  const allowMockCallback = process.env.MPESA_MOCK_MODE === 'true' || 
+                           process.env.ALLOW_MOCK_CALLBACK_IN_PRODUCTION === 'true';
+  
+  if (!allowMockCallback) {
     return NextResponse.json(
       { error: 'Mock mode not enabled' },
       { status: 403 }

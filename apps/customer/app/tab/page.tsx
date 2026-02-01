@@ -6,7 +6,6 @@ import { ShoppingCart, Clock, CheckCircle, CreditCard, RefreshCw, User, UserCog,
 import { supabase } from '@/lib/supabase';
 import { formatCurrency, formatDigitalTime } from '@/lib/formatUtils';
 import { useToast } from '@/components/ui/Toast';
-import { checkTabOverdueStatus } from '@/lib/businessHours';
 
 export default function TabPage() {
   const router = useRouter();
@@ -21,12 +20,6 @@ export default function TabPage() {
 
   useEffect(() => {
     loadTabData();
-    // Check if tab should be marked as overdue based on business hours
-    const tabData = sessionStorage.getItem('currentTab');
-    if (tabData) {
-      const currentTab = JSON.parse(tabData);
-      checkTabOverdueStatus(currentTab.id);
-    }
   }, []);
 
   // Real-time subscription for order updates
@@ -312,6 +305,81 @@ export default function TabPage() {
             Refresh
           </button>
         </div>
+
+        {/* Payment History Section */}
+        {payments && payments.length > 0 && (
+          <div className="mb-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="p-4 bg-gray-50 border-b border-gray-200">
+              <h3 className="font-semibold text-gray-800">Payment History</h3>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {payments
+                .filter(payment => payment.status === 'success')
+                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                .map((payment, index) => {
+                  // Debug log to see what data we have
+                  console.log('💳 Tab page payment data:', {
+                    id: payment.id,
+                    method: payment.method,
+                    amount: payment.amount,
+                    mpesa_receipt: payment.reference,
+                    reference: payment.reference,
+                    reference: payment.reference,
+                    status: payment.status,
+                    mpesa_transactions: payment.mpesa_receipt_number ? [{ mpesa_receipt_number: payment.mpesa_receipt_number }] : []
+                  });
+                  
+                  return (
+                    <div key={payment.id} className="p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                          payment.method === 'mpesa' 
+                            ? 'bg-green-100 text-green-600' 
+                            : payment.method === 'cash'
+                            ? 'bg-orange-100 text-orange-600'
+                            : 'bg-blue-100 text-blue-600'
+                        }`}>
+                          {payment.method === 'mpesa' ? (
+                            <CreditCard size={16} />
+                          ) : payment.method === 'cash' ? (
+                            <span className="text-sm font-bold">$</span>
+                          ) : (
+                            <CreditCard size={16} />
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-gray-900">
+                            {formatCurrency(payment.amount)}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {payment.method === 'mpesa' && payment.reference ? (
+                              <span>Receipt: {payment.reference}</span>
+                            ) : payment.method === 'cash' && payment.reference ? (
+                              <span>Ref: {payment.reference}</span>
+                            ) : payment.method === 'card' && payment.reference ? (
+                              <span>Card: {payment.reference}</span>
+                            ) : (
+                              <span className="capitalize">{payment.method} payment</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-gray-500">
+                          {new Date(payment.created_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )}
 
         {orders.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
