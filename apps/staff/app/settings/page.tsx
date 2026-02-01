@@ -121,6 +121,11 @@ export default function SettingsPage() {
     loadBarInfo();
   }, []);
 
+  // Debug: Log activeTab changes
+  useEffect(() => {
+    console.log('Active tab changed to:', activeTab);
+  }, [activeTab]);
+
   const generateSlug = (name: string) => {
     return name
       .toLowerCase()
@@ -1156,7 +1161,10 @@ export default function SettingsPage() {
           <div className="mb-8">
             <nav className="flex space-x-1 bg-white rounded-lg p-1 shadow-sm">
               <button 
-                onClick={() => setActiveTab('general')}
+                onClick={() => {
+                  console.log('Switching to general tab');
+                  setActiveTab('general');
+                }}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition ${
                   activeTab === 'general' 
                     ? 'text-orange-600 bg-orange-50' 
@@ -1167,7 +1175,10 @@ export default function SettingsPage() {
                 General
               </button>
               <button 
-                onClick={() => setActiveTab('payments')}
+                onClick={() => {
+                  console.log('Switching to payments tab');
+                  setActiveTab('payments');
+                }}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition ${
                   activeTab === 'payments' 
                     ? 'text-orange-600 bg-orange-50' 
@@ -1178,7 +1189,10 @@ export default function SettingsPage() {
                 Payments
               </button>
               <button 
-                onClick={() => setActiveTab('notifications')}
+                onClick={() => {
+                  console.log('Switching to notifications tab');
+                  setActiveTab('notifications');
+                }}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition ${
                   activeTab === 'notifications' 
                     ? 'text-orange-600 bg-orange-50' 
@@ -1189,7 +1203,10 @@ export default function SettingsPage() {
                 Notifications
               </button>
               <button 
-                onClick={() => setActiveTab('operations')}
+                onClick={() => {
+                  console.log('Switching to operations tab');
+                  setActiveTab('operations');
+                }}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition ${
                   activeTab === 'operations' 
                     ? 'text-orange-600 bg-orange-50' 
@@ -1205,6 +1222,18 @@ export default function SettingsPage() {
 
         {/* Settings Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {/* Debug Info - Remove after fixing */}
+          {!isNewUser && (
+            <div className="col-span-full bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-yellow-800">
+                <strong>Debug:</strong> Active Tab = "{activeTab}" | isNewUser = {isNewUser.toString()}
+              </p>
+              <p className="text-xs text-yellow-700 mt-1">
+                M-Pesa State: enabled={mpesaSettings.mpesa_enabled.toString()}, env={mpesaSettings.mpesa_environment}, setup={mpesaSettings.mpesa_setup_completed.toString()}
+              </p>
+            </div>
+          )}
+
           {/* General Tab Content */}
           {(isNewUser || activeTab === 'general') && (
             <>
@@ -1458,6 +1487,11 @@ export default function SettingsPage() {
           {/* Payments Tab Content */}
           {!isNewUser && activeTab === 'payments' && (
             <>
+              {/* Debug indicator */}
+              <div className="col-span-full bg-purple-50 border border-purple-200 rounded-lg p-2 mb-4">
+                <p className="text-xs text-purple-800">DEBUG: Payments tab is rendering</p>
+              </div>
+
               {/* Payment Settings Section */}
               <div className="bg-white rounded-xl shadow-sm p-4">
                 <div className="flex items-center gap-3 mb-4">
@@ -1471,21 +1505,199 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="space-y-3">
-                  <label className="flex items-center justify-between p-3 bg-gray-100 rounded-lg opacity-60 cursor-not-allowed">
-                    <div className="flex items-center gap-3">
-                      <Phone size={20} className="text-gray-400" />
-                      <div>
-                        <span className="text-sm font-medium text-gray-500">M-Pesa</span>
-                        <p className="text-xs text-gray-400">Mobile money payments (Coming Soon)</p>
+                  {/* M-Pesa Section */}
+                  <div className={`border-2 rounded-lg p-4 ${
+                    mpesaSettings.mpesa_enabled 
+                      ? mpesaSettings.mpesa_environment === 'production'
+                        ? 'bg-green-50 border-green-200' 
+                        : 'bg-blue-50 border-blue-200'
+                      : 'bg-gray-50 border-gray-200'
+                  }`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <Phone size={20} className={
+                          mpesaSettings.mpesa_enabled 
+                            ? mpesaSettings.mpesa_environment === 'production'
+                              ? 'text-green-600' 
+                              : 'text-blue-600'
+                            : 'text-gray-400'
+                        } />
+                        <div>
+                          <span className="text-sm font-medium text-gray-700">M-Pesa Mobile Payments</span>
+                          <p className="text-xs text-gray-500">Accept payments via M-Pesa</p>
+                          {mpesaSettings.mpesa_enabled && (
+                            <div className="flex items-center gap-2 mt-1">
+                              <div className={`w-2 h-2 rounded-full ${
+                                mpesaSettings.mpesa_environment === 'production' 
+                                  ? 'bg-green-500' 
+                                  : 'bg-blue-500'
+                              }`}></div>
+                              <span className={`text-xs font-medium ${
+                                mpesaSettings.mpesa_environment === 'production' 
+                                  ? 'text-green-600' 
+                                  : 'text-blue-600'
+                              }`}>
+                                {mpesaSettings.mpesa_environment === 'production' 
+                                  ? '🟢 Live Payments Active' 
+                                  : '🔵 Testing Mode Active'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {mpesaSettings.mpesa_enabled && mpesaSettings.mpesa_setup_completed && (
+                          <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            mpesaSettings.mpesa_test_status === 'success' 
+                              ? mpesaSettings.mpesa_environment === 'production'
+                                ? 'bg-green-100 text-green-700' 
+                                : 'bg-blue-100 text-blue-700'
+                              : mpesaSettings.mpesa_test_status === 'failed'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {mpesaSettings.mpesa_test_status === 'success' && 
+                              (mpesaSettings.mpesa_environment === 'production' ? '✅ Production Ready' : '🧪 Sandbox Verified')}
+                            {mpesaSettings.mpesa_test_status === 'failed' && '❌ Connection Failed'}
+                            {mpesaSettings.mpesa_test_status === 'pending' && '⏳ Test Required'}
+                          </div>
+                        )}
+                        <input
+                          type="checkbox"
+                          checked={mpesaSettings.mpesa_enabled}
+                          onChange={(e) => setMpesaSettings({
+                            ...mpesaSettings, 
+                            mpesa_enabled: e.target.checked
+                          })}
+                          className={`w-5 h-5 rounded focus:ring-2 ${
+                            mpesaSettings.mpesa_environment === 'production'
+                              ? 'text-green-500 focus:ring-green-500'
+                              : 'text-blue-500 focus:ring-blue-500'
+                          }`}
+                        />
                       </div>
                     </div>
-                    <input
-                      type="checkbox"
-                      checked={false}
-                      disabled={true}
-                      className="w-5 h-5 text-gray-300 rounded focus:ring-gray-300 cursor-not-allowed"
-                    />
-                  </label>
+                    
+                    {mpesaSettings.mpesa_enabled && (
+                      <div className="space-y-3">
+                        {/* Environment Status Card */}
+                        <div className={`p-3 rounded-lg border ${
+                          mpesaSettings.mpesa_environment === 'production'
+                            ? 'bg-green-50 border-green-200'
+                            : 'bg-blue-50 border-blue-200'
+                        }`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className={`text-sm font-medium ${
+                              mpesaSettings.mpesa_environment === 'production' 
+                                ? 'text-green-800' 
+                                : 'text-blue-800'
+                            }`}>
+                              {mpesaSettings.mpesa_environment === 'production' 
+                                ? '💰 Production Environment' 
+                                : '🧪 Sandbox Environment'}
+                            </span>
+                            {mpesaSettings.mpesa_environment === 'sandbox' && (
+                              <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-medium">
+                                Test Mode
+                              </span>
+                            )}
+                          </div>
+                          <p className={`text-xs ${
+                            mpesaSettings.mpesa_environment === 'production' 
+                              ? 'text-green-700' 
+                              : 'text-blue-700'
+                          }`}>
+                            {mpesaSettings.mpesa_environment === 'production' 
+                              ? 'Real money transactions - customers will be charged' 
+                              : 'Test transactions only - no real money involved'}
+                          </p>
+                          {mpesaSettings.mpesa_business_shortcode && (
+                            <div className="mt-2 text-xs">
+                              <strong>Business Shortcode:</strong> {mpesaSettings.mpesa_business_shortcode}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setShowMpesaSetup(true)}
+                            className={`flex-1 text-white py-2 px-4 rounded-lg text-sm font-medium transition ${
+                              mpesaSettings.mpesa_environment === 'production'
+                                ? 'bg-green-500 hover:bg-green-600'
+                                : 'bg-blue-500 hover:bg-blue-600'
+                            }`}
+                          >
+                            {mpesaSettings.mpesa_environment === 'production' 
+                              ? '⚙️ Configure Production' 
+                              : '🔧 Configure Sandbox'}
+                          </button>
+                          
+                          {mpesaSettings.mpesa_environment === 'sandbox' && mpesaSettings.mpesa_setup_completed && (
+                            <button
+                              onClick={() => {
+                                if (confirm('Ready to switch to production? This will enable real money transactions.')) {
+                                  setMpesaSettings({
+                                    ...mpesaSettings,
+                                    mpesa_environment: 'production',
+                                    mpesa_setup_completed: false,
+                                    mpesa_test_status: 'pending',
+                                    mpesa_business_shortcode: '',
+                                    mpesa_consumer_key: '',
+                                    mpesa_consumer_secret: '',
+                                    mpesa_passkey: ''
+                                  });
+                                  setShowMpesaSetup(true);
+                                }
+                              }}
+                              className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition"
+                            >
+                              🚀 Go Live
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Warning for Production */}
+                        {mpesaSettings.mpesa_environment === 'production' && (
+                          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                            <div className="flex items-start gap-2">
+                              <AlertCircle size={16} className="text-orange-600 mt-0.5 flex-shrink-0" />
+                              <div className="text-sm text-orange-800">
+                                <p className="font-medium">Production Environment Active</p>
+                                <p className="text-xs mt-1">
+                                  Customers will be charged real money. Ensure your credentials are correct before going live.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Sandbox Info */}
+                        {mpesaSettings.mpesa_environment === 'sandbox' && (
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <div className="flex items-start gap-2">
+                              <AlertCircle size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                              <div className="text-sm text-blue-800">
+                                <p className="font-medium">Sandbox Testing Mode</p>
+                                <p className="text-xs mt-1">
+                                  Use test phone numbers (254708374149, 254711040400) for testing. No real money is processed.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {!mpesaSettings.mpesa_enabled && (
+                      <div className="text-center py-4">
+                        <p className="text-sm text-gray-600 mb-2">Enable M-Pesa to accept mobile payments</p>
+                        <p className="text-xs text-gray-500">
+                          Start with sandbox testing, then switch to production when ready
+                        </p>
+                      </div>
+                    )}
+                  </div>
 
                   <label className="flex items-center justify-between p-3 bg-gray-100 rounded-lg opacity-60 cursor-not-allowed">
                     <div className="flex items-center gap-3">
@@ -1530,6 +1742,761 @@ export default function SettingsPage() {
                 >
                   <Save size={20} />
                   {savingPaymentSettings ? 'Saving...' : 'Save Payment Settings'}
+                </button>
+              </div>
+
+              {/* M-Pesa Setup Modal */}
+              {showMpesaSetup && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                  <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <div className="p-6">
+                      <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                          <Phone size={24} className={
+                            mpesaSettings.mpesa_environment === 'production' 
+                              ? 'text-green-600' 
+                              : 'text-blue-600'
+                          } />
+                          <div>
+                            <h3 className="text-xl font-bold text-gray-800">
+                              {mpesaSettings.mpesa_environment === 'production' 
+                                ? '💰 M-Pesa Production Setup' 
+                                : '🧪 M-Pesa Sandbox Setup'}
+                            </h3>
+                            <p className="text-sm text-gray-500">
+                              {mpesaSettings.mpesa_environment === 'production' 
+                                ? 'Configure live payment processing' 
+                                : 'Configure test payment processing'}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setShowMpesaSetup(false)}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition"
+                        >
+                          <X size={20} className="text-gray-500" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-4">
+                        {/* Environment Selection */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Environment <span className="text-red-500">*</span>
+                          </label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <button
+                              onClick={() => setMpesaSettings({...mpesaSettings, mpesa_environment: 'sandbox'})}
+                              className={`p-3 rounded-lg border-2 text-left transition ${
+                                mpesaSettings.mpesa_environment === 'sandbox'
+                                  ? 'border-orange-500 bg-orange-50'
+                                  : 'border-gray-200 hover:border-gray-300'
+                              }`}
+                            >
+                              <div className="font-medium text-gray-800">Sandbox</div>
+                              <div className="text-xs text-gray-500">For testing</div>
+                            </button>
+                            <button
+                              onClick={() => setMpesaSettings({...mpesaSettings, mpesa_environment: 'production'})}
+                              className={`p-3 rounded-lg border-2 text-left transition ${
+                                mpesaSettings.mpesa_environment === 'production'
+                                  ? 'border-orange-500 bg-orange-50'
+                                  : 'border-gray-200 hover:border-gray-300'
+                              }`}
+                            >
+                              <div className="font-medium text-gray-800">Production</div>
+                              <div className="text-xs text-gray-500">Live payments</div>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Business Shortcode */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Business Shortcode {mpesaSettings.mpesa_environment === 'production' && <span className="text-red-500">*</span>}
+                          </label>
+                          <input
+                            type="text"
+                            value={mpesaSettings.mpesa_business_shortcode}
+                            onChange={(e) => setMpesaSettings({...mpesaSettings, mpesa_business_shortcode: e.target.value})}
+                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none"
+                            placeholder={mpesaSettings.mpesa_environment === 'sandbox' ? '174379 (default sandbox)' : 'Your business shortcode'}
+                          />
+                          {mpesaSettings.mpesa_environment === 'sandbox' && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              Leave empty to use default sandbox shortcode (174379)
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Consumer Key */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Consumer Key <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={mpesaSettings.mpesa_consumer_key}
+                            onChange={(e) => setMpesaSettings({...mpesaSettings, mpesa_consumer_key: e.target.value})}
+                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none"
+                            placeholder="Your consumer key from Safaricom Developer Portal"
+                          />
+                        </div>
+
+                        {/* Consumer Secret */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Consumer Secret <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="password"
+                            value={mpesaSettings.mpesa_consumer_secret}
+                            onChange={(e) => setMpesaSettings({...mpesaSettings, mpesa_consumer_secret: e.target.value})}
+                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none"
+                            placeholder="Your consumer secret from Safaricom Developer Portal"
+                          />
+                        </div>
+
+                        {/* Passkey */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Passkey {mpesaSettings.mpesa_environment === 'production' && <span className="text-red-500">*</span>}
+                          </label>
+                          <input
+                            type="password"
+                            value={mpesaSettings.mpesa_passkey}
+                            onChange={(e) => setMpesaSettings({...mpesaSettings, mpesa_passkey: e.target.value})}
+                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none"
+                            placeholder={mpesaSettings.mpesa_environment === 'sandbox' ? 'Leave empty for default sandbox passkey' : 'Your production passkey'}
+                          />
+                          {mpesaSettings.mpesa_environment === 'sandbox' && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              Leave empty to use default sandbox passkey
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Test Status */}
+                        {mpesaSettings.mpesa_setup_completed && (
+                          <div className={`p-3 rounded-lg border ${
+                            mpesaSettings.mpesa_test_status === 'success' 
+                              ? 'bg-green-50 border-green-200' 
+                              : mpesaSettings.mpesa_test_status === 'failed'
+                              ? 'bg-red-50 border-red-200'
+                              : 'bg-yellow-50 border-yellow-200'
+                          }`}>
+                            <div className="flex items-center gap-2">
+                              {mpesaSettings.mpesa_test_status === 'success' && <Check size={16} className="text-green-600" />}
+                              {mpesaSettings.mpesa_test_status === 'failed' && <X size={16} className="text-red-600" />}
+                              {mpesaSettings.mpesa_test_status === 'pending' && <Clock size={16} className="text-yellow-600" />}
+                              <span className={`text-sm font-medium ${
+                                mpesaSettings.mpesa_test_status === 'success' ? 'text-green-800' :
+                                mpesaSettings.mpesa_test_status === 'failed' ? 'text-red-800' : 'text-yellow-800'
+                              }`}>
+                                {mpesaSettings.mpesa_test_status === 'success' && 'Connection Verified ✓'}
+                                {mpesaSettings.mpesa_test_status === 'failed' && 'Connection Failed ✗'}
+                                {mpesaSettings.mpesa_test_status === 'pending' && 'Test Required'}
+                              </span>
+                            </div>
+                            {mpesaSettings.mpesa_last_test_at && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Last tested: {new Date(mpesaSettings.mpesa_last_test_at).toLocaleString()}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-3 pt-4">
+                          <button
+                            onClick={handleSaveMpesaSettings}
+                            disabled={savingMpesaSettings}
+                            className="flex-1 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
+                          >
+                            <Save size={20} />
+                            {savingMpesaSettings ? 'Saving...' : 'Save Settings'}
+                          </button>
+                          
+                          <button
+                            onClick={handleTestMpesa}
+                            disabled={testingMpesa || !mpesaSettings.mpesa_consumer_key || !mpesaSettings.mpesa_consumer_secret}
+                            className="flex-1 bg-blue-500 text-white py-3 rounded-lg font-semibold hover:bg-blue-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
+                          >
+                            {testingMpesa ? (
+                              <>
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                Testing...
+                              </>
+                            ) : (
+                              <>
+                                <Send size={20} />
+                                Test Connection
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Notifications Tab Content */}
+          {!isNewUser && activeTab === 'notifications' && (
+            <>
+              {/* Debug indicator */}
+              <div className="col-span-full bg-blue-50 border border-blue-200 rounded-lg p-2 mb-4">
+                <p className="text-xs text-blue-800">DEBUG: Notifications tab is rendering</p>
+              </div>
+
+              {/* Notifications Section */}
+              <div className="bg-white rounded-xl shadow-sm p-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Bell size={20} className="text-green-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-800">Notifications</h3>
+                    <p className="text-sm text-gray-500">Choose what notifications to receive</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition">
+                    <div className="flex items-center gap-3">
+                      <Bell size={18} className="text-blue-600" />
+                      <div>
+                        <span className="text-sm font-medium text-gray-700">New Orders</span>
+                        <p className="text-xs text-gray-500">Get notified when customers place orders</p>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={notifications.newOrders}
+                      onChange={(e) => setNotifications({
+                        ...notifications, 
+                        newOrders: e.target.checked
+                      })}
+                      className="w-5 h-5 text-orange-500 rounded focus:ring-orange-500"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition">
+                    <div className="flex items-center gap-3">
+                      <AlertCircle size={18} className="text-yellow-600" />
+                      <div>
+                        <span className="text-sm font-medium text-gray-700">Pending Approvals</span>
+                        <p className="text-xs text-gray-500">Notify about pending order approvals</p>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={notifications.pendingApprovals}
+                      onChange={(e) => setNotifications({
+                        ...notifications, 
+                        pendingApprovals: e.target.checked
+                      })}
+                      className="w-5 h-5 text-orange-500 rounded focus:ring-orange-500"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition">
+                    <div className="flex items-center gap-3">
+                      <CreditCard size={18} className="text-green-600" />
+                      <div>
+                        <span className="text-sm font-medium text-gray-700">Payment Updates</span>
+                        <p className="text-xs text-gray-500">Notify about payment status changes</p>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={notifications.payments}
+                      onChange={(e) => setNotifications({
+                        ...notifications, 
+                        payments: e.target.checked
+                      })}
+                      className="w-5 h-5 text-orange-500 rounded focus:ring-orange-500"
+                    />
+                  </label>
+                </div>
+
+                <button
+                  onClick={handleSaveNotificationSettings}
+                  className="w-full mt-4 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 flex items-center justify-center gap-2"
+                >
+                  <Save size={20} />
+                  Save Notification Settings
+                </button>
+              </div>
+
+              {/* Alert Settings Section */}
+              <div className="bg-white rounded-xl shadow-sm p-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-red-100 rounded-lg">
+                    <BellRing size={20} className="text-red-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-800">Alert Settings</h3>
+                    <p className="text-sm text-gray-500">Configure order and message alerts</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Alert Timeout */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Alert Duration (seconds)
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="range"
+                        min="3"
+                        max="15"
+                        value={alertSettings.timeout}
+                        onChange={(e) => setAlertSettings({...alertSettings, timeout: parseInt(e.target.value)})}
+                        className="flex-1"
+                      />
+                      <div className="w-16 text-center">
+                        <span className="text-lg font-bold text-orange-600">{alertSettings.timeout}s</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>3s (Quick)</span>
+                      <span>15s (Long)</span>
+                    </div>
+                  </div>
+
+                  {/* Sound Settings */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Alert Sound
+                    </label>
+                    
+                    <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition mb-3">
+                      <div className="flex items-center gap-3">
+                        <Bell size={18} className="text-blue-600" />
+                        <div>
+                          <span className="text-sm font-medium text-gray-700">Enable Sound</span>
+                          <p className="text-xs text-gray-500">Play sound when alerts appear</p>
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={alertSettings.soundEnabled}
+                        onChange={(e) => setAlertSettings({...alertSettings, soundEnabled: e.target.checked})}
+                        className="w-5 h-5 text-orange-500 rounded focus:ring-orange-500"
+                      />
+                    </label>
+
+                    {alertSettings.soundEnabled && (
+                      <div className="space-y-3">
+                        {/* Volume Control */}
+                        <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                          <p className="text-sm font-medium text-gray-700 mb-3">Alert Volume</p>
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="range"
+                              min="0"
+                              max="1"
+                              step="0.1"
+                              value={alertSettings.volume}
+                              onChange={(e) => setAlertSettings({...alertSettings, volume: parseFloat(e.target.value)})}
+                              className="flex-1"
+                            />
+                            <div className="w-12 text-center">
+                              <span className="text-sm font-bold text-blue-600">{Math.round(alertSettings.volume * 100)}%</span>
+                            </div>
+                          </div>
+                          <div className="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>🔇 Silent</span>
+                            <span>🔊 Max</span>
+                          </div>
+                        </div>
+                        
+                        <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <p className="text-sm text-blue-800 font-medium mb-2">Custom Alert Sound</p>
+                          
+                          {alertSettings.customAudioUrl ? (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <audio controls className="flex-1 h-8">
+                                  <source src={alertSettings.customAudioUrl} type="audio/mpeg" />
+                                  <source src={alertSettings.customAudioUrl} type="audio/wav" />
+                                  Your browser does not support audio playback.
+                                </audio>
+                                <button
+                                  onClick={handleRemoveCustomAudio}
+                                  className="px-3 py-1 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                              <p className="text-xs text-gray-600">
+                                {alertSettings.customAudioName || 'Custom alert sound is active'}
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="file"
+                                  accept="audio/*"
+                                  onChange={handleAudioUpload}
+                                  disabled={uploadingAudio}
+                                  className="hidden"
+                                  id="audio-upload"
+                                />
+                                <label
+                                  htmlFor="audio-upload"
+                                  className="flex-1 px-4 py-2 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600 transition cursor-pointer text-center disabled:bg-gray-300"
+                                >
+                                  {uploadingAudio ? (
+                                    <>
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white inline-block mr-2"></div>
+                                      Uploading...
+                                    </>
+                                  ) : (
+                                    '📤 Upload Custom Sound'
+                                  )}
+                                </label>
+                              </label>
+                              <p className="text-xs text-gray-600">MP3, WAV files (max 5MB)</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleSaveAlertSettings}
+                  disabled={savingAlertSettings}
+                  className="w-full mt-4 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
+                >
+                  <Save size={20} />
+                  {savingAlertSettings ? 'Saving...' : 'Save Alert Settings'}
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* Operations Tab Content */}
+          {!isNewUser && activeTab === 'operations' && (
+            <>
+              {/* Debug indicator */}
+              <div className="col-span-full bg-green-50 border border-green-200 rounded-lg p-2 mb-4">
+                <p className="text-xs text-green-800">DEBUG: Operations tab is rendering</p>
+              </div>
+
+              {/* Business Hours Section */}
+              <div className="bg-white rounded-xl shadow-sm p-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-yellow-100 rounded-lg">
+                    <Clock size={20} className="text-yellow-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-800">Business Hours</h3>
+                    <p className="text-sm text-gray-500">Set when your restaurant is open</p>
+                  </div>
+                </div>
+
+                {/* Mode Selection */}
+                <div className="grid grid-cols-3 gap-2 mb-6">
+                  <button
+                    onClick={() => setBusinessHoursMode('simple')}
+                    className={`p-3 rounded-lg text-center transition ${
+                      businessHoursMode === 'simple'
+                        ? 'bg-orange-100 border-2 border-orange-500 text-orange-700'
+                        : 'bg-gray-100 border border-gray-200 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Sun size={20} className="mx-auto mb-1" />
+                    <span className="text-sm font-medium">Simple</span>
+                    <p className="text-xs text-gray-500 mt-1">Same hours daily</p>
+                  </button>
+                  
+                  <button
+                    onClick={() => setBusinessHoursMode('advanced')}
+                    className={`p-3 rounded-lg text-center transition ${
+                      businessHoursMode === 'advanced'
+                        ? 'bg-orange-100 border-2 border-orange-500 text-orange-700'
+                        : 'bg-gray-100 border border-gray-200 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Calendar size={20} className="mx-auto mb-1" />
+                    <span className="text-sm font-medium">Advanced</span>
+                    <p className="text-xs text-gray-500 mt-1">Different per day</p>
+                  </button>
+                  
+                  <button
+                    onClick={() => setBusinessHoursMode('24hours')}
+                    className={`p-3 rounded-lg text-center transition ${
+                      businessHoursMode === '24hours'
+                        ? 'bg-orange-100 border-2 border-orange-500 text-orange-700'
+                        : 'bg-gray-100 border border-gray-200 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Clock size={20} className="mx-auto mb-1" />
+                    <span className="text-sm font-medium">24 Hours</span>
+                    <p className="text-xs text-gray-500 mt-1">Always open</p>
+                  </button>
+                </div>
+
+                {/* Simple Mode */}
+                {businessHoursMode === 'simple' && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Opening Time
+                        </label>
+                        <input
+                          type="time"
+                          value={simpleHours.openTime}
+                          onChange={(e) => setSimpleHours({...simpleHours, openTime: e.target.value})}
+                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Closing Time
+                        </label>
+                        <input
+                          type="time"
+                          value={simpleHours.closeTime}
+                          onChange={(e) => setSimpleHours({...simpleHours, closeTime: e.target.value})}
+                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+                      <Moon size={16} className="text-gray-600" />
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={simpleHours.closeNextDay}
+                          onChange={(e) => setSimpleHours({...simpleHours, closeNextDay: e.target.checked})}
+                          className="w-4 h-4 text-orange-500 rounded focus:ring-orange-500"
+                        />
+                        <span className="text-sm text-gray-700">
+                          Close next day (for bars/restaurants open past midnight)
+                        </span>
+                      </label>
+                    </div>
+                    
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <p className="text-sm text-blue-800">
+                        <strong>Example:</strong> If you open at 10:00 AM and close at 3:00 AM the next day, 
+                        set opening time to 10:00, closing time to 03:00, and check "Close next day".
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Advanced Mode */}
+                {businessHoursMode === 'advanced' && (
+                  <div className="space-y-3">
+                    {advancedHours.map((day, index) => (
+                      <div key={day.day} className="border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={day.open}
+                              onChange={(e) => handleAdvancedDayChange(index, 'open', e.target.checked)}
+                              className="w-4 h-4 text-orange-500 rounded focus:ring-orange-500"
+                            />
+                            <span className="font-medium text-gray-700">{day.label}</span>
+                          </label>
+                          {!day.open && (
+                            <span className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded">Closed</span>
+                          )}
+                        </div>
+                        
+                        {day.open && (
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">Open</label>
+                              <input
+                                type="time"
+                                value={day.openTime}
+                                onChange={(e) => handleAdvancedDayChange(index, 'openTime', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">Close</label>
+                              <input
+                                type="time"
+                                value={day.closeTime}
+                                onChange={(e) => handleAdvancedDayChange(index, 'closeTime', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none text-sm"
+                              />
+                            </div>
+                          </div>
+                        )}
+                        
+                        {day.open && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <Moon size={14} className="text-gray-500" />
+                            <label className="flex items-center gap-1 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={day.openNextDay}
+                                onChange={(e) => handleAdvancedDayChange(index, 'openNextDay', e.target.checked)}
+                                className="w-3 h-3 text-orange-500 rounded focus:ring-orange-500"
+                              />
+                              <span className="text-xs text-gray-600">
+                                Close next day (open past midnight)
+                              </span>
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* 24 Hours Mode */}
+                {businessHoursMode === '24hours' && (
+                  <div className="text-center py-6">
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Clock size={32} className="text-green-600" />
+                    </div>
+                    <h4 className="text-lg font-bold text-gray-800 mb-2">24/7 Operation</h4>
+                    <p className="text-gray-600 mb-4">Your restaurant will be shown as open 24 hours a day, 7 days a week.</p>
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 inline-block">
+                      <p className="text-sm text-green-800 font-medium">Always Open ✓</p>
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleSaveBusinessHours}
+                  disabled={savingHours}
+                  className="w-full mt-4 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
+                >
+                  <Save size={20} />
+                  {savingHours ? 'Saving...' : 'Save Business Hours'}
+                </button>
+              </div>
+
+              {/* Table Setup Section */}
+              <div className="bg-white rounded-xl shadow-sm p-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-teal-100 rounded-lg">
+                    <Grid3X3 size={20} className="text-teal-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-800">Table Setup</h3>
+                    <p className="text-sm text-gray-500">Configure customer table selection</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Enable Table Setup Toggle */}
+                  <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition">
+                    <div className="flex items-center gap-3">
+                      <Grid3X3 size={18} className="text-teal-600" />
+                      <div>
+                        <span className="text-sm font-medium text-gray-700">Require Table Selection</span>
+                        <p className="text-xs text-gray-500">Customers must select their table before ordering</p>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={tableSettings.table_setup_enabled}
+                      onChange={(e) => setTableSettings({
+                        ...tableSettings, 
+                        table_setup_enabled: e.target.checked
+                      })}
+                      className="w-5 h-5 text-teal-500 rounded focus:ring-teal-500"
+                    />
+                  </label>
+
+                  {/* Table Count Configuration */}
+                  {tableSettings.table_setup_enabled && (
+                    <div className="p-4 bg-teal-50 border border-teal-200 rounded-lg">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Number of Tables
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={tableSettings.table_count}
+                          onChange={(e) => setTableSettings({
+                            ...tableSettings, 
+                            table_count: parseInt(e.target.value) || 1
+                          })}
+                          className="w-24 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none text-center font-medium"
+                        />
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-600">
+                            Tables will be numbered 1 to {tableSettings.table_count}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Range: 1-100 tables
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Preview */}
+                      <div className="mt-3 p-3 bg-white border border-teal-200 rounded-lg">
+                        <p className="text-xs font-medium text-gray-700 mb-2">Preview:</p>
+                        <div className="grid grid-cols-6 gap-1">
+                          {Array.from({ length: Math.min(tableSettings.table_count, 12) }, (_, i) => (
+                            <div
+                              key={i + 1}
+                              className="w-8 h-8 bg-teal-100 border border-teal-300 rounded flex items-center justify-center text-xs font-medium text-teal-700"
+                            >
+                              {i + 1}
+                            </div>
+                          ))}
+                          {tableSettings.table_count > 12 && (
+                            <div className="w-8 h-8 bg-gray-100 border border-gray-300 rounded flex items-center justify-center text-xs text-gray-500">
+                              ...
+                            </div>
+                          )}
+                        </div>
+                        {tableSettings.table_count > 12 && (
+                          <p className="text-xs text-gray-500 mt-2">
+                            Showing first 12 of {tableSettings.table_count} tables
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Information Box */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm text-blue-800">
+                        <p className="font-medium mb-1">How Table Setup Works:</p>
+                        <ul className="text-xs space-y-1 ml-2">
+                          <li>• When enabled, customers must select their table number before ordering</li>
+                          <li>• Orders will be linked to the selected table for easy identification</li>
+                          <li>• Staff can see which table each order came from</li>
+                          <li>• When disabled, customers can order without table selection</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleSaveTableSettings}
+                  disabled={savingTableSettings}
+                  className="w-full mt-4 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
+                >
+                  <Save size={20} />
+                  {savingTableSettings ? 'Saving...' : 'Save Table Settings'}
                 </button>
               </div>
             </>
