@@ -96,6 +96,9 @@ export default function SettingsPage() {
   const [testingMpesa, setTestingMpesa] = useState(false);
   const [showMpesaSetup, setShowMpesaSetup] = useState(false);
 
+  // Tab Navigation State
+  const [activeTab, setActiveTab] = useState<'general' | 'payments' | 'notifications' | 'operations'>('general');
+
   // Business Hours State
   const [businessHoursMode, setBusinessHoursMode] = useState<BusinessHoursMode>('simple');
   const [savingHours, setSavingHours] = useState(false);
@@ -1097,9 +1100,10 @@ export default function SettingsPage() {
   const qrUrl = barInfo.slug ? `${customerOrigin}/start?bar=${barInfo.slug}` : '';
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 flex justify-center">
-      <div className="w-full lg:max-w-[80%] max-w-full">
-        <div className="bg-gradient-to-r from-orange-500 to-red-600 text-white p-6">
+    <div className="min-h-screen bg-gray-50 pb-24">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-orange-500 to-red-600 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {!isNewUser && (
             <button 
               onClick={() => router.push('/')}
@@ -1108,1248 +1112,427 @@ export default function SettingsPage() {
               <ArrowRight size={24} className="transform rotate-180" />
             </button>
           )}
-          <h1 className="text-2xl font-bold">{isNewUser ? 'Complete Setup' : 'Settings'}</h1>
-          <p className="text-orange-100 text-sm">
-            {isNewUser ? 'Set up your restaurant to get started' : 'Manage your restaurant'}
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">{isNewUser ? 'Complete Setup' : 'Restaurant Settings'}</h1>
+              <p className="text-orange-100 text-sm mt-1">
+                {isNewUser ? 'Set up your restaurant to get started' : 'Manage your restaurant configuration and preferences'}
+              </p>
+            </div>
+            {!isNewUser && (
+              <div className="mt-4 sm:mt-0 flex items-center gap-2 text-sm">
+                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                <span className="text-orange-100">System Active</span>
+              </div>
+            )}
+          </div>
         </div>
+      </div>
 
-        {isNewUser && (
-          <div className="p-4">
-            <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 flex items-start gap-3">
-              <AlertCircle size={24} className="text-blue-600 flex-shrink-0 mt-1" />
-              <div>
-                <p className="font-semibold text-blue-900 mb-1">Welcome to Tabeza!</p>
-                <p className="text-sm text-blue-800">
-                  Complete your restaurant information below to generate your QR code and start accepting digital orders.
-                </p>
+      {/* Welcome Banner for New Users */}
+      {isNewUser && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 flex items-start gap-4">
+            <AlertCircle size={28} className="text-blue-600 flex-shrink-0 mt-1" />
+            <div>
+              <h2 className="text-lg font-semibold text-blue-900 mb-2">Welcome to Tabeza!</h2>
+              <p className="text-blue-800 mb-3">
+                Complete your restaurant information below to generate your QR code and start accepting digital orders.
+              </p>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">Step 1: Restaurant Info</span>
+                <span className="bg-gray-100 text-gray-500 px-2 py-1 rounded">Step 2: QR Code</span>
+                <span className="bg-gray-100 text-gray-500 px-2 py-1 rounded">Step 3: Configure</span>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Settings Navigation */}
+        {!isNewUser && (
+          <div className="mb-8">
+            <nav className="flex space-x-1 bg-white rounded-lg p-1 shadow-sm">
+              <button 
+                onClick={() => setActiveTab('general')}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition ${
+                  activeTab === 'general' 
+                    ? 'text-orange-600 bg-orange-50' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Store size={16} />
+                General
+              </button>
+              <button 
+                onClick={() => setActiveTab('payments')}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition ${
+                  activeTab === 'payments' 
+                    ? 'text-orange-600 bg-orange-50' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <CreditCard size={16} />
+                Payments
+              </button>
+              <button 
+                onClick={() => setActiveTab('notifications')}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition ${
+                  activeTab === 'notifications' 
+                    ? 'text-orange-600 bg-orange-50' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Bell size={16} />
+                Notifications
+              </button>
+              <button 
+                onClick={() => setActiveTab('operations')}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition ${
+                  activeTab === 'operations' 
+                    ? 'text-orange-600 bg-orange-50' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Clock size={16} />
+                Operations
+              </button>
+            </nav>
           </div>
         )}
 
-        <div className="p-4 space-y-4">
-          {/* Restaurant Information Section */}
-          <div className="bg-white rounded-xl shadow-sm p-4">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-100 rounded-lg">
-                  <Store size={20} className="text-orange-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-800">Restaurant Information</h3>
-                  <p className="text-sm text-gray-500">
-                    {editMode ? 'Fill in your details' : 'Current registered details'}
-                  </p>
-                </div>
-              </div>
-              {!editMode && !isNewUser && (
-                <button
-                  onClick={() => setEditMode(true)}
-                  className="flex items-center gap-2 text-orange-600 hover:text-orange-700 font-medium"
-                >
-                  <Edit2 size={18} />
-                  Edit
-                </button>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Restaurant Name {editMode && <span className="text-red-500">*</span>}
-                </label>
-                {editMode ? (
-                  <input
-                    type="text"
-                    value={editedInfo.name}
-                    onChange={(e) => setEditedInfo({...editedInfo, name: e.target.value})}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none"
-                  />
-                ) : (
-                  <div className="px-4 py-3 bg-gray-50 rounded-lg">
-                    <p className="text-gray-800 font-medium">{barInfo.name || '(Not set)'}</p>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Location/Area</label>
-                {editMode ? (
-                  <input
-                    type="text"
-                    value={editedInfo.location}
-                    onChange={(e) => setEditedInfo({...editedInfo, location: e.target.value})}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none"
-                  />
-                ) : (
-                  <div className="px-4 py-3 bg-gray-50 rounded-lg">
-                    <p className="text-gray-800">{barInfo.location || '(Not set)'}</p>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-                {editMode ? (
-                  <input
-                    type="text"
-                    value={editedInfo.city}
-                    onChange={(e) => setEditedInfo({...editedInfo, city: e.target.value})}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none"
-                  />
-                ) : (
-                  <div className="px-4 py-3 bg-gray-50 rounded-lg">
-                    <p className="text-gray-800">{barInfo.city || '(Not set)'}</p>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                {editMode ? (
-                  <input
-                    type="tel"
-                    value={editedInfo.phone}
-                    onChange={(e) => setEditedInfo({...editedInfo, phone: e.target.value})}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none"
-                  />
-                ) : (
-                  <div className="px-4 py-3 bg-gray-50 rounded-lg">
-                    <p className="text-gray-800">{barInfo.phone || '(Not set)'}</p>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                {editMode ? (
-                  <input
-                    type="email"
-                    value={editedInfo.email}
-                    onChange={(e) => setEditedInfo({...editedInfo, email: e.target.value})}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none"
-                  />
-                ) : (
-                  <div className="px-4 py-3 bg-gray-50 rounded-lg">
-                    <p className="text-gray-800">{barInfo.email || '(Not set)'}</p>
-                  </div>
-                )}
-              </div>
-
-              {!editMode && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Bar Slug (URL)</label>
-                    <div className="px-4 py-3 bg-gray-50 rounded-lg border-2 border-gray-200">
-                      <code className="text-sm text-gray-600 break-all">{barInfo.slug || '(No slug)'}</code>
+        {/* Settings Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {/* General Tab Content */}
+          {(isNewUser || activeTab === 'general') && (
+            <>
+              {/* Restaurant Information Section */}
+              <div className="bg-white rounded-xl shadow-sm p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                      <Store size={20} className="text-orange-600" />
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Used in QR code: {customerOrigin}/menu?bar={barInfo.slug}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Bar ID</label>
-                    <div className="px-4 py-3 bg-gray-50 rounded-lg border-2 border-gray-200">
-                      <code className="text-xs text-gray-600 break-all font-mono">{barInfo.id}</code>
+                    <div>
+                      <h3 className="font-bold text-gray-800">Restaurant Information</h3>
+                      <p className="text-sm text-gray-500">
+                        {editMode ? 'Fill in your details' : 'Current registered details'}
+                      </p>
                     </div>
                   </div>
-                </>
-              )}
-
-              {editMode && (
-                <div className="flex gap-2 pt-3">
-                  <button
-                    onClick={handleSaveBarInfo}
-                    disabled={saving}
-                    className="flex-1 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
-                  >
-                    <Save size={20} />
-                    {saving ? 'Saving...' : isNewUser ? 'Complete Setup' : 'Save Changes'}
-                  </button>
-                  {!isNewUser && (
+                  {!editMode && !isNewUser && (
                     <button
-                      onClick={handleCancelEdit}
-                      disabled={saving}
-                      className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 disabled:bg-gray-100"
+                      onClick={() => setEditMode(true)}
+                      className="flex items-center gap-2 text-orange-600 hover:text-orange-700 font-medium"
                     >
-                      Cancel
+                      <Edit2 size={18} />
+                      Edit
                     </button>
                   )}
                 </div>
-              )}
-            </div>
-          </div>
 
-          {/* QR Code Section */}
-          {!isNewUser && (
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <QrCode size={20} className="text-blue-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-800">Customer QR Code</h3>
-                  <p className="text-sm text-gray-500">For {barInfo.name}</p>
-                </div>
-              </div>
-
-              {barInfo.slug ? (
-                <>
-                  <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-2xl p-8 mb-4">
-                    <div className="bg-white rounded-xl p-6 shadow-lg mx-auto max-w-xs">
-                      <div className="aspect-square bg-white rounded-lg overflow-hidden border-4 border-gray-100">
-                        <img 
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrUrl)}&bgcolor=ffffff&color=f97316&qzone=2&format=svg`}
-                          alt={`${barInfo.name} QR Code`}
-                          className="w-full h-full"
-                        />
-                      </div>
-                      <div className="text-center mt-4">
-                        <p className="font-bold text-gray-800">{barInfo.name}</p>
-                        <p className="text-sm text-gray-500">Scan to order</p>
-                        <p className="text-xs text-orange-600 mt-1 font-mono">{barInfo.slug}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="text-xs text-gray-500">Customer URL:</p>
-                      <button
-                        onClick={handleCopyQRUrl}
-                        className="flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700"
-                      >
-                        {copied ? <Check size={14} /> : <Copy size={14} />}
-                        {copied ? 'Copied!' : 'Copy'}
-                      </button>
-                    </div>
-                    <code className="text-sm text-gray-800 break-all">{qrUrl}</code>
-                  </div>
-
-                  <button
-                    onClick={handleDownloadQR}
-                    className="w-full bg-orange-500 text-white py-3 rounded-lg font-semibold hover:bg-orange-600 flex items-center justify-center gap-2"
-                  >
-                    <Download size={20} />
-                    Print QR Code (with Instructions)
-                  </button>
-                  <p className="text-xs text-center text-gray-500 mt-2">
-                    Includes URL for customers without QR scanners
-                  </p>
-                </>
-              ) : (
-                <div className="text-center py-8">
-                  <AlertCircle size={48} className="mx-auto mb-3 text-orange-500" />
-                  <p className="text-gray-700 font-medium mb-2">Setup Required</p>
-                  <p className="text-sm text-gray-500">
-                    Complete restaurant information above to generate your QR code
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Business Hours Section */}
-          {!isNewUser && (
-            <div className="bg-white rounded-xl shadow-sm p-4">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <Clock size={20} className="text-yellow-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-800">Business Hours</h3>
-                  <p className="text-sm text-gray-500">Set when your restaurant is open</p>
-                </div>
-              </div>
-
-              {/* Mode Selection */}
-              <div className="grid grid-cols-3 gap-2 mb-6">
-                <button
-                  onClick={() => setBusinessHoursMode('simple')}
-                  className={`p-3 rounded-lg text-center transition ${
-                    businessHoursMode === 'simple'
-                      ? 'bg-orange-100 border-2 border-orange-500 text-orange-700'
-                      : 'bg-gray-100 border border-gray-200 text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <Sun size={20} className="mx-auto mb-1" />
-                  <span className="text-sm font-medium">Simple</span>
-                  <p className="text-xs text-gray-500 mt-1">Same hours daily</p>
-                </button>
-                
-                <button
-                  onClick={() => setBusinessHoursMode('advanced')}
-                  className={`p-3 rounded-lg text-center transition ${
-                    businessHoursMode === 'advanced'
-                      ? 'bg-orange-100 border-2 border-orange-500 text-orange-700'
-                      : 'bg-gray-100 border border-gray-200 text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <Calendar size={20} className="mx-auto mb-1" />
-                  <span className="text-sm font-medium">Advanced</span>
-                  <p className="text-xs text-gray-500 mt-1">Different per day</p>
-                </button>
-                
-                <button
-                  onClick={() => setBusinessHoursMode('24hours')}
-                  className={`p-3 rounded-lg text-center transition ${
-                    businessHoursMode === '24hours'
-                      ? 'bg-orange-100 border-2 border-orange-500 text-orange-700'
-                      : 'bg-gray-100 border border-gray-200 text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <Clock size={20} className="mx-auto mb-1" />
-                  <span className="text-sm font-medium">24 Hours</span>
-                  <p className="text-xs text-gray-500 mt-1">Always open</p>
-                </button>
-              </div>
-
-              {/* Simple Mode */}
-              {businessHoursMode === 'simple' && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Opening Time
-                      </label>
-                      <input
-                        type="time"
-                        value={simpleHours.openTime}
-                        onChange={(e) => setSimpleHours({...simpleHours, openTime: e.target.value})}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Closing Time
-                      </label>
-                      <input
-                        type="time"
-                        value={simpleHours.closeTime}
-                        onChange={(e) => setSimpleHours({...simpleHours, closeTime: e.target.value})}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
-                    <Moon size={16} className="text-gray-600" />
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={simpleHours.closeNextDay}
-                        onChange={(e) => setSimpleHours({...simpleHours, closeNextDay: e.target.checked})}
-                        className="w-4 h-4 text-orange-500 rounded focus:ring-orange-500"
-                      />
-                      <span className="text-sm text-gray-700">
-                        Close next day (for bars/restaurants open past midnight)
-                      </span>
-                    </label>
-                  </div>
-                  
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <p className="text-sm text-blue-800">
-                      <strong>Example:</strong> If you open at 10:00 AM and close at 3:00 AM the next day, 
-                      set opening time to 10:00, closing time to 03:00, and check "Close next day".
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Advanced Mode */}
-              {businessHoursMode === 'advanced' && (
                 <div className="space-y-3">
-                  {advancedHours.map((day, index) => (
-                    <div key={day.day} className="border border-gray-200 rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={day.open}
-                            onChange={(e) => handleAdvancedDayChange(index, 'open', e.target.checked)}
-                            className="w-4 h-4 text-orange-500 rounded focus:ring-orange-500"
-                          />
-                          <span className="font-medium text-gray-700">{day.label}</span>
-                        </label>
-                        {!day.open && (
-                          <span className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded">Closed</span>
-                        )}
-                      </div>
-                      
-                      {day.open && (
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-xs text-gray-500 mb-1">Open</label>
-                            <input
-                              type="time"
-                              value={day.openTime}
-                              onChange={(e) => handleAdvancedDayChange(index, 'openTime', e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-gray-500 mb-1">Close</label>
-                            <input
-                              type="time"
-                              value={day.closeTime}
-                              onChange={(e) => handleAdvancedDayChange(index, 'closeTime', e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none text-sm"
-                            />
-                          </div>
-                        </div>
-                      )}
-                      
-                      {day.open && (
-                        <div className="mt-2 flex items-center gap-2">
-                          <Moon size={14} className="text-gray-500" />
-                          <label className="flex items-center gap-1 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={day.openNextDay}
-                              onChange={(e) => handleAdvancedDayChange(index, 'openNextDay', e.target.checked)}
-                              className="w-3 h-3 text-orange-500 rounded focus:ring-orange-500"
-                            />
-                            <span className="text-xs text-gray-600">
-                              Close next day (open past midnight)
-                            </span>
-                          </label>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* 24 Hours Mode */}
-              {businessHoursMode === '24hours' && (
-                <div className="text-center py-6">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Clock size={32} className="text-green-600" />
-                  </div>
-                  <h4 className="text-lg font-bold text-gray-800 mb-2">24/7 Operation</h4>
-                  <p className="text-gray-600 mb-4">Your restaurant will be shown as open 24 hours a day, 7 days a week.</p>
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 inline-block">
-                    <p className="text-sm text-green-800 font-medium">Always Open ✓</p>
-                  </div>
-                </div>
-              )}
-
-              <button
-                onClick={handleSaveBusinessHours}
-                disabled={savingHours}
-                className="w-full mt-4 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
-              >
-                <Save size={20} />
-                {savingHours ? 'Saving...' : 'Save Business Hours'}
-              </button>
-            </div>
-          )}
-
-          {/* Table Setup Section */}
-          {!isNewUser && (
-            <div className="bg-white rounded-xl shadow-sm p-4">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-teal-100 rounded-lg">
-                  <Grid3X3 size={20} className="text-teal-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-800">Table Setup</h3>
-                  <p className="text-sm text-gray-500">Configure customer table selection</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                {/* Enable Table Setup Toggle */}
-                <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition">
-                  <div className="flex items-center gap-3">
-                    <Grid3X3 size={18} className="text-teal-600" />
-                    <div>
-                      <span className="text-sm font-medium text-gray-700">Require Table Selection</span>
-                      <p className="text-xs text-gray-500">Customers must select their table before ordering</p>
-                    </div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={tableSettings.table_setup_enabled}
-                    onChange={(e) => setTableSettings({
-                      ...tableSettings, 
-                      table_setup_enabled: e.target.checked
-                    })}
-                    className="w-5 h-5 text-teal-500 rounded focus:ring-teal-500"
-                  />
-                </label>
-
-                {/* Table Count Configuration */}
-                {tableSettings.table_setup_enabled && (
-                  <div className="p-4 bg-teal-50 border border-teal-200 rounded-lg">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Number of Tables
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Restaurant Name {editMode && <span className="text-red-500">*</span>}
                     </label>
-                    <div className="flex items-center gap-3">
+                    {editMode ? (
                       <input
-                        type="number"
-                        min="1"
-                        max="100"
-                        value={tableSettings.table_count}
-                        onChange={(e) => setTableSettings({
-                          ...tableSettings, 
-                          table_count: parseInt(e.target.value) || 1
-                        })}
-                        className="w-24 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none text-center font-medium"
+                        type="text"
+                        value={editedInfo.name}
+                        onChange={(e) => setEditedInfo({...editedInfo, name: e.target.value})}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none"
                       />
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-600">
-                          Tables will be numbered 1 to {tableSettings.table_count}
-                        </p>
+                    ) : (
+                      <div className="px-4 py-3 bg-gray-50 rounded-lg">
+                        <p className="text-gray-800 font-medium">{barInfo.name || '(Not set)'}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Location/Area</label>
+                    {editMode ? (
+                      <input
+                        type="text"
+                        value={editedInfo.location}
+                        onChange={(e) => setEditedInfo({...editedInfo, location: e.target.value})}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none"
+                      />
+                    ) : (
+                      <div className="px-4 py-3 bg-gray-50 rounded-lg">
+                        <p className="text-gray-800">{barInfo.location || '(Not set)'}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                    {editMode ? (
+                      <input
+                        type="text"
+                        value={editedInfo.city}
+                        onChange={(e) => setEditedInfo({...editedInfo, city: e.target.value})}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none"
+                      />
+                    ) : (
+                      <div className="px-4 py-3 bg-gray-50 rounded-lg">
+                        <p className="text-gray-800">{barInfo.city || '(Not set)'}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                    {editMode ? (
+                      <input
+                        type="tel"
+                        value={editedInfo.phone}
+                        onChange={(e) => setEditedInfo({...editedInfo, phone: e.target.value})}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none"
+                      />
+                    ) : (
+                      <div className="px-4 py-3 bg-gray-50 rounded-lg">
+                        <p className="text-gray-800">{barInfo.phone || '(Not set)'}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    {editMode ? (
+                      <input
+                        type="email"
+                        value={editedInfo.email}
+                        onChange={(e) => setEditedInfo({...editedInfo, email: e.target.value})}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none"
+                      />
+                    ) : (
+                      <div className="px-4 py-3 bg-gray-50 rounded-lg">
+                        <p className="text-gray-800">{barInfo.email || '(Not set)'}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {!editMode && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Bar Slug (URL)</label>
+                        <div className="px-4 py-3 bg-gray-50 rounded-lg border-2 border-gray-200">
+                          <code className="text-sm text-gray-600 break-all">{barInfo.slug || '(No slug)'}</code>
+                        </div>
                         <p className="text-xs text-gray-500 mt-1">
-                          Range: 1-100 tables
+                          Used in QR code: {customerOrigin}/menu?bar={barInfo.slug}
                         </p>
                       </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Bar ID</label>
+                        <div className="px-4 py-3 bg-gray-50 rounded-lg border-2 border-gray-200">
+                          <code className="text-xs text-gray-600 break-all font-mono">{barInfo.id}</code>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {editMode && (
+                    <div className="flex gap-2 pt-3">
+                      <button
+                        onClick={handleSaveBarInfo}
+                        disabled={saving}
+                        className="flex-1 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
+                      >
+                        <Save size={20} />
+                        {saving ? 'Saving...' : isNewUser ? 'Complete Setup' : 'Save Changes'}
+                      </button>
+                      {!isNewUser && (
+                        <button
+                          onClick={handleCancelEdit}
+                          disabled={saving}
+                          className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 disabled:bg-gray-100"
+                        >
+                          Cancel
+                        </button>
+                      )}
                     </div>
-                    
-                    {/* Preview */}
-                    <div className="mt-3 p-3 bg-white border border-teal-200 rounded-lg">
-                      <p className="text-xs font-medium text-gray-700 mb-2">Preview:</p>
-                      <div className="grid grid-cols-6 gap-1">
-                        {Array.from({ length: Math.min(tableSettings.table_count, 12) }, (_, i) => (
-                          <div
-                            key={i + 1}
-                            className="w-8 h-8 bg-teal-100 border border-teal-300 rounded flex items-center justify-center text-xs font-medium text-teal-700"
+                  )}
+                </div>
+              </div>
+
+              {/* QR Code Section */}
+              {!isNewUser && (
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <QrCode size={20} className="text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-800">Customer QR Code</h3>
+                      <p className="text-sm text-gray-500">For {barInfo.name}</p>
+                    </div>
+                  </div>
+
+                  {barInfo.slug ? (
+                    <>
+                      <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-2xl p-8 mb-4">
+                        <div className="bg-white rounded-xl p-6 shadow-lg mx-auto max-w-xs">
+                          <div className="aspect-square bg-white rounded-lg overflow-hidden border-4 border-gray-100">
+                            <img 
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrUrl)}&bgcolor=ffffff&color=f97316&qzone=2&format=svg`}
+                              alt={`${barInfo.name} QR Code`}
+                              className="w-full h-full"
+                            />
+                          </div>
+                          <div className="text-center mt-4">
+                            <p className="font-bold text-gray-800">{barInfo.name}</p>
+                            <p className="text-sm text-gray-500">Scan to order</p>
+                            <p className="text-xs text-orange-600 mt-1 font-mono">{barInfo.slug}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-xs text-gray-500">Customer URL:</p>
+                          <button
+                            onClick={handleCopyQRUrl}
+                            className="flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700"
                           >
-                            {i + 1}
-                          </div>
-                        ))}
-                        {tableSettings.table_count > 12 && (
-                          <div className="w-8 h-8 bg-gray-100 border border-gray-300 rounded flex items-center justify-center text-xs text-gray-500">
-                            ...
-                          </div>
-                        )}
-                      </div>
-                      {tableSettings.table_count > 12 && (
-                        <p className="text-xs text-gray-500 mt-2">
-                          Showing first 12 of {tableSettings.table_count} tables
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Information Box */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
-                    <div className="text-sm text-blue-800">
-                      <p className="font-medium mb-1">How Table Setup Works:</p>
-                      <ul className="text-xs space-y-1 ml-2">
-                        <li>• When enabled, customers must select their table number before ordering</li>
-                        <li>• Orders will be linked to the selected table for easy identification</li>
-                        <li>• Staff can see which table each order came from</li>
-                        <li>• When disabled, customers can order without table selection</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={handleSaveTableSettings}
-                disabled={savingTableSettings}
-                className="w-full mt-4 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
-              >
-                <Save size={20} />
-                {savingTableSettings ? 'Saving...' : 'Save Table Settings'}
-              </button>
-            </div>
-          )}
-
-          {/* Payment Settings Section - FIXED */}
-          {!isNewUser && (
-            <div className="bg-white rounded-xl shadow-sm p-4">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <CreditCard size={20} className="text-purple-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-800">Payment Methods</h3>
-                  <p className="text-sm text-gray-500">Choose which payment methods to accept</p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <label className="flex items-center justify-between p-3 bg-gray-100 rounded-lg opacity-60 cursor-not-allowed">
-                  <div className="flex items-center gap-3">
-                    <Phone size={20} className="text-gray-400" />
-                    <div>
-                      <span className="text-sm font-medium text-gray-500">M-Pesa</span>
-                      <p className="text-xs text-gray-400">Mobile money payments (Coming Soon)</p>
-                    </div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={false}
-                    disabled={true}
-                    className="w-5 h-5 text-gray-300 rounded focus:ring-gray-300 cursor-not-allowed"
-                  />
-                </label>
-
-                <label className="flex items-center justify-between p-3 bg-gray-100 rounded-lg opacity-60 cursor-not-allowed">
-                  <div className="flex items-center gap-3">
-                    <CreditCard size={20} className="text-gray-400" />
-                    <div>
-                      <span className="text-sm font-medium text-gray-500">Card Payments</span>
-                      <p className="text-xs text-gray-400">Credit/Debit cards (Coming Soon)</p>
-                    </div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={false}
-                    disabled={true}
-                    className="w-5 h-5 text-gray-300 rounded focus:ring-gray-300 cursor-not-allowed"
-                  />
-                </label>
-
-                <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition">
-                  <div className="flex items-center gap-3">
-                    <DollarSign size={20} className="text-orange-600" />
-                    <div>
-                      <span className="text-sm font-medium text-gray-700">Cash Payment</span>
-                      <p className="text-xs text-gray-500">Pay at counter</p>
-                    </div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={paymentSettings.payment_cash_enabled}
-                    onChange={(e) => setPaymentSettings({
-                      ...paymentSettings, 
-                      payment_cash_enabled: e.target.checked
-                    })}
-                    className="w-5 h-5 text-orange-500 rounded focus:ring-orange-500"
-                  />
-                </label>
-              </div>
-
-              <button
-                onClick={handleSavePaymentSettings}
-                disabled={savingPaymentSettings}
-                className="w-full mt-4 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
-              >
-                <Save size={20} />
-                {savingPaymentSettings ? 'Saving...' : 'Save Payment Settings'}
-              </button>
-            </div>
-          )}
-
-          {/* M-Pesa Setup Section */}
-          {!isNewUser && (
-            <div className="bg-white rounded-xl shadow-sm p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <Phone size={20} className="text-green-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-gray-800">M-Pesa Payments</h3>
-                    <p className="text-sm text-gray-500">Enable mobile money payments for your customers</p>
-                  </div>
-                </div>
-                
-                {/* M-Pesa Enable Toggle - Primary Control */}
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <span className="text-sm font-medium text-gray-700">Enable M-Pesa</span>
-                  <input
-                    type="checkbox"
-                    checked={mpesaSettings.mpesa_enabled}
-                    onChange={(e) => {
-                      const enabled = e.target.checked;
-                      setMpesaSettings({...mpesaSettings, mpesa_enabled: enabled});
-                      // Auto-show setup when enabling
-                      if (enabled && !mpesaSettings.mpesa_setup_completed) {
-                        setShowMpesaSetup(true);
-                      }
-                    }}
-                    className="w-5 h-5 text-green-500 rounded focus:ring-green-500"
-                  />
-                </label>
-              </div>
-
-              {/* M-Pesa Status */}
-              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full ${
-                      !mpesaSettings.mpesa_enabled
-                        ? 'bg-gray-400'
-                        : mpesaSettings.mpesa_setup_completed 
-                        ? 'bg-green-500' 
-                        : 'bg-yellow-500'
-                    }`}></div>
-                    <span className="text-sm font-medium text-gray-700">
-                      {!mpesaSettings.mpesa_enabled
-                        ? 'M-Pesa Disabled'
-                        : mpesaSettings.mpesa_setup_completed 
-                        ? `M-Pesa Active (${mpesaSettings.mpesa_environment})` 
-                        : 'Setup Required'}
-                    </span>
-                  </div>
-                  {mpesaSettings.mpesa_last_test_at && (
-                    <span className="text-xs text-gray-500">
-                      Last tested: {new Date(mpesaSettings.mpesa_last_test_at).toLocaleDateString()}
-                    </span>
-                  )}
-                </div>
-                {mpesaSettings.mpesa_test_status === 'failed' && (
-                  <p className="text-xs text-red-600 mt-1">Last test failed. Please check your credentials.</p>
-                )}
-                {mpesaSettings.mpesa_enabled && !mpesaSettings.mpesa_setup_completed && (
-                  <p className="text-xs text-orange-600 mt-1">Complete setup below to start accepting M-Pesa payments.</p>
-                )}
-              </div>
-
-              {/* Setup Instructions for New Users */}
-              {mpesaSettings.mpesa_enabled && !mpesaSettings.mpesa_setup_completed && (
-                <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
-                    <div className="text-sm text-blue-800">
-                      <p className="font-medium mb-2">🚀 Let's set up M-Pesa payments!</p>
-                      <ol className="text-xs space-y-1 ml-2">
-                        <li><strong>1. Start with Sandbox</strong> - Test your setup safely</li>
-                        <li><strong>2. Get Credentials</strong> - From <a href="https://developer.safaricom.co.ke/MyApps" target="_blank" className="underline">Safaricom Developer Portal</a></li>
-                        <li><strong>3. Test & Verify</strong> - Make sure everything works</li>
-                        <li><strong>4. Go Live</strong> - Switch to production when ready</li>
-                      </ol>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {(mpesaSettings.mpesa_enabled || showMpesaSetup) && (
-                <div className="space-y-4 border-t border-gray-200 pt-4">
-                  {/* Environment Selection */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Environment
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => setMpesaSettings({...mpesaSettings, mpesa_environment: 'sandbox'})}
-                        className={`p-3 rounded-lg text-center transition ${
-                          mpesaSettings.mpesa_environment === 'sandbox'
-                            ? 'bg-orange-100 border-2 border-orange-500 text-orange-700'
-                            : 'bg-gray-100 border border-gray-200 text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        <span className="text-sm font-medium">🏖️ Sandbox</span>
-                        <p className="text-xs text-gray-500 mt-1">For testing</p>
-                      </button>
-                      
-                      <button
-                        onClick={() => setMpesaSettings({...mpesaSettings, mpesa_environment: 'production'})}
-                        className={`p-3 rounded-lg text-center transition ${
-                          mpesaSettings.mpesa_environment === 'production'
-                            ? 'bg-green-100 border-2 border-green-500 text-green-700'
-                            : 'bg-gray-100 border border-gray-200 text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        <span className="text-sm font-medium">🚀 Production</span>
-                        <p className="text-xs text-gray-500 mt-1">Live payments</p>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Sandbox Information */}
-                  {mpesaSettings.mpesa_environment === 'sandbox' && (
-                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                      <h4 className="font-medium text-orange-800 mb-3">🏖️ Sandbox Setup</h4>
-                      
-                      <div className="mb-4">
-                        <p className="text-sm text-orange-700 mb-2">
-                          Get your credentials from <a href="https://developer.safaricom.co.ke/MyApps" target="_blank" className="underline font-medium">Safaricom Developer Portal</a>
-                        </p>
-                        <p className="text-xs text-orange-600">
-                          Business shortcode and passkey are automatically configured for sandbox testing.
-                        </p>
-                      </div>
-                      
-                      {/* Test Phone Numbers */}
-                      <div className="border-t border-orange-200 pt-3">
-                        <h5 className="font-medium text-orange-700 mb-2">📱 Test Phone Numbers:</h5>
-                        <div className="flex flex-wrap gap-2 mb-2">
-                          {['254708374149', '254711040400', '254711040401', '254711040402', '254711040403'].map((phone) => (
-                            <code key={phone} className="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs font-mono">
-                              {phone}
-                            </code>
-                          ))}
+                            {copied ? <Check size={14} /> : <Copy size={14} />}
+                            {copied ? 'Copied!' : 'Copy'}
+                          </button>
                         </div>
-                        <p className="text-xs text-orange-600">
-                          Use these official Safaricom test numbers for sandbox payments.
-                        </p>
+                        <code className="text-sm text-gray-800 break-all">{qrUrl}</code>
                       </div>
-                    </div>
-                  )}
 
-                  {/* Credentials Form */}
-                  <div className="grid grid-cols-1 gap-4">
-                    {/* Business Shortcode - only show for production */}
-                    {mpesaSettings.mpesa_environment === 'production' && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Business Shortcode <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={mpesaSettings.mpesa_business_shortcode}
-                          onChange={(e) => setMpesaSettings({...mpesaSettings, mpesa_business_shortcode: e.target.value})}
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none"
-                          placeholder="e.g., 174379"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Your PayBill or Till number from Daraja</p>
-                      </div>
-                    )}
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Consumer Key <span className="text-red-500">*</span>
-                        {mpesaSettings.mpesa_consumer_key === '••••••••••••••••' && (
-                          <span className="ml-2 text-xs text-green-600 font-medium">✓ Saved</span>
-                        )}
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={mpesaSettings.mpesa_consumer_key === '••••••••••••••••' ? 'password' : 'text'}
-                          value={mpesaSettings.mpesa_consumer_key}
-                          onChange={(e) => setMpesaSettings({...mpesaSettings, mpesa_consumer_key: e.target.value})}
-                          className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none ${
-                            mpesaSettings.mpesa_environment === 'sandbox'
-                              ? 'border-orange-200 focus:border-orange-500'
-                              : 'border-gray-200 focus:border-green-500'
-                          } ${
-                            mpesaSettings.mpesa_consumer_key === '••••••••••••••••' 
-                              ? 'border-green-200 bg-green-50' 
-                              : ''
-                          }`}
-                          placeholder={mpesaSettings.mpesa_consumer_key === '••••••••••••••••' 
-                            ? 'Credential saved securely' 
-                            : 'Enter your Daraja Consumer Key'
-                          }
-                        />
-                        {mpesaSettings.mpesa_consumer_key === '••••••••••••••••' && (
-                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                            <Check size={16} className="text-green-500" />
-                          </div>
-                        )}
-                      </div>
-                      {mpesaSettings.mpesa_consumer_key === '••••••••••••••••' && (
-                        <p className="text-xs text-green-600 mt-1">Credential is encrypted and stored securely</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Consumer Secret <span className="text-red-500">*</span>
-                        {mpesaSettings.mpesa_consumer_secret === '••••••••••••••••' && (
-                          <span className="ml-2 text-xs text-green-600 font-medium">✓ Saved</span>
-                        )}
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="password"
-                          value={mpesaSettings.mpesa_consumer_secret}
-                          onChange={(e) => setMpesaSettings({...mpesaSettings, mpesa_consumer_secret: e.target.value})}
-                          className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none ${
-                            mpesaSettings.mpesa_environment === 'sandbox'
-                              ? 'border-orange-200 focus:border-orange-500'
-                              : 'border-gray-200 focus:border-green-500'
-                          } ${
-                            mpesaSettings.mpesa_consumer_secret === '••••••••••••••••' 
-                              ? 'border-green-200 bg-green-50' 
-                              : ''
-                          }`}
-                          placeholder={mpesaSettings.mpesa_consumer_secret === '••••••••••••••••' 
-                            ? 'Credential saved securely' 
-                            : 'Enter your Daraja Consumer Secret'
-                          }
-                        />
-                        {mpesaSettings.mpesa_consumer_secret === '••••••••••••••••' && (
-                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                            <Check size={16} className="text-green-500" />
-                          </div>
-                        )}
-                      </div>
-                      {mpesaSettings.mpesa_consumer_secret === '••••••••••••••••' && (
-                        <p className="text-xs text-green-600 mt-1">Credential is encrypted and stored securely</p>
-                      )}
-                    </div>
-
-                    {/* Passkey - only show for production */}
-                    {mpesaSettings.mpesa_environment === 'production' && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Passkey <span className="text-red-500">*</span>
-                          {mpesaSettings.mpesa_passkey === '••••••••••••••••' && (
-                            <span className="ml-2 text-xs text-green-600 font-medium">✓ Saved</span>
-                          )}
-                        </label>
-                        <div className="relative">
-                          <input
-                            type={mpesaSettings.mpesa_passkey === '••••••••••••••••' ? 'password' : 'text'}
-                            value={mpesaSettings.mpesa_passkey}
-                            onChange={(e) => setMpesaSettings({...mpesaSettings, mpesa_passkey: e.target.value})}
-                            className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none border-gray-200 focus:border-green-500 ${
-                              mpesaSettings.mpesa_passkey === '••••••••••••••••' 
-                                ? 'border-green-200 bg-green-50' 
-                                : ''
-                            }`}
-                            placeholder={mpesaSettings.mpesa_passkey === '••••••••••••••••' 
-                              ? 'Credential saved securely' 
-                              : 'Enter your Daraja Passkey'
-                            }
-                          />
-                          {mpesaSettings.mpesa_passkey === '••••••••••••••••' && (
-                            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                              <Check size={16} className="text-green-500" />
-                            </div>
-                          )}
-                        </div>
-                        {mpesaSettings.mpesa_passkey === '••••••••••••••••' && (
-                          <p className="text-xs text-green-600 mt-1">Credential is encrypted and stored securely</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Information Box */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
-                      <div className="text-sm text-blue-800">
-                        <p className="font-medium mb-1">How to get Daraja credentials:</p>
-                        <ul className="text-xs space-y-1 ml-2">
-                          <li>• Visit <a href="https://developer.safaricom.co.ke" target="_blank" className="underline">developer.safaricom.co.ke</a></li>
-                          <li>• Create an account and log in</li>
-                          <li>• Create a new app and select "Lipa Na M-Pesa Online"</li>
-                          <li>• Copy the Consumer Key, Consumer Secret, and Passkey</li>
-                          <li>• Use your PayBill or Till number as Business Shortcode</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleSaveMpesaSettings}
-                      disabled={savingMpesaSettings}
-                      className="flex-1 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
-                    >
-                      <Save size={20} />
-                      {savingMpesaSettings ? 'Saving...' : 'Save Credentials'}
-                    </button>
-                    
-                    {(mpesaSettings.mpesa_business_shortcode || 
-                      (mpesaSettings.mpesa_environment === 'sandbox' && mpesaSettings.mpesa_consumer_key && mpesaSettings.mpesa_consumer_secret)) && (
                       <button
-                        onClick={handleTestMpesa}
-                        disabled={testingMpesa}
-                        className="flex-1 bg-blue-500 text-white py-3 rounded-lg font-semibold hover:bg-blue-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
+                        onClick={handleDownloadQR}
+                        className="w-full bg-orange-500 text-white py-3 rounded-lg font-semibold hover:bg-orange-600 flex items-center justify-center gap-2"
                       >
-                        {testingMpesa ? (
-                          <>
-                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                            Testing...
-                          </>
-                        ) : (
-                          <>
-                            <Phone size={20} />
-                            Test Connection
-                          </>
-                        )}
+                        <Download size={20} />
+                        Print QR Code (with Instructions)
                       </button>
-                    )}
-                  </div>
-
-                  {/* Enable M-Pesa Toggle */}
-                  {mpesaSettings.mpesa_setup_completed && (
-                    <div className="border-t border-gray-200 pt-4">
-                      <label className="flex items-center justify-between p-3 bg-green-50 rounded-lg cursor-pointer hover:bg-green-100 transition">
-                        <div className="flex items-center gap-3">
-                          <Phone size={18} className="text-green-600" />
-                          <div>
-                            <span className="text-sm font-medium text-gray-700">Enable M-Pesa Payments</span>
-                            <p className="text-xs text-gray-500">Allow customers to pay via M-Pesa</p>
-                          </div>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={mpesaSettings.mpesa_enabled}
-                          onChange={(e) => setMpesaSettings({...mpesaSettings, mpesa_enabled: e.target.checked})}
-                          className="w-5 h-5 text-green-500 rounded focus:ring-green-500"
-                        />
-                      </label>
+                      <p className="text-xs text-center text-gray-500 mt-2">
+                        Includes URL for customers without QR scanners
+                      </p>
+                    </>
+                  ) : (
+                    <div className="text-center py-8">
+                      <AlertCircle size={48} className="mx-auto mb-3 text-orange-500" />
+                      <p className="text-gray-700 font-medium mb-2">Setup Required</p>
+                      <p className="text-sm text-gray-500">
+                        Complete restaurant information above to generate your QR code
+                      </p>
                     </div>
                   )}
                 </div>
               )}
-            </div>
+
+              {/* Feedback Section */}
+              {!isNewUser && (
+                <div className="bg-white rounded-xl shadow-sm p-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-indigo-100 rounded-lg">
+                      <MessageSquare size={20} className="text-indigo-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-800">Feedback & Support</h3>
+                      <p className="text-sm text-gray-500">Share your experience or report issues</p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setShowFeedbackModal(true)}
+                    className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-indigo-600 hover:to-purple-700 flex items-center justify-center gap-2"
+                  >
+                    <MessageSquare size={20} />
+                    Send Feedback
+                  </button>
+                </div>
+              )}
+            </>
           )}
 
-          {/* Notifications Section */}
-          {!isNewUser && (
-            <div className="bg-white rounded-xl shadow-sm p-4">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <Bell size={20} className="text-green-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-800">Notifications</h3>
-                  <p className="text-sm text-gray-500">Choose what notifications to receive</p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition">
-                  <div className="flex items-center gap-3">
-                    <Bell size={18} className="text-blue-600" />
-                    <div>
-                      <span className="text-sm font-medium text-gray-700">New Orders</span>
-                      <p className="text-xs text-gray-500">Get notified when customers place orders</p>
-                    </div>
+          {/* Payments Tab Content */}
+          {!isNewUser && activeTab === 'payments' && (
+            <>
+              {/* Payment Settings Section */}
+              <div className="bg-white rounded-xl shadow-sm p-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <CreditCard size={20} className="text-purple-600" />
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={notifications.newOrders}
-                    onChange={(e) => setNotifications({
-                      ...notifications, 
-                      newOrders: e.target.checked
-                    })}
-                    className="w-5 h-5 text-orange-500 rounded focus:ring-orange-500"
-                  />
-                </label>
-
-                <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition">
-                  <div className="flex items-center gap-3">
-                    <AlertCircle size={18} className="text-yellow-600" />
-                    <div>
-                      <span className="text-sm font-medium text-gray-700">Pending Approvals</span>
-                      <p className="text-xs text-gray-500">Notify about pending order approvals</p>
-                    </div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={notifications.pendingApprovals}
-                    onChange={(e) => setNotifications({
-                      ...notifications, 
-                      pendingApprovals: e.target.checked
-                    })}
-                    className="w-5 h-5 text-orange-500 rounded focus:ring-orange-500"
-                  />
-                </label>
-
-                <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition">
-                  <div className="flex items-center gap-3">
-                    <CreditCard size={18} className="text-green-600" />
-                    <div>
-                      <span className="text-sm font-medium text-gray-700">Payment Updates</span>
-                      <p className="text-xs text-gray-500">Notify about payment status changes</p>
-                    </div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={notifications.payments}
-                    onChange={(e) => setNotifications({
-                      ...notifications, 
-                      payments: e.target.checked
-                    })}
-                    className="w-5 h-5 text-orange-500 rounded focus:ring-orange-500"
-                  />
-                </label>
-              </div>
-
-              <button
-                onClick={handleSaveNotificationSettings}
-                className="w-full mt-4 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 flex items-center justify-center gap-2"
-              >
-                <Save size={20} />
-                Save Notification Settings
-              </button>
-            </div>
-          )}
-
-          {/* Alert Settings Section */}
-          {!isNewUser && (
-            <div className="bg-white rounded-xl shadow-sm p-4">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <BellRing size={20} className="text-red-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-800">Alert Settings</h3>
-                  <p className="text-sm text-gray-500">Configure order and message alerts</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                {/* Alert Timeout */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Alert Duration (seconds)
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="range"
-                      min="3"
-                      max="15"
-                      value={alertSettings.timeout}
-                      onChange={(e) => setAlertSettings({...alertSettings, timeout: parseInt(e.target.value)})}
-                      className="flex-1"
-                    />
-                    <div className="w-16 text-center">
-                      <span className="text-lg font-bold text-orange-600">{alertSettings.timeout}s</span>
-                    </div>
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>3s (Quick)</span>
-                    <span>15s (Long)</span>
+                  <div>
+                    <h3 className="font-bold text-gray-800">Payment Methods</h3>
+                    <p className="text-sm text-gray-500">Choose which payment methods to accept</p>
                   </div>
                 </div>
 
-                {/* Sound Settings */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Alert Sound
-                  </label>
-                  
-                  <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition mb-3">
+                <div className="space-y-3">
+                  <label className="flex items-center justify-between p-3 bg-gray-100 rounded-lg opacity-60 cursor-not-allowed">
                     <div className="flex items-center gap-3">
-                      <Bell size={18} className="text-blue-600" />
+                      <Phone size={20} className="text-gray-400" />
                       <div>
-                        <span className="text-sm font-medium text-gray-700">Enable Sound</span>
-                        <p className="text-xs text-gray-500">Play sound when alerts appear</p>
+                        <span className="text-sm font-medium text-gray-500">M-Pesa</span>
+                        <p className="text-xs text-gray-400">Mobile money payments (Coming Soon)</p>
                       </div>
                     </div>
                     <input
                       type="checkbox"
-                      checked={alertSettings.soundEnabled}
-                      onChange={(e) => setAlertSettings({...alertSettings, soundEnabled: e.target.checked})}
-                      className="w-5 h-5 text-orange-500 rounded focus:ring-orange-500"
+                      checked={false}
+                      disabled={true}
+                      className="w-5 h-5 text-gray-300 rounded focus:ring-gray-300 cursor-not-allowed"
                     />
                   </label>
 
-                  {alertSettings.soundEnabled && (
-                    <div className="space-y-3">
-                      {/* Volume Control */}
-                      <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <p className="text-sm font-medium text-gray-700 mb-3">Alert Volume</p>
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="range"
-                            min="0"
-                            max="1"
-                            step="0.1"
-                            value={alertSettings.volume}
-                            onChange={(e) => setAlertSettings({...alertSettings, volume: parseFloat(e.target.value)})}
-                            className="flex-1"
-                          />
-                          <div className="w-12 text-center">
-                            <span className="text-sm font-bold text-blue-600">{Math.round(alertSettings.volume * 100)}%</span>
-                          </div>
-                        </div>
-                        <div className="flex justify-between text-xs text-gray-500 mt-1">
-                          <span>🔇 Silent</span>
-                          <span>🔊 Max</span>
-                        </div>
-                      </div>
-                      
-                      <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <p className="text-sm text-blue-800 font-medium mb-2">Custom Alert Sound</p>
-                        
-                        {alertSettings.customAudioUrl ? (
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <audio controls className="flex-1 h-8">
-                                <source src={alertSettings.customAudioUrl} type="audio/mpeg" />
-                                <source src={alertSettings.customAudioUrl} type="audio/wav" />
-                                Your browser does not support audio playback.
-                              </audio>
-                              <button
-                                onClick={handleRemoveCustomAudio}
-                                className="px-3 py-1 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                            <p className="text-xs text-gray-600">
-                              {alertSettings.customAudioName || 'Custom alert sound is active'}
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="file"
-                                accept="audio/*"
-                                onChange={handleAudioUpload}
-                                disabled={uploadingAudio}
-                                className="hidden"
-                                id="audio-upload"
-                              />
-                              <label
-                                htmlFor="audio-upload"
-                                className="flex-1 px-4 py-2 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600 transition cursor-pointer text-center disabled:bg-gray-300"
-                              >
-                                {uploadingAudio ? (
-                                  <>
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white inline-block mr-2"></div>
-                                    Uploading...
-                                  </>
-                                ) : (
-                                  '📤 Upload Custom Sound'
-                                )}
-                              </label>
-                            </label>
-                            <p className="text-xs text-gray-600">MP3, WAV files (max 5MB)</p>
-                          </div>
-                        )}
+                  <label className="flex items-center justify-between p-3 bg-gray-100 rounded-lg opacity-60 cursor-not-allowed">
+                    <div className="flex items-center gap-3">
+                      <CreditCard size={20} className="text-gray-400" />
+                      <div>
+                        <span className="text-sm font-medium text-gray-500">Card Payments</span>
+                        <p className="text-xs text-gray-400">Credit/Debit cards (Coming Soon)</p>
                       </div>
                     </div>
-                  )}
+                    <input
+                      type="checkbox"
+                      checked={false}
+                      disabled={true}
+                      className="w-5 h-5 text-gray-300 rounded focus:ring-gray-300 cursor-not-allowed"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition">
+                    <div className="flex items-center gap-3">
+                      <DollarSign size={20} className="text-orange-600" />
+                      <div>
+                        <span className="text-sm font-medium text-gray-700">Cash Payment</span>
+                        <p className="text-xs text-gray-500">Pay at counter</p>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={paymentSettings.payment_cash_enabled}
+                      onChange={(e) => setPaymentSettings({
+                        ...paymentSettings, 
+                        payment_cash_enabled: e.target.checked
+                      })}
+                      className="w-5 h-5 text-orange-500 rounded focus:ring-orange-500"
+                    />
+                  </label>
                 </div>
+
+                <button
+                  onClick={handleSavePaymentSettings}
+                  disabled={savingPaymentSettings}
+                  className="w-full mt-4 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
+                >
+                  <Save size={20} />
+                  {savingPaymentSettings ? 'Saving...' : 'Save Payment Settings'}
+                </button>
               </div>
-
-              <button
-                onClick={handleSaveAlertSettings}
-                disabled={savingAlertSettings}
-                className="w-full mt-4 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
-              >
-                <Save size={20} />
-                {savingAlertSettings ? 'Saving...' : 'Save Alert Settings'}
-              </button>
-            </div>
-          )}
-
-          {/* Feedback Section */}
-          {!isNewUser && (
-            <div className="bg-white rounded-xl shadow-sm p-4">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-indigo-100 rounded-lg">
-                  <MessageSquare size={20} className="text-indigo-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-800">Feedback & Support</h3>
-                  <p className="text-sm text-gray-500">Share your experience or report issues</p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setShowFeedbackModal(true)}
-                className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-indigo-600 hover:to-purple-700 flex items-center justify-center gap-2"
-              >
-                <MessageSquare size={20} />
-                Send Feedback
-              </button>
-            </div>
+            </>
           )}
         </div>
       </div>
