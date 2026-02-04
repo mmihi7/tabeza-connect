@@ -3,8 +3,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Store, Bell, QrCode, Save, X, MessageSquare, Copy, Check, Edit2, Download, AlertCircle, CreditCard, Phone, DollarSign, Send, Clock, Calendar, Sun, Moon, BellRing, Grid3X3 } from 'lucide-react';
+import { ArrowRight, Store, Bell, QrCode, Save, X, MessageSquare, Copy, Check, Edit2, Download, AlertCircle, CreditCard, Phone, DollarSign, Send, Clock, Calendar, Sun, Moon, BellRing, Grid3X3, Menu, Printer } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import VenueModeOnboarding from '@/components/VenueModeOnboarding';
 
 export const dynamic = 'force-dynamic';
 
@@ -98,6 +99,15 @@ export default function SettingsPage() {
 
   // Tab Navigation State
   const [activeTab, setActiveTab] = useState<'general' | 'payments' | 'notifications' | 'operations'>('general');
+
+  // Venue Mode State
+  const [venueMode, setVenueMode] = useState<'basic' | 'venue'>('venue');
+  const [authorityMode, setAuthorityMode] = useState<'pos' | 'tabeza'>('tabeza');
+  const [posIntegrationEnabled, setPosIntegrationEnabled] = useState(false);
+  const [printerRequired, setPrinterRequired] = useState(false);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(true);
+  const [showVenueModeModal, setShowVenueModeModal] = useState(false);
+  const [savingVenueMode, setSavingVenueMode] = useState(false);
 
   // Business Hours State
   const [businessHoursMode, setBusinessHoursMode] = useState<BusinessHoursMode>('simple');
@@ -225,6 +235,13 @@ export default function SettingsPage() {
         table_setup_enabled: data.table_setup_enabled ?? false,
         table_count: data.table_count ?? 20
       });
+
+      // Load venue mode settings
+      setVenueMode(data.venue_mode ?? 'venue');
+      setAuthorityMode(data.authority_mode ?? 'tabeza');
+      setPosIntegrationEnabled(data.pos_integration_enabled ?? false);
+      setPrinterRequired(data.printer_required ?? false);
+      setOnboardingCompleted(data.onboarding_completed ?? true);
 
       // Load M-Pesa settings via API to get masked credentials
       try {
@@ -682,6 +699,56 @@ export default function SettingsPage() {
       alert('Failed to save table settings. Please try again.');
     } finally {
       setSavingTableSettings(false);
+    }
+  };
+
+  const handleSaveVenueMode = async (config: {
+    venue_mode: 'basic' | 'venue';
+    authority_mode: 'pos' | 'tabeza';
+    pos_integration_enabled: boolean;
+    printer_required: boolean;
+  }) => {
+    setSavingVenueMode(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user || !user.user_metadata?.bar_id) {
+        alert('Authentication error. Please log in again.');
+        router.push('/login');
+        return;
+      }
+
+      const userBarId = user.user_metadata.bar_id;
+
+      const { error } = await (supabase as any)
+        .from('bars')
+        .update({
+          venue_mode: config.venue_mode,
+          authority_mode: config.authority_mode,
+          pos_integration_enabled: config.pos_integration_enabled,
+          printer_required: config.printer_required,
+          onboarding_completed: true,
+          authority_configured_at: new Date().toISOString(),
+          mode_last_changed_at: new Date().toISOString()
+        })
+        .eq('id', userBarId);
+
+      if (error) throw error;
+
+      // Update local state
+      setVenueMode(config.venue_mode);
+      setAuthorityMode(config.authority_mode);
+      setPosIntegrationEnabled(config.pos_integration_enabled);
+      setPrinterRequired(config.printer_required);
+      setOnboardingCompleted(true);
+      setShowVenueModeModal(false);
+
+      alert('✅ Venue configuration updated successfully!');
+    } catch (error) {
+      console.error('Error saving venue mode:', error);
+      alert('Failed to save venue configuration. Please try again.');
+    } finally {
+      setSavingVenueMode(false);
     }
   };
 
@@ -2191,6 +2258,155 @@ export default function SettingsPage() {
                 <p className="text-xs text-green-800">DEBUG: Operations tab is rendering</p>
               </div>
 
+              {/* Venue Mode Configuration Section */}
+              <div className="bg-white rounded-xl shadow-sm p-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <Store size={20} className="text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-800">Venue Configuration</h3>
+                    <p className="text-sm text-gray-500">Configure how Tabeza operates at your venue</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Current Configuration Display */}
+                  <div className={`border-2 rounded-lg p-4 ${
+                    venueMode === 'basic' 
+                      ? 'bg-blue-50 border-blue-200' 
+                      : 'bg-green-50 border-green-200'
+                  }`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                          venueMode === 'basic' ? 'bg-blue-100' : 'bg-green-100'
+                        }`}>
+                          {venueMode === 'basic' ? (
+                            <Printer size={20} className="text-blue-600" />
+                          ) : (
+                            <Menu size={20} className="text-green-600" />
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-gray-800">
+                            {venueMode === 'basic' ? 'Tabeza Basic' : 'Tabeza Venue'}
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            {venueMode === 'basic' 
+                              ? 'Transaction & Receipt Bridge' 
+                              : authorityMode === 'pos'
+                                ? 'Customer Interaction + POS Integration'
+                                : 'Full Service Platform'
+                            }
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setShowVenueModeModal(true)}
+                        className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-sm font-medium"
+                      >
+                        Change Configuration
+                      </button>
+                    </div>
+
+                    {/* Configuration Details */}
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-600">Mode:</span>
+                        <span className="ml-2 font-medium text-gray-800">
+                          {venueMode === 'basic' ? 'Basic' : 'Venue'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Order Authority:</span>
+                        <span className="ml-2 font-medium text-gray-800">
+                          {authorityMode === 'pos' ? 'POS System' : 'Tabeza'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">POS Integration:</span>
+                        <span className={`ml-2 font-medium ${
+                          posIntegrationEnabled ? 'text-green-600' : 'text-gray-500'
+                        }`}>
+                          {posIntegrationEnabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Printer Required:</span>
+                        <span className={`ml-2 font-medium ${
+                          printerRequired ? 'text-orange-600' : 'text-gray-500'
+                        }`}>
+                          {printerRequired ? 'Yes' : 'No'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Workflow Description */}
+                    <div className="mt-4 p-3 bg-white rounded-lg border">
+                      <p className="text-sm text-gray-700">
+                        <strong>Current Workflow:</strong>{' '}
+                        {venueMode === 'basic' 
+                          ? 'POS creates orders → Tabeza mirrors receipts → Digital delivery to customers'
+                          : authorityMode === 'pos'
+                            ? 'Customers request → Staff confirms in POS → Tabeza delivers receipts'
+                            : 'Customers order → Staff confirms in Tabeza → Digital receipts generated'
+                        }
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Configuration Warnings */}
+                  {venueMode === 'basic' && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle size={16} className="text-blue-600 mt-0.5" />
+                        <div className="text-sm text-blue-800">
+                          <p className="font-medium">Basic Mode Requirements</p>
+                          <p className="mt-1">
+                            • Thermal printer must be configured and connected<br/>
+                            • POS system must be operational<br/>
+                            • Customer ordering and menus are disabled
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {venueMode === 'venue' && authorityMode === 'pos' && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle size={16} className="text-yellow-600 mt-0.5" />
+                        <div className="text-sm text-yellow-800">
+                          <p className="font-medium">POS Integration Mode</p>
+                          <p className="mt-1">
+                            • Customers can browse menus and send requests<br/>
+                            • All orders must be confirmed in your POS system<br/>
+                            • Staff ordering in Tabeza is disabled
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {venueMode === 'venue' && authorityMode === 'tabeza' && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <div className="flex items-start gap-2">
+                        <Check size={16} className="text-green-600 mt-0.5" />
+                        <div className="text-sm text-green-800">
+                          <p className="font-medium">Full Tabeza Mode</p>
+                          <p className="mt-1">
+                            • Complete customer ordering system<br/>
+                            • Staff can manage orders in Tabeza<br/>
+                            • Digital receipts and payment processing
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Business Hours Section */}
               <div className="bg-white rounded-xl shadow-sm p-4">
                 <div className="flex items-center gap-3 mb-4">
@@ -2597,6 +2813,38 @@ export default function SettingsPage() {
                     )}
                   </button>
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Venue Mode Configuration Modal */}
+      {showVenueModeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-gray-800">Venue Configuration</h3>
+                <button
+                  onClick={() => setShowVenueModeModal(false)}
+                  disabled={savingVenueMode}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition"
+                >
+                  <X size={20} className="text-gray-500" />
+                </button>
+              </div>
+
+              {savingVenueMode ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Saving configuration...</p>
+                </div>
+              ) : (
+                <VenueModeOnboarding
+                  onComplete={handleSaveVenueMode}
+                  onCancel={() => setShowVenueModeModal(false)}
+                />
               )}
             </div>
           </div>
