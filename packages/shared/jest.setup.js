@@ -1,43 +1,31 @@
-// Jest setup file for shared package
-// Add any global test setup here
+// Jest setup file for shared package tests
 
-// Increase timeout for property-based tests
-jest.setTimeout(30000);
+// Mock localStorage
+const localStorageMock = {
+  getItem: jest.fn(),
+  setItem: jest.fn(),
+  removeItem: jest.fn(),
+  clear: jest.fn(),
+};
+global.localStorage = localStorageMock;
 
-// Mock React and DOM environment for component tests
-global.React = require('react');
+// Mock console methods to reduce noise in tests
+global.console = {
+  ...console,
+  // Uncomment to suppress console output in tests
+  // log: jest.fn(),
+  // warn: jest.fn(),
+  // error: jest.fn(),
+};
 
-// Mock Next.js router for component tests
-jest.mock('next/navigation', () => ({
-  useRouter() {
-    return {
-      push: jest.fn(),
-      replace: jest.fn(),
-      prefetch: jest.fn(),
-      back: jest.fn(),
-      forward: jest.fn(),
-      refresh: jest.fn(),
-    }
-  },
-  useSearchParams() {
-    return new URLSearchParams()
-  },
-  usePathname() {
-    return ''
-  },
-}));
-
-// Mock window.matchMedia for component tests
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: jest.fn().mockImplementation(query => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: jest.fn(), // deprecated
-    removeListener: jest.fn(), // deprecated
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    dispatchEvent: jest.fn(),
-  })),
+// Setup test environment
+beforeEach(() => {
+  // Clear all mocks before each test
+  jest.clearAllMocks();
+  
+  // Reset localStorage mock
+  localStorageMock.getItem.mockClear();
+  localStorageMock.setItem.mockClear();
+  localStorageMock.removeItem.mockClear();
+  localStorageMock.clear.mockClear();
 });

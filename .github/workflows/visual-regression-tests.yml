@@ -1,0 +1,300 @@
+name: Visual Regression Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'apps/staff/**'
+      - 'packages/shared/**'
+      - 'apps/customer/**'
+      - '.github/workflows/visual-regression-tests.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'apps/staff/**'
+      - 'packages/shared/**'
+      - 'apps/customer/**'
+      - '.github/workflows/visual-regression-tests.yml'
+  workflow_dispatch:
+    inputs:
+      update_baselines:
+        description: 'Update baseline screenshots'
+        required: false
+        default: false
+        type: boolean
+      test_project:
+        description: 'Specific browser/device to test'
+        required: false
+        default: 'Desktop Chrome'
+        type: choice
+        options:
+          - 'Desktop Chrome'
+          - 'Desktop Firefox'
+          - 'Desktop Safari'
+          - 'iPad'
+          - 'iPhone 12'
+          - 'All'
+
+# CORE TRUTH: Manual service always exists. 
+# Digital authority is singular. 
+# Tabeza adapts to the venue — never the reverse.
+
+jobs:
+  visual-tests:
+    name: Visual Regression Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        project: 
+          - ${{ github.event.inputs.test_project == 'All' && 'Desktop Chrome' || github.event.inputs.test_project || 'Desktop Chrome' }}
+          - ${{ github.event.inputs.test_project == 'All' && 'Desktop Firefox' || '' }}
+          - ${{ github.event.inputs.test_project == 'All' && 'iPad' || '' }}
+          - ${{ github.event.inputs.test_project == 'All' && 'iPhone 12' || '' }}
+        exclude:
+          - project: ''
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 10.25.0
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Install Playwright browsers
+        run: |
+          cd packages/shared
+          npx playwright install --with-deps
+      
+      - name: Build applications
+        run: |
+          pnpm build:staff
+          pnpm build:customer
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      
+      - name: Start applications
+        run: |
+          pnpm start:staff &
+          pnpm start:customer &
+          sleep 10
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      
+      - name: Wait for applications to be ready
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:3003/api/health; do sleep 2; done'
+          timeout 60 bash -c 'until curl -f http://localhost:3002/api/health; do sleep 2; done'
+      
+      - name: Run visual regression tests
+        run: |
+          cd packages/shared
+          if [ "${{ github.event.inputs.update_baselines }}" = "true" ]; then
+            npx playwright test --project="${{ matrix.project }}" --update-snapshots
+          else
+            npx playwright test --project="${{ matrix.project }}"
+          fi
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:3003
+          CI: true
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-test-results-${{ matrix.project }}
+          path: |
+            packages/shared/visual-test-results/
+            packages/shared/test-results/
+          retention-days: 7
+      
+      - name: Upload baseline screenshots
+        uses: actions/upload-artifact@v4
+        if: github.event.inputs.update_baselines == 'true'
+        with:
+          name: updated-baselines-${{ matrix.project }}
+          path: packages/shared/test-results/
+          retention-days: 30
+      
+      - name: Comment PR with results
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request' && always()
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            const resultsPath = 'packages/shared/visual-test-results/results.json';
+            
+            if (!fs.existsSync(resultsPath)) {
+              console.log('No test results found');
+              return;
+            }
+            
+            const results = JSON.parse(fs.readFileSync(resultsPath, 'utf8'));
+            const { stats } = results;
+            
+            const passed = stats?.passed || 0;
+            const failed = stats?.failed || 0;
+            const total = stats?.total || 0;
+            const duration = Math.round((stats?.duration || 0) / 1000);
+            
+            const status = failed > 0 ? '❌' : '✅';
+            const project = '${{ matrix.project }}';
+            
+            const comment = `
+            ## ${status} Visual Regression Tests - ${project}
+            
+            **Results Summary:**
+            - **Total Tests:** ${total}
+            - **Passed:** ${passed}
+            - **Failed:** ${failed}
+            - **Duration:** ${duration}s
+            
+            ${failed > 0 ? `
+            **⚠️ Visual differences detected!**
+            
+            Please review the test results and screenshots in the [Actions artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+            
+            If the changes are intentional, update the baseline screenshots by running:
+            \`\`\`bash
+            cd packages/shared
+            pnpm test:visual:update
+            \`\`\`
+            ` : '**🎉 All visual tests passed!**'}
+            
+            ---
+            *Theme consistency verified for all venue configurations (Basic/Venue+POS/Venue+Tabeza)*
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  consolidate-results:
+    name: Consolidate Test Results
+    runs-on: ubuntu-latest
+    needs: visual-tests
+    if: always()
+    
+    steps:
+      - name: Download all test results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: visual-test-results-*
+          merge-multiple: true
+          path: consolidated-results/
+      
+      - name: Generate consolidated report
+        run: |
+          echo "# Visual Regression Test Results" > consolidated-report.md
+          echo "" >> consolidated-report.md
+          echo "## Test Summary" >> consolidated-report.md
+          echo "" >> consolidated-report.md
+          
+          total_passed=0
+          total_failed=0
+          total_tests=0
+          
+          for results_file in consolidated-results/*/results.json; do
+            if [ -f "$results_file" ]; then
+              project=$(basename $(dirname "$results_file"))
+              passed=$(jq -r '.stats.passed // 0' "$results_file")
+              failed=$(jq -r '.stats.failed // 0' "$results_file")
+              total=$(jq -r '.stats.total // 0' "$results_file")
+              
+              total_passed=$((total_passed + passed))
+              total_failed=$((total_failed + failed))
+              total_tests=$((total_tests + total))
+              
+              status="✅"
+              if [ "$failed" -gt 0 ]; then
+                status="❌"
+              fi
+              
+              echo "- **$project**: $status $passed/$total passed" >> consolidated-report.md
+            fi
+          done
+          
+          echo "" >> consolidated-report.md
+          echo "**Overall: $total_passed/$total_tests tests passed**" >> consolidated-report.md
+          
+          if [ "$total_failed" -gt 0 ]; then
+            echo "" >> consolidated-report.md
+            echo "⚠️ **$total_failed visual differences detected across all projects**" >> consolidated-report.md
+            exit 1
+          else
+            echo "" >> consolidated-report.md
+            echo "🎉 **All visual regression tests passed!**" >> consolidated-report.md
+          fi
+      
+      - name: Upload consolidated report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: consolidated-visual-test-report
+          path: |
+            consolidated-report.md
+            consolidated-results/
+          retention-days: 30
+
+  update-baselines:
+    name: Update Baseline Screenshots
+    runs-on: ubuntu-latest
+    if: github.event.inputs.update_baselines == 'true' && github.ref == 'refs/heads/main'
+    needs: visual-tests
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Download updated baselines
+        uses: actions/download-artifact@v4
+        with:
+          pattern: updated-baselines-*
+          merge-multiple: true
+          path: packages/shared/test-results/
+      
+      - name: Commit updated baselines
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add packages/shared/test-results/
+          
+          if git diff --staged --quiet; then
+            echo "No baseline changes to commit"
+          else
+            git commit -m "Update visual regression test baselines
+            
+            - Updated baseline screenshots from visual regression tests
+            - Triggered by: ${{ github.actor }}
+            - Workflow run: ${{ github.run_id }}
+            
+            CORE TRUTH: Manual service always exists.
+            Digital authority is singular.
+            Tabeza adapts to the venue — never the reverse."
+            
+            git push
+          fi
