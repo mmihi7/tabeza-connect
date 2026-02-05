@@ -1,0 +1,55 @@
+# Source files
+src/
+tsconfig.json
+jest.config.js
+
+# Development files
+*.test.ts
+*.spec.ts
+__tests__/
+test/
+tests/
+
+# Build artifacts
+*.tsbuildinfo
+.turbo/
+
+# Development tools
+.eslintrc*
+.prettierrc*
+.editorconfig
+
+# Documentation (except README)
+docs/
+*.md
+!README.md
+!CHANGELOG.md
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+.nyc_output/
+
+# node_modules is handled by .gitignore
+node_modules/
