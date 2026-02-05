@@ -830,53 +830,27 @@ export default function SettingsPage() {
     pos_integration_enabled: boolean;
     printer_required: boolean;
   }) => {
-    setSavingVenueMode(true);
-    
-    try {
-      // Get current configuration for validation
-      const currentConfig = {
+    // Validate configuration first
+    const validationResult = validateChange(
+      {
         venue_mode: venueMode,
         authority_mode: authorityMode,
         pos_integration_enabled: posIntegrationEnabled,
         printer_required: printerRequired,
-        onboarding_completed: onboardingCompleted,
-        authority_configured_at: new Date().toISOString(), // Will be preserved from DB
-        mode_last_changed_at: new Date().toISOString()
-      };
+        onboarding_completed: onboardingCompleted
+      },
+      config
+    );
 
-      // Validate configuration change against existing data
-      const validationResult = validateChange(currentConfig, {
-        venue_mode: config.venue_mode,
-        authority_mode: config.authority_mode,
-        pos_integration_enabled: config.pos_integration_enabled,
-        printer_required: config.printer_required
-      });
-
-      if (!validationResult.isValid) {
-        alert(`❌ Configuration validation failed:\n\n${validationResult.errors.join('\n')}`);
-        return;
-      }
-
-      // Check for potentially destructive changes that require confirmation
-      const hasDestructiveChanges = validationResult.warnings.length > 0;
-      
-      if (hasDestructiveChanges) {
-        // Store pending change and show confirmation modal
-        setPendingConfigChange(config);
-        setConfigChangeWarnings(validationResult.warnings);
-        setShowConfirmationModal(true);
-        return;
-      }
-
-      // No destructive changes, proceed with save
-      await performConfigurationSave(config, validationResult.correctedConfig);
-      
-    } catch (error) {
-      console.error('Error validating venue configuration:', error);
-      alert('Failed to validate venue configuration. Please try again.');
-    } finally {
-      setSavingVenueMode(false);
+    if (!validationResult.isValid) {
+      setConfigChangeWarnings(validationResult.errors);
+      setPendingConfigChange(config);
+      setShowConfirmationModal(true);
+      return;
     }
+
+    // Configuration is valid, proceed with save
+    await performConfigurationSave(config, validationResult.correctedConfig);
   };
 
   const performConfigurationSave = async (
@@ -1401,8 +1375,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <ThemeProvider initialVenueConfig={currentVenueConfig}>
-      <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-gray-50 pb-24">
       {/* Header */}
       <div className="bg-gradient-to-r from-orange-500 to-red-600 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -1804,36 +1777,40 @@ export default function SettingsPage() {
                   Your current venue mode and operational settings. Changes to these settings may affect how your venue operates.
                 </p>
                 
-                <VenueConfigurationDisplay 
-                  config={currentVenueConfig}
-                  showDetails={true}
-                  className="mb-6"
-                />
+                <div className="bg-gray-100 p-6 rounded-lg mb-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">Current Configuration</h3>
+                  <div className="space-y-2 text-sm text-gray-600">
+                    <p><strong>Venue Mode:</strong> {venueMode}</p>
+                    <p><strong>Authority Mode:</strong> {authorityMode}</p>
+                    <p><strong>POS Integration:</strong> {posIntegrationEnabled ? 'Enabled' : 'Disabled'}</p>
+                    <p><strong>Printer Required:</strong> {printerRequired ? 'Yes' : 'No'}</p>
+                    <p><strong>Onboarding Completed:</strong> {onboardingCompleted ? 'Yes' : 'No'}</p>
+                  </div>
+                </div>
 
-                <ThemedCard className="p-6 mb-6">
+                <div className="bg-white border border-gray-200 p-6 rounded-lg mb-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-lg font-semibold text-gray-800 mb-2">Change Configuration</h3>
                       <p className="text-gray-600 text-sm">
-                        Modify your venue mode or authority settings. This will affect how orders are processed.
+                        Venue configuration is temporarily disabled for maintenance.
                       </p>
                     </div>
-                    <ThemedButton
-                      onClick={() => setShowVenueModeModal(true)}
-                      variant="primary"
+                    <button
+                      onClick={() => alert('Configuration changes are temporarily disabled')}
+                      disabled
+                      className="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
                     >
-                      Change Settings
-                    </ThemedButton>
+                      Change Settings (Disabled)
+                    </button>
                   </div>
-                </ThemedCard>
+                </div>
 
-                {/* Configuration History */}
-                <ConfigurationHistory 
-                  barId={barInfo.id}
-                  showTimestamps={true}
-                  maxEntries={20}
-                  className="mb-6"
-                />
+                {/* Configuration History - Temporarily Disabled */}
+                <div className="bg-gray-50 p-6 rounded-lg mb-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">Configuration History</h3>
+                  <p className="text-gray-600 text-sm">Configuration history is temporarily disabled for maintenance.</p>
+                </div>
               </div>
             </>
           )}
@@ -3314,6 +3291,8 @@ export default function SettingsPage() {
                 <VenueModeOnboarding
                   onComplete={handleSaveVenueMode}
                   onCancel={() => setShowVenueModeModal(false)}
+                  isForced={!onboardingCompleted}
+                  barId={barInfo.id}
                 />
               )}
             </div>
@@ -3409,6 +3388,5 @@ export default function SettingsPage() {
         </div>
       )}
     </div>
-    </ThemeProvider>
   );
 }

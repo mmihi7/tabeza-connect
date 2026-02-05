@@ -9,7 +9,7 @@ const createJestConfig = nextJest({
 const customJestConfig = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testEnvironment: 'jsdom',
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
     '^@tabeza/shared$': '<rootDir>/../../packages/shared',
     '^@tabeza/shared/(.*)$': '<rootDir>/../../packages/shared/$1',

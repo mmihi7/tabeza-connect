@@ -30,6 +30,9 @@ export interface DatabaseOperationResult<T = any> {
   userMessage?: string;
   retryCount?: number;
   shouldRetry?: boolean;
+  canRetry?: boolean;
+  errorCode?: string;
+  validationErrors?: string[];
 }
 
 export interface DatabaseOperationOptions {
@@ -58,11 +61,11 @@ const ERROR_MESSAGES: Record<string, string> = {
   
   // Authentication errors
   'PGRST103': 'Authentication failed. Please log in again.',
-  'PGRST301': 'Session expired. Please log in again.',
+  'PGRST301_AUTH': 'Session expired. Please log in again.',
   'invalid_grant': 'Authentication failed. Please log in again.',
   
   // Permission errors
-  'PGRST301': 'You do not have permission to perform this action.',
+  'PGRST301_PERM': 'You do not have permission to perform this action.',
   'insufficient_privilege': 'You do not have permission to perform this action.',
   'row_security_violation': 'Access denied. Please contact support if this persists.',
   

@@ -5,6 +5,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
+// Extend NextRequest to include ip property
+declare module 'next/server' {
+  interface NextRequest {
+    ip?: string;
+  }
+}
+
 export const dynamic = 'force-dynamic';
 
 /**
@@ -95,7 +102,7 @@ function getVenueConfiguration(venueMode: string, authorityMode: string) {
  */
 async function logAuditEntry(action: string, details: any) {
   try {
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('audit_logs')
       .insert({
         action,
@@ -120,7 +127,7 @@ async function logAuditEntry(action: string, details: any) {
  */
 async function diagnoseVenues() {
   // Get venues with incomplete onboarding
-  const { data: incompleteVenues, error: incompleteError } = await supabase
+  const { data: incompleteVenues, error: incompleteError } = await (supabase as any)
     .from('bars')
     .select('id, name, slug, venue_mode, authority_mode, onboarding_completed, pos_integration_enabled, printer_required, created_at')
     .or('onboarding_completed.is.null,onboarding_completed.eq.false')
@@ -131,7 +138,7 @@ async function diagnoseVenues() {
   }
   
   // Get all venues for validation
-  const { data: allVenues, error: allError } = await supabase
+  const { data: allVenues, error: allError } = await (supabase as any)
     .from('bars')
     .select('id, name, slug, venue_mode, authority_mode, onboarding_completed, pos_integration_enabled, printer_required, created_at');
   
@@ -140,24 +147,24 @@ async function diagnoseVenues() {
   }
   
   // Find venues with invalid configurations
-  const invalidVenues = allVenues.filter(venue => {
+  const invalidVenues = (allVenues || []).filter((venue: any) => {
     const issues = validateVenueConfig(venue);
     return issues.length > 0;
-  }).map(venue => ({
+  }).map((venue: any) => ({
     ...venue,
     issues: validateVenueConfig(venue)
   }));
   
   // Calculate statistics
   const stats = {
-    total: allVenues.length,
-    completed: allVenues.filter(v => v.onboarding_completed === true).length,
-    incomplete: incompleteVenues.length,
+    total: (allVenues || []).length,
+    completed: (allVenues || []).filter((v: any) => v.onboarding_completed === true).length,
+    incomplete: (incompleteVenues || []).length,
     invalid: invalidVenues.length,
-    basic: allVenues.filter(v => v.venue_mode === 'basic').length,
-    venue: allVenues.filter(v => v.venue_mode === 'venue').length,
-    pos: allVenues.filter(v => v.authority_mode === 'pos').length,
-    tabeza: allVenues.filter(v => v.authority_mode === 'tabeza').length
+    basic: (allVenues || []).filter((v: any) => v.venue_mode === 'basic').length,
+    venue: (allVenues || []).filter((v: any) => v.venue_mode === 'venue').length,
+    pos: (allVenues || []).filter((v: any) => v.authority_mode === 'pos').length,
+    tabeza: (allVenues || []).filter((v: any) => v.authority_mode === 'tabeza').length
   };
   
   return {
@@ -172,7 +179,7 @@ async function diagnoseVenues() {
  */
 async function resetSingleVenue(venueId: string, venueMode: string, authorityMode: string, dryRun: boolean) {
   // Get current venue data
-  const { data: venue, error: fetchError } = await supabase
+  const { data: venue, error: fetchError } = await (supabase as any)
     .from('bars')
     .select('id, name, slug, venue_mode, authority_mode, onboarding_completed, pos_integration_enabled, printer_required')
     .eq('id', venueId)
@@ -200,14 +207,14 @@ async function resetSingleVenue(venueId: string, venueMode: string, authorityMod
   // Log audit entry
   await logAuditEntry('admin_recovery_single_venue_api', {
     venue_id: venueId,
-    venue_name: venue.name,
+    venue_name: (venue as any)?.name,
     recovery_type: 'reset_single',
     old_config: venue,
     new_config: newConfig
   });
   
   // Update venue
-  const { error: updateError } = await supabase
+  const { error: updateError } = await (supabase as any)
     .from('bars')
     .update(newConfig)
     .eq('id', venueId);
@@ -217,7 +224,7 @@ async function resetSingleVenue(venueId: string, venueMode: string, authorityMod
   }
   
   // Verify update
-  const { data: updatedVenue, error: verifyError } = await supabase
+  const { data: updatedVenue, error: verifyError } = await (supabase as any)
     .from('bars')
     .select('venue_mode, authority_mode, onboarding_completed, pos_integration_enabled, printer_required')
     .eq('id', venueId)
@@ -244,7 +251,7 @@ async function resetSingleVenue(venueId: string, venueMode: string, authorityMod
  */
 async function resetBulkVenues(venueMode: string, authorityMode: string, dryRun: boolean) {
   // Get venues needing reset
-  const { data: venues, error: fetchError } = await supabase
+  const { data: venues, error: fetchError } = await (supabase as any)
     .from('bars')
     .select('id, name, slug, venue_mode, authority_mode, onboarding_completed, created_at')
     .or('onboarding_completed.is.null,onboarding_completed.eq.false')
@@ -280,8 +287,8 @@ async function resetBulkVenues(venueMode: string, authorityMode: string, dryRun:
   });
   
   // Update all venues
-  const venueIds = venues.map(v => v.id);
-  const { error: updateError } = await supabase
+  const venueIds = venues.map((v: any) => v.id);
+  const { error: updateError } = await (supabase as any)
     .from('bars')
     .update(newConfig)
     .in('id', venueIds);
@@ -309,7 +316,7 @@ async function resetBulkVenues(venueMode: string, authorityMode: string, dryRun:
  */
 async function fixInvalidConfigurations(dryRun: boolean) {
   // Get all venues
-  const { data: venues, error: fetchError } = await supabase
+  const { data: venues, error: fetchError } = await (supabase as any)
     .from('bars')
     .select('id, name, slug, venue_mode, authority_mode, onboarding_completed, pos_integration_enabled, printer_required');
   
@@ -335,33 +342,33 @@ async function fixInvalidConfigurations(dryRun: boolean) {
   
   for (const venue of invalidVenues) {
     const fix = {
-      id: venue.id,
-      name: venue.name,
+      id: (venue as any).id,
+      name: (venue as any).name,
       updates: {} as any,
       reasons: [] as string[]
     };
     
     // Fix Basic mode with wrong authority
-    if (venue.venue_mode === 'basic' && venue.authority_mode !== 'pos') {
+    if ((venue as any).venue_mode === 'basic' && (venue as any).authority_mode !== 'pos') {
       fix.updates.authority_mode = 'pos';
       fix.updates.pos_integration_enabled = true;
       fix.reasons.push('Basic mode requires POS authority');
     }
     
     // Fix Basic mode with wrong printer setting
-    if (venue.venue_mode === 'basic' && !venue.printer_required) {
+    if ((venue as any).venue_mode === 'basic' && !(venue as any).printer_required) {
       fix.updates.printer_required = true;
       fix.reasons.push('Basic mode requires printer');
     }
     
     // Fix POS authority with wrong integration setting
-    if (venue.authority_mode === 'pos' && !venue.pos_integration_enabled) {
+    if ((venue as any).authority_mode === 'pos' && !(venue as any).pos_integration_enabled) {
       fix.updates.pos_integration_enabled = true;
       fix.reasons.push('POS authority requires integration enabled');
     }
     
     // Fix Tabeza authority with wrong integration setting
-    if (venue.authority_mode === 'tabeza' && venue.pos_integration_enabled) {
+    if ((venue as any).authority_mode === 'tabeza' && (venue as any).pos_integration_enabled) {
       fix.updates.pos_integration_enabled = false;
       fix.reasons.push('Tabeza authority requires integration disabled');
     }
@@ -401,7 +408,7 @@ async function fixInvalidConfigurations(dryRun: boolean) {
   
   for (const fix of fixes) {
     try {
-      const { error: updateError } = await supabase
+      const { error: updateError } = await (supabase as any)
         .from('bars')
         .update(fix.updates)
         .eq('id', fix.id);
@@ -450,7 +457,7 @@ async function fixInvalidConfigurations(dryRun: boolean) {
  */
 async function validateConfigurations() {
   // Get all venues
-  const { data: venues, error: fetchError } = await supabase
+  const { data: venues, error: fetchError } = await (supabase as any)
     .from('bars')
     .select('id, name, slug, venue_mode, authority_mode, onboarding_completed, pos_integration_enabled, printer_required');
   
@@ -459,10 +466,10 @@ async function validateConfigurations() {
   }
   
   // Validate each venue
-  const validVenues = [];
-  const invalidVenues = [];
+  const validVenues: any[] = [];
+  const invalidVenues: any[] = [];
   
-  for (const venue of venues) {
+  for (const venue of (venues || [])) {
     const issues = validateVenueConfig(venue);
     if (issues.length === 0) {
       validVenues.push(venue);
@@ -472,11 +479,11 @@ async function validateConfigurations() {
   }
   
   // Calculate statistics
-  const completedOnboarding = venues.filter(v => v.onboarding_completed === true).length;
-  const incompleteOnboarding = venues.filter(v => v.onboarding_completed === false || v.onboarding_completed === null).length;
+  const completedOnboarding = (venues || []).filter((v: any) => v.onboarding_completed === true).length;
+  const incompleteOnboarding = (venues || []).filter((v: any) => v.onboarding_completed === false || v.onboarding_completed === null).length;
   
   return {
-    total: venues.length,
+    total: (venues || []).length,
     valid: validVenues.length,
     invalid: invalidVenues.length,
     completed: completedOnboarding,

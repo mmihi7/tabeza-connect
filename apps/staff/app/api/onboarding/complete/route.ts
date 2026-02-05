@@ -18,6 +18,13 @@ import {
 } from '@tabeza/shared/lib/services/onboarding-operations';
 import { logOnboardingFailure } from '@tabeza/shared/lib/services/audit-logger';
 
+// Extend NextRequest to include ip property
+declare module 'next/server' {
+  interface NextRequest {
+    ip?: string;
+  }
+}
+
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
   

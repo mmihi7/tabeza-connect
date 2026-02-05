@@ -1,5 +1,7 @@
 -- Enum Types
 create type public.transaction_status as enum ('pending', 'sent', 'completed', 'failed', 'cancelled');
+create type public.venue_mode_enum as enum ('basic', 'venue');
+create type public.authority_mode_enum as enum ('pos', 'tabeza');
 
 create table public.audit_logs (
   id uuid not null default extensions.uuid_generate_v4 (),
@@ -112,6 +114,13 @@ create table public.bars (
   mpesa_setup_completed boolean null default false,
   mpesa_last_test_at timestamp with time zone null,
   mpesa_test_status character varying(20) null default 'pending'::character varying,
+  venue_mode venue_mode_enum null default 'venue'::venue_mode_enum,
+  authority_mode authority_mode_enum null default 'tabeza'::authority_mode_enum,
+  pos_integration_enabled boolean null default false,
+  printer_required boolean null default false,
+  onboarding_completed boolean null default false,
+  authority_configured_at timestamp with time zone null,
+  mode_last_changed_at timestamp with time zone null default now(),
   constraint bars_pkey primary key (id),
   constraint bars_slug_unique unique (slug),
   constraint bars_slug_key unique (slug),
@@ -168,6 +177,24 @@ create table public.bars (
         )::text[]
       )
     )
+  ),
+  constraint bars_venue_authority_check check (
+    (
+      (venue_mode = 'basic' and authority_mode = 'pos') or
+      (venue_mode = 'venue' and authority_mode = any (array['pos'::authority_mode_enum, 'tabeza'::authority_mode_enum]))
+    )
+  ),
+  constraint bars_printer_requirement_check check (
+    (
+      (venue_mode = 'basic' and printer_required = true) or
+      (venue_mode = 'venue')
+    )
+  ),
+  constraint bars_pos_integration_check check (
+    (
+      (authority_mode = 'pos' and pos_integration_enabled = true) or
+      (authority_mode = 'tabeza' and pos_integration_enabled = false)
+    )
   )
 ) TABLESPACE pg_default;
 
@@ -176,6 +203,12 @@ create index IF not exists bars_slug_idx on public.bars using btree (slug) TABLE
 create index IF not exists idx_bars_menu_type on public.bars using btree (menu_type) TABLESPACE pg_default;
 
 create index IF not exists idx_bars_slug on public.bars using btree (slug) TABLESPACE pg_default;
+
+create index IF not exists idx_bars_venue_mode on public.bars using btree (venue_mode) TABLESPACE pg_default;
+
+create index IF not exists idx_bars_authority_mode on public.bars using btree (authority_mode) TABLESPACE pg_default;
+
+create index IF not exists idx_bars_onboarding_completed on public.bars using btree (onboarding_completed) TABLESPACE pg_default;
 
 create trigger update_bars_updated_at BEFORE
 update on bars for EACH row

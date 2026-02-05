@@ -27,6 +27,10 @@ inclusion: always
 - `MPESA_KMS_KEY`
 - `MPESA_MOCK_MODE`
 
+### Onboarding Configuration
+- `NEXT_PUBLIC_ONBOARDING_FLOW_ENABLED` (feature flag)
+- `ONBOARDING_STATE_ENCRYPTION_KEY` (server-side only)
+
 ## Naming Rules
 
 1. **Public keys**: Must start with `NEXT_PUBLIC_` (client-side accessible)

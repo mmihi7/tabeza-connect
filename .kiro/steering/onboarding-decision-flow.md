@@ -13,6 +13,7 @@ Define the exact onboarding sequence that determines venue mode and authority co
 - **Description**: "Perfect for established venues with existing POS systems"
 - **Icons**: 🖨️ Printer + 📱 Digital receipts
 - **Sets**: `venue_mode = 'basic'`, `authority_mode = 'pos'`, `printer_required = true`
+- **Requires**: Tabeza printer drivers installation (from tabeza.co.ke)
 
 #### Option B: Tabeza Venue  
 - **Label**: "I want full customer ordering and menus"
@@ -30,6 +31,7 @@ Define the exact onboarding sequence that determines venue mode and authority co
 - **Sets**: `authority_mode = 'pos'`, `pos_integration_enabled = true`
 - **Enables**: Customer requests, POS receipt mirroring
 - **Disables**: Staff ordering in Tabeza
+- **Requires**: Tabeza printer drivers installation (from tabeza.co.ke)
 
 #### Option B: No POS system
 - **Label**: "No - Tabeza will be my ordering system"  
@@ -83,6 +85,7 @@ if (venue_mode === 'venue' && !['pos', 'tabeza'].includes(authority_mode)) {
 - Changing from Venue→Basic requires data migration confirmation
 - Authority mode changes must preserve existing orders/receipts
 - Printer setup validation before enabling Basic mode
+- Tabeza printer drivers must be installed before POS authority activation
 
 ## Success Criteria
 - No venue can be in an invalid state

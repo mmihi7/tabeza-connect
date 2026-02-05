@@ -144,7 +144,7 @@ This implementation plan fixes the critical onboarding flow issue where new venu
     - **Property 10: Error Handling and Recovery**
     - **Validates: Requirements 6.1, 6.2, 6.4, 6.5**
 
-- [~] 10. Implement audit logging and monitoring
+- [ ] 10. Implement audit logging and monitoring
   - [x] 10.1 Add comprehensive audit logging for configuration events
     - Log onboarding completion events with user details
     - Log configuration changes with before/after states
@@ -161,7 +161,7 @@ This implementation plan fixes the critical onboarding flow issue where new venu
     - **Property 11: Audit Trail Completeness**
     - **Validates: Requirements 7.4, 7.5**
 
-- [~] 11. Integration testing and final validation
+- [ ] 11. Integration testing and final validation
   - [x] 11.1 Create integration tests for complete onboarding workflows
     - Test new venue onboarding from start to finish
     - Test existing venue migration scenarios

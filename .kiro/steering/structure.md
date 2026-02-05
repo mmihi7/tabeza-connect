@@ -30,12 +30,13 @@ This is a pnpm workspace monorepo with the following structure:
 - **Purpose**: Staff and admin interface for managing bars, orders, and payments
 - **Port**: 3003
 - **Features**: Order management, payment processing, bar configuration, reporting
+- **Onboarding**: Progressive flow with mode selection (Basic vs Venue)
 - **PWA**: Optimized for staff mobile devices
 
 ### Shared Package (`packages/shared/`)
 - **Types**: Database types, API interfaces, business logic types
 - **Utilities**: Common functions, validation, formatting
-- **Services**: M-Pesa integration, phone validation, diagnostics
+- **Services**: M-Pesa integration, phone validation, diagnostics, onboarding state management
 - **Hooks**: React hooks for real-time subscriptions (client-side only)
 
 ## Key Directories
@@ -61,9 +62,10 @@ Development utilities organized by purpose:
 ## File Naming Conventions
 
 ### Components
-- React components: PascalCase (e.g., `OrderManager.tsx`)
-- Hooks: camelCase with `use` prefix (e.g., `useRealtimeSubscription.ts`)
-- Utilities: camelCase (e.g., `phoneValidation.ts`)
+- React components: PascalCase (e.g., `OrderManager.tsx`, `WelcomeScreen.tsx`)
+- Onboarding components: Located in `apps/staff/components/onboarding/`
+- Hooks: camelCase with `use` prefix (e.g., `useRealtimeSubscription.ts`, `useOnboardingState.ts`)
+- Utilities: camelCase (e.g., `phoneValidation.ts`, `onboardingValidation.ts`)
 
 ### API Routes
 - Next.js API routes: `route.ts` for App Router

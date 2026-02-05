@@ -11,8 +11,8 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { supabase } from '@/lib/supabase';
 import { 
   createNetworkAwareOnboardingManager,
   NetworkAwareOnboardingManager,
@@ -98,7 +98,7 @@ export interface UseNetworkAwareOnboardingResult {
 export function useNetworkAwareOnboarding(
   options: UseNetworkAwareOnboardingOptions = {}
 ): UseNetworkAwareOnboardingResult {
-  const supabase = createClient();
+  const supabaseClient = supabase;
   const managerRef = useRef<NetworkAwareOnboardingManager | null>(null);
   const networkManager = getNetworkStatusManager();
   
@@ -179,7 +179,7 @@ export function useNetworkAwareOnboarding(
       }
     };
 
-    managerRef.current = createNetworkAwareOnboardingManager(supabase, managerOptions);
+    managerRef.current = createNetworkAwareOnboardingManager(supabaseClient, managerOptions);
     
     // Update network state from manager
     const updateNetworkState = () => {
@@ -375,16 +375,16 @@ export function useNetworkAwareOnboarding(
     
     switch (type) {
       case 'checkOnboardingStatus':
-        await checkOnboardingStatus(...args);
+        await checkOnboardingStatus(args[0] as string);
         break;
       case 'completeOnboarding':
-        await completeOnboarding(...args);
+        await completeOnboarding(args[0] as string, args[1] as VenueConfigurationInput);
         break;
       case 'updateVenueConfiguration':
-        await updateVenueConfiguration(...args);
+        await updateVenueConfiguration(args[0] as string, args[1] as VenueConfiguration, args[2] as VenueConfigurationInput);
         break;
       case 'migrateExistingVenue':
-        await migrateExistingVenue(...args);
+        await migrateExistingVenue(args[0] as string);
         break;
     }
   }, [canRetry, checkOnboardingStatus, completeOnboarding, updateVenueConfiguration, migrateExistingVenue]);
@@ -421,7 +421,8 @@ export function useNetworkAwareOnboarding(
     retryCount
   };
 
-  const actions: NetworkAwareOnboardingActions = {
+  // Memoize actions to prevent infinite loops
+  const actions: NetworkAwareOnboardingActions = useMemo(() => ({
     checkOnboardingStatus,
     completeOnboarding,
     updateVenueConfiguration,
@@ -435,7 +436,21 @@ export function useNetworkAwareOnboarding(
     retry,
     testConnectivity,
     refreshNetworkStatus
-  };
+  }), [
+    checkOnboardingStatus,
+    completeOnboarding,
+    updateVenueConfiguration,
+    migrateExistingVenue,
+    saveProgress,
+    restoreProgress,
+    clearProgress,
+    processRetryQueue,
+    clearQueue,
+    clearError,
+    retry,
+    testConnectivity,
+    refreshNetworkStatus
+  ]);
 
   return { state, actions };
 }

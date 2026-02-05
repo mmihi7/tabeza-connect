@@ -23,13 +23,21 @@
 
 ### Testing
 - **Unit Testing**: Jest with ts-jest
-- **Property-Based Testing**: fast-check
+- **Property-Based Testing**: fast-check (especially for onboarding flow validation)
 - **React Testing**: @testing-library/react
+- **Integration Testing**: End-to-end onboarding flow testing
+- **Visual Testing**: Playwright for onboarding UI consistency
 - **Coverage**: Jest coverage reports
 
 ### Payment Integration
 - **M-Pesa**: Daraja API integration with encrypted credential storage
 - **Environment Support**: Sandbox and production environments
+
+### Printer Integration
+- **Thermal Printer Support**: ESC/POS compatible printers
+- **Driver Requirements**: Tabeza printer drivers (available at tabeza.co.ke)
+- **POS Integration**: Required for Basic mode and Venue mode with POS authority
+- **Print Service**: Real-time receipt printing from POS systems
 
 ## Common Commands
 
@@ -71,6 +79,12 @@ cd packages/shared && pnpm test:coverage
 
 # Watch mode for development
 cd packages/shared && pnpm test:watch
+
+# Run onboarding integration tests
+node dev-tools/scripts/run-onboarding-integration-tests.js
+
+# Run visual regression tests
+node dev-tools/scripts/run-visual-tests.js
 ```
 
 ### Maintenance

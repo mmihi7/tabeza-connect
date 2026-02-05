@@ -2,7 +2,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Check, ArrowRight, Printer, Menu, MessageSquare, CreditCard, AlertCircle, Store, Zap, Lock, X, Info, AlertTriangle, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 import { 
   validateVenueConfiguration,
@@ -224,7 +224,7 @@ export default function VenueModeOnboarding({ onComplete, onCancel, isForced = f
   };
 
   // Save progress to localStorage using the network-aware service
-  const saveProgress = (currentStep: 'mode' | 'authority' | 'summary', mode: 'basic' | 'venue' | null, authority: 'pos' | 'tabeza' | null) => {
+  const saveProgress = useCallback((currentStep: 'mode' | 'authority' | 'summary', mode: 'basic' | 'venue' | null, authority: 'pos' | 'tabeza' | null) => {
     const progress: OnboardingProgress = {
       step: currentStep,
       selectedMode: mode,
@@ -234,10 +234,10 @@ export default function VenueModeOnboarding({ onComplete, onCancel, isForced = f
     };
     
     networkActions.saveProgress(progress);
-  };
+  }, [barId, networkActions]);
 
   // Restore progress from localStorage using the network-aware service
-  const restoreProgress = () => {
+  const restoreProgress = useCallback(() => {
     const progress = networkActions.restoreProgress(barId);
     
     if (progress) {
@@ -245,12 +245,12 @@ export default function VenueModeOnboarding({ onComplete, onCancel, isForced = f
       setSelectedMode(progress.selectedMode);
       setSelectedAuthority(progress.selectedAuthority);
     }
-  };
+  }, [barId, networkActions]);
 
   // Clear progress from localStorage using the network-aware service
-  const clearProgress = () => {
+  const clearProgress = useCallback(() => {
     networkActions.clearProgress(barId);
-  };
+  }, [barId, networkActions]);
 
   // Handle retry for processing errors
   const handleRetry = async () => {
@@ -279,10 +279,10 @@ export default function VenueModeOnboarding({ onComplete, onCancel, isForced = f
     }
   }, [networkState.hasStoredProgress, networkState.storedProgress]);
 
-  // Save progress whenever state changes
-  useEffect(() => {
-    saveProgress(step, selectedMode, selectedAuthority);
-  }, [step, selectedMode, selectedAuthority]);
+  // Save progress whenever state changes (disabled to prevent infinite loop)
+  // useEffect(() => {
+  //   saveProgress(step, selectedMode, selectedAuthority);
+  // }, [step, selectedMode, selectedAuthority, saveProgress]);
 
   // Prevent ESC key dismissal in forced mode
   useEffect(() => {

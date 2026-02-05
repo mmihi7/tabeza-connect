@@ -15,6 +15,7 @@ Enable venues to go live immediately using existing workflows.
 
 ### Capabilities
 - POS printer integration (mandatory)
+- Tabeza printer drivers installation (from tabeza.co.ke)
 - Transaction context creation
 - Digital receipt delivery
 - Customer payments
@@ -58,6 +59,7 @@ Supports exactly one at a time:
 - staff ordering in Tabeza is **disabled**
 - menus create **requests only**
 - receipts **originate from POS**
+- **Tabeza printer drivers required** (from tabeza.co.ke)
 
 #### If POS is absent:
 - **Tabeza creates orders and receipts**

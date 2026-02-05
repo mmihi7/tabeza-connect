@@ -11,11 +11,11 @@
 
 import { 
   getNetworkStatusManager, 
-  getRetryQueueManager,
   NetworkStatus,
   NetworkStatusListener
 } from './network-status';
 import { 
+  getRetryQueueManager,
   enqueueOperation,
   registerRetryHandler
 } from './retry-queue';

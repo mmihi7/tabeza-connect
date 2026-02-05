@@ -52,8 +52,8 @@ jest.mock('@tabeza/shared/lib/services/network-status', () => ({
 }));
 
 // Mock Supabase client
-jest.mock('@/lib/supabase/client', () => ({
-  createClient: jest.fn(() => ({}))
+jest.mock('@/lib/supabase', () => ({
+  supabase: {}
 }));
 
 describe('useNetworkAwareOnboarding', () => {

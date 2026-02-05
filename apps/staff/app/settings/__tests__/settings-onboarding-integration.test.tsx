@@ -240,6 +240,28 @@ const MockVenueModeOnboarding = ({
 global.fetch = jest.fn();
 const mockFetch = fetch as jest.MockedFunction<typeof fetch>;
 
+// Helper to create proper Response mock
+const createMockResponse = (data: any, options: { ok?: boolean; status?: number } = {}) => {
+  const { ok = true, status = ok ? 200 : 400 } = options;
+  return {
+    ok,
+    status,
+    statusText: ok ? 'OK' : 'Bad Request',
+    headers: new Headers(),
+    redirected: false,
+    type: 'basic' as ResponseType,
+    url: '',
+    clone: () => createMockResponse(data, options),
+    body: null,
+    bodyUsed: false,
+    arrayBuffer: async () => new ArrayBuffer(0),
+    blob: async () => new Blob(),
+    formData: async () => new FormData(),
+    text: async () => JSON.stringify(data),
+    json: async () => data
+  } as Response;
+};
+
 describe('Settings Page Onboarding Integration Tests', () => {
   const testBarId = 'test-bar-123';
 
@@ -251,19 +273,16 @@ describe('Settings Page Onboarding Integration Tests', () => {
   describe('New Venue Onboarding Gate', () => {
     it('should show forced onboarding modal for new venue', async () => {
       // Mock venue status API - venue needs onboarding
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          venue: {
-            id: testBarId,
-            name: 'New Restaurant',
-            onboarding_completed: false,
-            venue_mode: null,
-            authority_mode: null
-          }
-        })
-      });
+      mockFetch.mockResolvedValueOnce(createMockResponse({
+        success: true,
+        venue: {
+          id: testBarId,
+          name: 'New Restaurant',
+          onboarding_completed: false,
+          venue_mode: null,
+          authority_mode: null
+        }
+      }));
 
       render(<MockSettingsPage barId={testBarId} />);
 

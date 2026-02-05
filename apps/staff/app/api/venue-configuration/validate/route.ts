@@ -18,6 +18,13 @@ import {
   getConfigurationDescription,
   getThemeConfiguration,
   type VenueConfiguration,
+
+// Extend NextRequest to include ip property
+declare module 'next/server' {
+  interface NextRequest {
+    ip?: string;
+  }
+}
   type VenueConfigurationInput
 } from '@tabeza/shared';
 import { logValidationFailure } from '@tabeza/shared/lib/services/audit-logger';
@@ -51,7 +58,7 @@ export async function POST(request: NextRequest) {
         await logValidationFailure({
           bar_id: barId,
           validation_type: validationType === 'change' ? 'configuration_change' : 'onboarding',
-          attempted_config: null,
+          attempted_config: {} as Record<string, any>,
           validation_errors: ['Configuration is required'],
           user_action_blocked: true,
           ...userContext,

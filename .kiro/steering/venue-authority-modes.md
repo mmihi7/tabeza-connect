@@ -16,6 +16,7 @@ This is the default for established venues.
 - Tabeza Print Service → **MUST BE ACTIVE**
 - Receipt creation → **POS only**
 - Receipts must print to the Tabeza printer
+- **Tabeza printer drivers required** (available at tabeza.co.ke)
 - **No exceptions.**
 
 ### What Tabeza Does

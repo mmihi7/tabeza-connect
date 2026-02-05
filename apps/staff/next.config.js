@@ -85,10 +85,8 @@ const nextConfig = {
     domains: [],
   },
   
-  // Turbopack configuration for monorepo - correct syntax for Next.js 16
-  turbopack: {
-    root: path.resolve(__dirname, '../..')
-  },
+  // Turbopack configuration - empty to silence warning
+  turbopack: {},
   
   // Ensure proper asset handling for mobile
   assetPrefix: process.env.NODE_ENV === 'production' ? undefined : undefined,

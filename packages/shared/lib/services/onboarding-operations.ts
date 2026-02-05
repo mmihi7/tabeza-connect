@@ -21,8 +21,7 @@ import {
   validateVenueConfiguration,
   generateCorrectedConfiguration,
   getDefaultMigrationConfiguration,
-  type VenueConfiguration,
-  type VenueConfigurationInput
+  type VenueConfiguration
 } from './venue-configuration-validation';
 import {
   getAuditLogger,
@@ -43,6 +42,15 @@ export interface OnboardingProgress {
   selectedAuthority: 'pos' | 'tabeza' | null;
   timestamp: number;
   barId?: string;
+}
+
+export interface VenueConfigurationInput {
+  venue_mode: 'basic' | 'venue';
+  authority_mode: 'pos' | 'tabeza';
+  pos_integration_enabled?: boolean;
+  printer_required?: boolean;
+  authority_configured_at?: string;
+  mode_last_changed_at?: string;
 }
 
 export interface VenueData {
@@ -144,7 +152,7 @@ export async function completeOnboarding(
           business_rule_violations: validationResult.errors.filter(e => e.includes('rule')),
           user_action_blocked: true,
           suggested_corrections: validationResult.warnings || [],
-          current_config: null,
+          current_config: null as any,
           ...userContext,
           operation_duration_ms: Date.now() - startTime
         });
@@ -296,7 +304,7 @@ export async function updateVenueConfiguration(
         user_confirmed: true,
         validation_warnings: validationResult.warnings || [],
         validation_errors: [],
-        auto_corrections_applied: validationResult.corrections || [],
+        auto_corrections_applied: [], // Remove reference to non-existent corrections property
         ...userContext,
         operation_duration_ms: Date.now() - startTime
       });
@@ -472,8 +480,11 @@ export async function migrateExistingVenue(
  */
 export function saveOnboardingProgress(progress: OnboardingProgress): void {
   try {
-    const progressKey = `tabeza_onboarding_progress_${progress.barId || 'default'}`;
-    localStorage.setItem(progressKey, JSON.stringify(progress));
+    if (typeof globalThis !== 'undefined' && 'localStorage' in globalThis) {
+      const storage = (globalThis as any).localStorage;
+      const progressKey = `tabeza_onboarding_progress_${progress.barId || 'default'}`;
+      storage.setItem(progressKey, JSON.stringify(progress));
+    }
   } catch (error) {
     console.warn('Failed to save onboarding progress:', error);
   }
@@ -484,21 +495,25 @@ export function saveOnboardingProgress(progress: OnboardingProgress): void {
  */
 export function restoreOnboardingProgress(barId?: string): OnboardingProgress | null {
   try {
-    const progressKey = `tabeza_onboarding_progress_${barId || 'default'}`;
-    const savedProgress = localStorage.getItem(progressKey);
-    
-    if (!savedProgress) return null;
+    if (typeof globalThis !== 'undefined' && 'localStorage' in globalThis) {
+      const storage = (globalThis as any).localStorage;
+      const progressKey = `tabeza_onboarding_progress_${barId || 'default'}`;
+      const savedProgress = storage.getItem(progressKey);
+      
+      if (!savedProgress) return null;
 
-    const progress: OnboardingProgress = JSON.parse(savedProgress);
-    
-    // Check if progress is not too old (24 hours)
-    const maxAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-    if (Date.now() - progress.timestamp > maxAge) {
-      clearOnboardingProgress(barId);
-      return null;
+      const progress: OnboardingProgress = JSON.parse(savedProgress);
+      
+      // Check if progress is not too old (24 hours)
+      const maxAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+      if (Date.now() - progress.timestamp > maxAge) {
+        clearOnboardingProgress(barId);
+        return null;
+      }
+
+      return progress;
     }
-
-    return progress;
+    return null;
   } catch (error) {
     console.warn('Failed to restore onboarding progress:', error);
     clearOnboardingProgress(barId);
@@ -511,8 +526,11 @@ export function restoreOnboardingProgress(barId?: string): OnboardingProgress | 
  */
 export function clearOnboardingProgress(barId?: string): void {
   try {
-    const progressKey = `tabeza_onboarding_progress_${barId || 'default'}`;
-    localStorage.removeItem(progressKey);
+    if (typeof globalThis !== 'undefined' && 'localStorage' in globalThis) {
+      const storage = (globalThis as any).localStorage;
+      const progressKey = `tabeza_onboarding_progress_${barId || 'default'}`;
+      storage.removeItem(progressKey);
+    }
   } catch (error) {
     console.warn('Failed to clear onboarding progress:', error);
   }
