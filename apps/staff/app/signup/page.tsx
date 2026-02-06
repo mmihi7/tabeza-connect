@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mail, Phone, MapPin, Lock, CheckCircle, AlertCircle, Eye, EyeOff, UserCheck, Shield, Clock, TrendingUp, ArrowRight } from 'lucide-react';
+import { Mail, Phone, MapPin, Lock, CheckCircle, AlertCircle, Eye, EyeOff, UserCheck, Shield, Clock, TrendingUp, ArrowRight, Printer, Menu, Store, Zap, Check } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import Logo from '@/components/Logo';
 
@@ -19,7 +19,9 @@ export default function SignupPage() {
     email: '',
     password: '',
     confirmPassword: '',
-    barName: '',
+    venueMode: '' as 'basic' | 'venue' | '',
+    hasPOS: false, // For Venue mode only - determines authority mode
+    premiseName: '',
     location: '',
     phone: '',
     agreeToTerms: false,
@@ -48,8 +50,17 @@ export default function SignupPage() {
   };
 
   const validateStep2 = () => {
-    if (!formData.barName.trim()) {
-      setError('Please enter your bar/restaurant name');
+    if (!formData.venueMode) {
+      setError('Please select a venue mode');
+      return false;
+    }
+    return true;
+  };
+
+  const validateStep3 = () => {
+    // Premise details
+    if (!formData.premiseName.trim()) {
+      setError('Please enter your premise name');
       return false;
     }
     if (!formData.location.trim()) {
@@ -63,7 +74,8 @@ export default function SignupPage() {
     return true;
   };
 
-  const validateStep3 = () => {
+  const validateStep4 = () => {
+    // Terms & Conditions
     if (!formData.agreeToTerms) {
       setError('You must agree to the Terms and Conditions');
       return false;
@@ -77,46 +89,154 @@ export default function SignupPage() {
 
   const handleNext = () => {
     if (step === 1 && validateStep1()) {
-      setStep(2);
+      setStep(2); // Mode selection
     } else if (step === 2 && validateStep2()) {
-      setStep(3);
+      setStep(3); // Premise details (for both Basic and Venue)
+    } else if (step === 3 && validateStep3()) {
+      setStep(4); // Terms & Conditions
     }
   };
 
   const handleSignup = async () => {
-    if (!validateStep3()) return;
+    if (!validateStep4()) return;
 
     setLoading(true);
     setError('');
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // First, check if this email already has an account
+      const { data: existingSession } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('Failed to create user');
+      let userId: string;
+      let isExistingUser = false;
 
-      const { data: barId, error: barError } = await (supabase as any).rpc('signup_new_bar', {
-        p_user_id: authData.user.id,
-        p_bar_name: formData.barName,
-        p_location: formData.location,
-        p_phone: formData.phone,
-        p_email: formData.email,
-      });
+      if (existingSession?.user) {
+        // User exists and password is correct - check if they have a bar
+        userId = existingSession.user.id;
+        isExistingUser = true;
+
+        const { data: existingBars } = await supabase
+          .from('user_bars')
+          .select('bar_id')
+          .eq('user_id', userId);
+
+        if (existingBars && existingBars.length > 0) {
+          // User already has a bar - they should use login instead
+          setError('This account already exists with a venue. Please use the login page.');
+          await supabase.auth.signOut(); // Sign them out
+          setLoading(false);
+          return;
+        }
+        // If no bars exist, we'll let them complete the setup
+      } else {
+        // Try to create new user
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+        });
+
+        if (authError) {
+          // Check for specific error messages
+          if (authError.message.includes('already registered') || authError.message.includes('already been registered')) {
+            setError('This email is already registered. If you forgot your password, please use the login page to reset it.');
+            setLoading(false);
+            return;
+          }
+          throw authError;
+        }
+        
+        if (!authData.user) throw new Error('Failed to create user');
+        userId = authData.user.id;
+      }
+
+      // Generate slug from premise name with uniqueness check
+      let slug = formData.premiseName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      
+      // Check if slug exists and add suffix if needed
+      const { data: existingBarSlugs } = await supabase
+        .from('bars')
+        .select('slug')
+        .like('slug', `${slug}%`);
+      
+      if (existingBarSlugs && existingBarSlugs.length > 0) {
+        // Add timestamp suffix to make it unique
+        slug = `${slug}-${Date.now()}`;
+      }
+
+      // Determine authority mode based on venue mode and hasPOS checkbox
+      let authorityMode: 'pos' | 'tabeza';
+      if (formData.venueMode === 'basic') {
+        authorityMode = 'pos'; // Basic mode always uses POS authority
+      } else {
+        // Venue mode: use POS if they have one, otherwise Tabeza
+        authorityMode = formData.hasPOS ? 'pos' : 'tabeza';
+      }
+
+      // Determine configuration based on authority mode
+      const posIntegrationEnabled = authorityMode === 'pos';
+      const printerRequired = authorityMode === 'pos';
+
+      // Create bar with full configuration
+      const { data: bar, error: barError } = await supabase
+        .from('bars')
+        .insert({
+          name: formData.premiseName,
+          location: formData.location,
+          phone: formData.phone,
+          email: formData.email,
+          slug,
+          venue_mode: formData.venueMode,
+          authority_mode: authorityMode,
+          pos_integration_enabled: posIntegrationEnabled,
+          printer_required: printerRequired,
+          onboarding_completed: true,
+        })
+        .select()
+        .single();
 
       if (barError) throw barError;
 
+      // Create user-bar association
+      await supabase
+        .from('user_bars')
+        .insert({
+          user_id: userId,
+          bar_id: bar.id,
+          role: 'owner'
+        });
+
       await supabase.auth.updateUser({
-        data: { bar_id: barId }
+        data: { bar_id: bar.id }
       });
 
-      router.push('/settings');
+      // Navigate based on printer requirement
+      if (printerRequired) {
+        // Redirect to printer setup page for Basic or Venue+POS
+        router.push('/setup/printer');
+      } else {
+        // Navigate directly to dashboard for Venue+Tabeza
+        router.push('/dashboard');
+      }
+
+      // Show success message if this was a recovery scenario
+      if (isExistingUser) {
+        console.log('Successfully completed setup for existing user');
+      }
 
     } catch (err: any) {
       console.error('Signup error:', err);
-      setError(err.message || 'Failed to create account');
+      
+      // Provide helpful error messages
+      if (err.message?.includes('duplicate key') && err.message?.includes('slug')) {
+        setError('A venue with this name already exists. Please try a different name.');
+      } else if (err.message?.includes('bars_venue_authority_check')) {
+        setError('Invalid venue configuration. Please contact support.');
+      } else {
+        setError(err.message || 'Failed to create account. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -188,23 +308,18 @@ export default function SignupPage() {
           {/* Progress Indicator */}
           <div className="flex items-center justify-center mb-8">
             <div className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                step >= 1 ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-500'
-              }`}>
-                {step > 1 ? <CheckCircle size={20} /> : '1'}
-              </div>
-              <div className={`w-12 h-1 ${step >= 2 ? 'bg-orange-500' : 'bg-gray-200'}`} />
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                step >= 2 ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-500'
-              }`}>
-                {step > 2 ? <CheckCircle size={20} /> : '2'}
-              </div>
-              <div className={`w-12 h-1 ${step >= 3 ? 'bg-orange-500' : 'bg-gray-200'}`} />
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                step >= 3 ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-500'
-              }`}>
-                3
-              </div>
+              {[1, 2, 3, 4].map((stepNum, index) => (
+                <React.Fragment key={stepNum}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                    step >= stepNum ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-500'
+                  }`}>
+                    {step > stepNum ? <CheckCircle size={20} /> : stepNum}
+                  </div>
+                  {stepNum < 4 && (
+                    <div className={`w-12 h-1 ${step >= stepNum + 1 ? 'bg-orange-500' : 'bg-gray-200'}`} />
+                  )}
+                </React.Fragment>
+              ))}
             </div>
           </div>
 
@@ -297,14 +412,98 @@ export default function SignupPage() {
               </div>
             )}
 
-            {/* Step 2: Bar Info */}
+            {/* Step 2: Mode Selection */}
             {step === 2 && (
               <div className="space-y-4">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">Bar Details</h2>
+                <h2 className="text-xl font-bold text-gray-800 mb-4">Choose Your Setup</h2>
+                <p className="text-gray-600 mb-6">Select the option that best matches your venue's needs</p>
+                
+                <div className="space-y-4">
+                  {/* Basic Mode */}
+                  <div 
+                    onClick={() => updateField('venueMode', 'basic')}
+                    className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${
+                      formData.venueMode === 'basic' 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-gray-200 hover:border-blue-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <Printer size={20} className="text-blue-600" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-bold text-gray-800">Tabeza Basic</h3>
+                        <p className="text-xs text-blue-600">Transaction & Receipt Bridge</p>
+                      </div>
+                      {formData.venueMode === 'basic' && (
+                        <Check size={20} className="text-green-500" />
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-600 mb-2">
+                      I have a POS system and want digital receipts
+                    </p>
+                    <div className="flex gap-1">
+                      <span>🖨️</span><span>📱</span><span>💳</span>
+                    </div>
+                  </div>
+
+                  {/* Venue Mode */}
+                  <div 
+                    onClick={() => updateField('venueMode', 'venue')}
+                    className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${
+                      formData.venueMode === 'venue' 
+                        ? 'border-green-500 bg-green-50' 
+                        : 'border-gray-200 hover:border-green-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                        <Menu size={20} className="text-green-600" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-bold text-gray-800">Tabeza Venue</h3>
+                        <p className="text-xs text-green-600">Customer Interaction & Service</p>
+                      </div>
+                      {formData.venueMode === 'venue' && (
+                        <Check size={20} className="text-green-500" />
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-600 mb-2">
+                      I want full customer ordering and menus
+                    </p>
+                    <div className="flex gap-1">
+                      <span>📋</span><span>💬</span><span>💳</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setStep(1)}
+                    className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-200"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleNext}
+                    disabled={!formData.venueMode}
+                    className="flex-1 bg-gradient-to-r from-orange-500 to-red-600 text-white py-3 rounded-xl font-semibold hover:from-orange-600 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Continue
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Premise Details */}
+            {step === 3 && (
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">Premise Details</h2>
                 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Bar/Restaurant Name
+                    Premise Name
                   </label>
                   <div className="relative">
                     <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
@@ -312,10 +511,10 @@ export default function SignupPage() {
                     </div>
                     <input
                       type="text"
-                      value={formData.barName}
-                      onChange={(e) => updateField('barName', e.target.value)}
+                      value={formData.premiseName}
+                      onChange={(e) => updateField('premiseName', e.target.value)}
                       className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none"
-                      placeholder="Your Bar Name"
+                      placeholder="Your Premise Name"
                     />
                   </div>
                 </div>
@@ -352,9 +551,31 @@ export default function SignupPage() {
                   </div>
                 </div>
 
+                {/* POS Checkbox - Only for Venue mode */}
+                {formData.venueMode === 'venue' && (
+                  <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.hasPOS}
+                        onChange={(e) => updateField('hasPOS', e.target.checked)}
+                        className="mt-1 w-5 h-5 text-blue-500 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <div>
+                        <span className="text-sm font-semibold text-gray-800 block">
+                          I have a POS system
+                        </span>
+                        <span className="text-xs text-gray-600">
+                          Tabeza will integrate with your existing POS
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+                )}
+
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setStep(1)}
+                    onClick={() => setStep(2)}
                     className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-200"
                   >
                     Back
@@ -369,8 +590,8 @@ export default function SignupPage() {
               </div>
             )}
 
-            {/* Step 3: Terms & Conditions */}
-            {step === 3 && (
+            {/* Step 4: Terms & Conditions */}
+            {step === 4 && (
               <div className="space-y-4">
                 <h2 className="text-xl font-bold text-gray-800 mb-4">Terms & Conditions</h2>
                 
@@ -419,7 +640,7 @@ export default function SignupPage() {
 
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setStep(2)}
+                    onClick={() => setStep(3)}
                     disabled={loading}
                     className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-200 disabled:opacity-50"
                   >

@@ -8,6 +8,8 @@ import { useAuth } from '@/lib/useAuth';
 import { checkAndUpdateOverdueTabs } from '@/lib/businessHours';
 import { calculateResponseTimeFromTabs, formatResponseTime, type ResponseTimeResult } from '@tabeza/shared';
 import { PaymentNotificationContainer, usePaymentNotifications, type PaymentNotificationData } from '@/components/PaymentNotification';
+import VenueModeOnboarding from '@/components/VenueModeOnboarding';
+import { type VenueConfiguration } from '@tabeza/shared';
 
 // Format functions for thousand separators
 const formatCurrency = (amount: number | string, decimals = 0): string => {
@@ -313,6 +315,10 @@ export default function TabsPage() {
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(Date.now());
 
+  // Onboarding state
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(true);
+
   // Alert state
   const [showAlert, setShowAlert] = useState(false);
   const [alertType, setAlertType] = useState<'order' | 'message'>('order');
@@ -354,6 +360,38 @@ export default function TabsPage() {
   useEffect(() => {
     setVibrationSupported('vibrate' in navigator);
   }, []);
+
+  // Check onboarding status and show modal if incomplete
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      if (!bar) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('bars')
+          .select('onboarding_completed')
+          .eq('id', bar.id)
+          .single() as { data: any, error: any };
+
+        if (error) {
+          console.error('Error checking onboarding status:', error);
+          return;
+        }
+
+        const isCompleted = data?.onboarding_completed ?? true;
+        setOnboardingCompleted(isCompleted);
+
+        if (!isCompleted) {
+          console.log('🚨 Onboarding incomplete - showing onboarding modal on dashboard');
+          setShowOnboardingModal(true);
+        }
+      } catch (error) {
+        console.error('Error checking onboarding status:', error);
+      }
+    };
+
+    checkOnboardingStatus();
+  }, [bar]);
 
   // Load alert settings
   useEffect(() => {
@@ -475,6 +513,44 @@ export default function TabsPage() {
       console.error('Error triggering balance update:', error);
       // Fallback: refresh tabs to maintain UI consistency
       await loadTabs();
+    }
+  };
+
+  // Handle onboarding completion
+  const handleOnboardingComplete = async (config: VenueConfiguration) => {
+    if (!bar) return;
+
+    try {
+      console.log('✅ Onboarding completed with config:', config);
+
+      // Update the bar with the onboarding configuration
+      const { error } = await supabase
+        .from('bars')
+        .update({
+          venue_mode: config.venue_mode,
+          authority_mode: config.authority_mode,
+          pos_integration_enabled: config.pos_integration_enabled,
+          printer_required: config.printer_required,
+          onboarding_completed: true,
+          authority_configured_at: new Date().toISOString(),
+          mode_last_changed_at: new Date().toISOString()
+        })
+        .eq('id', bar.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setOnboardingCompleted(true);
+      setShowOnboardingModal(false);
+
+      // Show success message
+      alert('✅ Venue configuration completed successfully! You can now access all features.');
+
+      // Reload the page to reflect the new configuration
+      window.location.reload();
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+      alert('Failed to save venue configuration. Please try again.');
     }
   };
 
@@ -1288,6 +1364,21 @@ export default function TabsPage() {
             // TODO: Implement payment retry logic
           }}
         />
+
+        {/* ONBOARDING MODAL - Forced mode for incomplete onboarding */}
+        {showOnboardingModal && !onboardingCompleted && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <VenueModeOnboarding
+                  onComplete={handleOnboardingComplete}
+                  isForced={true}
+                  barId={bar?.id}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* CSS Animations */}
         <style jsx global>{`

@@ -16,6 +16,7 @@
     "build:packages": "pnpm --recursive --filter \"./packages/*\" build",
     "build:customer": "pnpm --filter @tabeza/customer build",
     "build:staff": "pnpm --filter @tabeza/staff build",
+    "build:printer-service": "pnpm --filter @tabeza/printer-service build-installer",
     "start": "pnpm --recursive --filter \"./apps/*\" start",
     "start:customer": "pnpm --filter @tabeza/customer start",
     "start:staff": "pnpm --filter @tabeza/staff start",

@@ -267,9 +267,21 @@ export default function VenueModeOnboarding({ onComplete, onCancel, isForced = f
 
   // Restore progress on component mount
   useEffect(() => {
+    // If forced mode (incomplete onboarding), always start from mode selection
+    // This ensures users see the full onboarding flow
+    if (isForced) {
+      console.log('🔄 Forced onboarding mode - starting from mode selection');
+      clearProgress();
+      setStep('mode');
+      setSelectedMode(null);
+      setSelectedAuthority(null);
+      return;
+    }
+
     // Check if we have stored progress from the network-aware hook
     if (networkState.hasStoredProgress && networkState.storedProgress) {
       const progress = networkState.storedProgress;
+      console.log('📥 Restoring onboarding progress:', progress);
       setStep(progress.step);
       setSelectedMode(progress.selectedMode);
       setSelectedAuthority(progress.selectedAuthority);
@@ -277,7 +289,7 @@ export default function VenueModeOnboarding({ onComplete, onCancel, isForced = f
       // Fallback to manual restore
       restoreProgress();
     }
-  }, [networkState.hasStoredProgress, networkState.storedProgress]);
+  }, [networkState.hasStoredProgress, networkState.storedProgress, isForced, clearProgress, restoreProgress]);
 
   // Save progress whenever state changes (disabled to prevent infinite loop)
   // useEffect(() => {
