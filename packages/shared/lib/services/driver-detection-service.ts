@@ -113,7 +113,7 @@ export function generateInstallationGuidance(platform: Platform): InstallationGu
     throw new UnsupportedPlatformError(platform);
   }
   
-  const baseUrl = 'https://github.com/tabeza/tabeza-printer-service/releases/latest/download';
+  const baseUrl = 'https://github.com/billoapp/tabeza-printer-service/releases/latest/download';
   
   switch (platform.os) {
     case 'windows':

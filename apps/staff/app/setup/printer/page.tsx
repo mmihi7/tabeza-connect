@@ -106,7 +106,7 @@ export default function PrinterSetupPage() {
               <div>
                 <p className="font-semibold text-gray-800">Download Service</p>
                 <a
-                  href="https://github.com/tabeza/tabeza-printer-service/releases/latest/download/tabeza-printer-service.exe"
+                  href="https://github.com/billoapp/tabeza-printer-service/releases/latest/download/tabeza-printer-service.exe"
                   className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm mt-1"
                   download
                 >
