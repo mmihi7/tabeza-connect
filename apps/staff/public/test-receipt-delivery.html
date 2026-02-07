@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Receipt Delivery System</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 30px;
+    }
+    .section {
+      margin-bottom: 30px;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 6px;
+    }
+    .section h2 {
+      margin-top: 0;
+      color: #555;
+      font-size: 18px;
+    }
+    button {
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    button:hover {
+      background: #0052a3;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .result {
+      margin-top: 15px;
+      padding: 15px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: 500;
+      color: #555;
+    }
+    .step {
+      margin-bottom: 15px;
+      padding-left: 25px;
+      position: relative;
+    }
+    .step::before {
+      content: "→";
+      position: absolute;
+      left: 0;
+      color: #0066cc;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🖨️ Test Receipt Delivery System</h1>
+
+    <div class="section">
+      <h2>📋 Test Flow</h2>
+      <div class="step">Simulate POS printing a receipt</div>
+      <div class="step">Receipt sent to cloud API</div>
+      <div class="step">Receipt stored as "unmatched"</div>
+      <div class="step">Staff sees receipt in dashboard</div>
+      <div class="step">Staff selects which tab to deliver to</div>
+      <div class="step">Receipt delivered to customer</div>
+    </div>
+
+    <div class="section">
+      <h2>1️⃣ Send Test Receipt</h2>
+      <p>Simulates a POS printing a receipt</p>
+      
+      <label>Bar ID:</label>
+      <input type="text" id="barId" placeholder="Enter your bar ID" />
+      
+      <label>Receipt Total (KES):</label>
+      <input type="number" id="total" value="928.00" step="0.01" />
+      
+      <label>Items (comma separated):</label>
+      <input type="text" id="items" value="Beer, Chicken Wings, Soda" />
+      
+      <button onclick="sendTestReceipt()">Send Test Receipt</button>
+      <div id="sendResult"></div>
+    </div>
+
+    <div class="section">
+      <h2>2️⃣ Check Unmatched Receipts</h2>
+      <p>View receipts waiting for staff to assign</p>
+      
+      <button onclick="checkUnmatched()">Check Unmatched Receipts</button>
+      <div id="unmatchedResult"></div>
+    </div>
+
+    <div class="section">
+      <h2>3️⃣ Assign Receipt to Tab</h2>
+      <p>Manually assign a receipt to a customer tab</p>
+      
+      <label>Print Job ID:</label>
+      <input type="text" id="printJobId" placeholder="From step 2" />
+      
+      <label>Tab ID:</label>
+      <input type="text" id="tabId" placeholder="From step 2" />
+      
+      <button onclick="assignReceipt()">Assign Receipt</button>
+      <div id="assignResult"></div>
+    </div>
+  </div>
+
+  <script>
+    // Use relative URLs since we're serving from the same origin
+    const API_BASE = '';
+
+    async function sendTestReceipt() {
+      const barId = document.getElementById('barId').value;
+      const total = parseFloat(document.getElementById('total').value);
+      const itemsStr = document.getElementById('items').value;
+      const items = itemsStr.split(',').map(name => ({
+        name: name.trim(),
+        quantity: 1,
+        price: total / itemsStr.split(',').length,
+        total: total / itemsStr.split(',').length
+      }));
+
+      if (!barId) {
+        showResult('sendResult', 'Please enter a Bar ID', 'error');
+        return;
+      }
+
+      const testReceipt = {
+        items,
+        subtotal: total,
+        total,
+        rawText: `Test Receipt\n${itemsStr}\nTotal: ${total}`
+      };
+
+      const payload = {
+        driverId: 'test-driver-' + Date.now(),
+        barId,
+        timestamp: new Date().toISOString(),
+        rawData: btoa(JSON.stringify(testReceipt)),
+        printerName: 'Test Printer',
+        documentName: 'Test Receipt',
+        metadata: {
+          source: 'test',
+          jobId: 'test-' + Date.now()
+        }
+      };
+
+      try {
+        showResult('sendResult', 'Sending test receipt...', 'info');
+        
+        const response = await fetch(`${API_BASE}/api/printer/relay`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        
+        if (response.ok) {
+          showResult('sendResult', 
+            `✅ Success!\n\nJob ID: ${data.jobId}\n\nReceipt stored as unmatched.\nNow check step 2 to see it.`,
+            'success'
+          );
+        } else {
+          showResult('sendResult', `❌ Error: ${data.error}`, 'error');
+        }
+      } catch (error) {
+        showResult('sendResult', `❌ Error: ${error.message}`, 'error');
+      }
+    }
+
+    async function checkUnmatched() {
+      const barId = document.getElementById('barId').value;
+
+      if (!barId) {
+        showResult('unmatchedResult', 'Please enter a Bar ID in step 1', 'error');
+        return;
+      }
+
+      try {
+        showResult('unmatchedResult', 'Fetching unmatched receipts...', 'info');
+        
+        const response = await fetch(`${API_BASE}/api/printer/assign-receipt?barId=${barId}`);
+        const data = await response.json();
+
+        if (response.ok) {
+          const receipts = data.unmatchedReceipts || [];
+          const tabs = data.openTabs || [];
+
+          let result = `📄 Unmatched Receipts: ${receipts.length}\n\n`;
+          
+          receipts.forEach((r, i) => {
+            result += `Receipt ${i + 1}:\n`;
+            result += `  ID: ${r.id}\n`;
+            result += `  Total: KES ${r.parsed_data.total}\n`;
+            result += `  Items: ${r.parsed_data.items.map(item => item.name).join(', ')}\n\n`;
+          });
+
+          result += `\n📋 Open Tabs: ${tabs.length}\n\n`;
+          
+          tabs.forEach((t, i) => {
+            result += `Tab ${i + 1}:\n`;
+            result += `  ID: ${t.id}\n`;
+            result += `  Number: #${t.tab_number}\n`;
+            result += `  Opened: ${new Date(t.opened_at).toLocaleString()}\n\n`;
+          });
+
+          if (receipts.length > 0 && tabs.length > 0) {
+            result += '\n💡 Copy a Print Job ID and Tab ID to step 3';
+          }
+
+          showResult('unmatchedResult', result, 'success');
+        } else {
+          showResult('unmatchedResult', `❌ Error: ${data.error}`, 'error');
+        }
+      } catch (error) {
+        showResult('unmatchedResult', `❌ Error: ${error.message}`, 'error');
+      }
+    }
+
+    async function assignReceipt() {
+      const printJobId = document.getElementById('printJobId').value;
+      const tabId = document.getElementById('tabId').value;
+
+      if (!printJobId || !tabId) {
+        showResult('assignResult', 'Please enter both Print Job ID and Tab ID', 'error');
+        return;
+      }
+
+      try {
+        showResult('assignResult', 'Assigning receipt to tab...', 'info');
+        
+        const response = await fetch(`${API_BASE}/api/printer/assign-receipt`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ printJobId, tabId })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          showResult('assignResult', 
+            `✅ Success!\n\n${data.message}\n\nReceipt ID: ${data.digitalReceiptId}\n\nThe customer can now see the receipt in their app!`,
+            'success'
+          );
+        } else {
+          showResult('assignResult', `❌ Error: ${data.error}`, 'error');
+        }
+      } catch (error) {
+        showResult('assignResult', `❌ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function showResult(elementId, message, type) {
+      const element = document.getElementById(elementId);
+      element.className = `result ${type}`;
+      element.textContent = message;
+    }
+  </script>
+</body>
+</html>

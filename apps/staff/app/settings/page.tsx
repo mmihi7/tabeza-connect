@@ -2,8 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { ArrowRight, Store, Bell, QrCode, Save, X, MessageSquare, Copy, Check, Edit2, Download, AlertCircle, CreditCard, Phone, DollarSign, Send, Clock, Calendar, Sun, Moon, BellRing, Grid3X3, Menu, Printer, AlertTriangle, Settings } from 'lucide-react';
+import { ArrowRight, Store, Bell, QrCode, Save, X, MessageSquare, Copy, Check, Edit2, Download, AlertCircle, CreditCard, Phone, DollarSign, Send, Clock, Calendar, Sun, Moon, BellRing, Grid3X3, Menu, Printer, AlertTriangle, Settings, CheckCircle, XCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import VenueModeOnboarding from '@/components/VenueModeOnboarding';
 import { useVenueConfigurationValidation } from '@/hooks/useVenueConfigurationValidation';
@@ -13,6 +12,9 @@ import { ThemedButton } from '@/components/themed/ThemedButton';
 import { ThemedCard } from '@/components/themed/ThemedCard';
 import ConfigurationHistory from '@/components/ConfigurationHistory';
 import { type VenueConfiguration } from '@tabeza/shared';
+
+// Import useRouter dynamically to avoid TypeScript cache issues
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +31,14 @@ type DayHours = {
 type BusinessHoursMode = 'simple' | 'advanced' | '24hours';
 
 export default function SettingsPage() {
-  const router = useRouter();
+  // Use dynamic import for router to avoid TypeScript cache issues
+  const [router, setRouter] = useState<AppRouterInstance | null>(null);
+  
+  useEffect(() => {
+    import('next/navigation').then((mod) => {
+      setRouter(mod.useRouter());
+    });
+  }, []);
   const [barInfo, setBarInfo] = useState({
     id: '',
     name: '',
@@ -116,6 +125,10 @@ export default function SettingsPage() {
   const [showVenueModeModal, setShowVenueModeModal] = useState(false);
   const [savingVenueMode, setSavingVenueMode] = useState(false);
 
+  // Printer Setup State
+  const [printerServiceStatus, setPrinterServiceStatus] = useState<'checking' | 'online' | 'offline' | 'error'>('checking');
+  const [printerBarIdCopied, setPrinterBarIdCopied] = useState(false);
+
   // Configuration Change Validation State
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [pendingConfigChange, setPendingConfigChange] = useState<{
@@ -156,6 +169,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadBarInfo();
+    checkPrinterServiceStatus();
   }, []);
 
   // Debug: Log activeTab changes
@@ -182,6 +196,36 @@ export default function SettingsPage() {
   // CORE TRUTH: Manual service always exists. 
   // Digital authority is singular. 
   // Tabeza adapts to the venue — never the reverse.
+
+  const checkPrinterServiceStatus = async () => {
+    try {
+      setPrinterServiceStatus('checking');
+      const response = await fetch('/api/printer/driver-status', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPrinterServiceStatus(data.isOnline ? 'online' : 'offline');
+      } else {
+        setPrinterServiceStatus('offline');
+      }
+    } catch (error) {
+      console.error('Error checking printer service status:', error);
+      setPrinterServiceStatus('offline');
+    }
+  };
+
+  const handleCopyPrinterBarId = () => {
+    if (barInfo.id) {
+      navigator.clipboard.writeText(barInfo.id);
+      setPrinterBarIdCopied(true);
+      setTimeout(() => setPrinterBarIdCopied(false), 2000);
+    }
+  };
 
   const checkAndApplyVenueMigration = async (barId: string) => {
     try {
@@ -1788,28 +1832,126 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
+                {/* Printer Setup Section - Show if printer is required */}
+                {printerRequired && (
+                  <div className="bg-white border-2 border-blue-200 rounded-lg p-6 mb-6">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-blue-100 rounded-lg">
+                        <Printer size={24} className="text-blue-600" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-2">Printer Service Setup</h3>
+                        <p className="text-gray-600 text-sm mb-4">
+                          {venueMode === 'basic' 
+                            ? 'Basic mode requires the Tabeza Printer Service to relay receipts from your POS system.'
+                            : authorityMode === 'pos'
+                            ? 'POS integration requires the Tabeza Printer Service to relay receipts.'
+                            : 'Printer service is required for your current configuration.'}
+                        </p>
+                        
+                        {/* Service Status Check */}
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-gray-700">Service Status</span>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch('http://localhost:8765/api/status');
+                                  if (response.ok) {
+                                    const data = await response.json();
+                                    alert(`✅ Service Running\n\nBar ID: ${data.barId || 'Not configured'}\nDriver: ${data.driverId}\nVersion: ${data.version}`);
+                                  }
+                                } catch (error) {
+                                  alert('❌ Service Not Running\n\nPlease install and start the printer service.');
+                                }
+                              }}
+                              className="text-xs text-blue-600 hover:text-blue-700"
+                            >
+                              Check Now
+                            </button>
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            The service must be running on the computer connected to your POS printer.
+                          </p>
+                        </div>
+
+                        {/* Configuration Instructions */}
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                          <div className="flex items-start gap-2 mb-3">
+                            <AlertCircle size={16} className="text-blue-600 mt-0.5" />
+                            <div className="flex-1">
+                              <span className="text-sm font-medium text-blue-800 block mb-1">Configure Service</span>
+                              <p className="text-xs text-blue-700 mb-2">
+                                After installing the service, configure it with your Bar ID:
+                              </p>
+                              <div className="bg-white rounded p-2 mb-2">
+                                <code className="text-xs text-gray-800 break-all">
+                                  Bar ID: <strong>{barInfo.id || 'Loading...'}</strong>
+                                </code>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  if (barInfo.id) {
+                                    navigator.clipboard.writeText(barInfo.id);
+                                    alert('✅ Bar ID copied to clipboard!');
+                                  }
+                                }}
+                                className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                              >
+                                <Copy size={12} />
+                                Copy Bar ID
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-xs text-blue-700">
+                            Use this Bar ID when configuring the printer service.
+                          </p>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => router.push('/setup/printer')}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                          >
+                            <Download size={16} />
+                            <span>Download & Install Service</span>
+                          </button>
+                          <a
+                            href="http://localhost:8765/api/status"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+                          >
+                            <AlertCircle size={16} />
+                            <span>View Service Status</span>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="bg-white border border-gray-200 p-6 rounded-lg mb-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-lg font-semibold text-gray-800 mb-2">Change Configuration</h3>
                       <p className="text-gray-600 text-sm">
-                        Venue configuration is temporarily disabled for maintenance.
+                        Modify your venue mode and authority settings. Note: Changing from Basic to Venue mode will affect printer requirements.
                       </p>
                     </div>
                     <button
-                      onClick={() => alert('Configuration changes are temporarily disabled')}
-                      disabled
-                      className="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
+                      onClick={() => setShowVenueModeModal(true)}
+                      className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition"
                     >
-                      Change Settings (Disabled)
+                      Change Settings
                     </button>
                   </div>
                 </div>
 
-                {/* Configuration History - Temporarily Disabled */}
+                {/* Configuration History */}
                 <div className="bg-gray-50 p-6 rounded-lg mb-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-2">Configuration History</h3>
-                  <p className="text-gray-600 text-sm">Configuration history is temporarily disabled for maintenance.</p>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Configuration History</h3>
+                  <ConfigurationHistory barId={barInfo.id} />
                 </div>
               </div>
             </>

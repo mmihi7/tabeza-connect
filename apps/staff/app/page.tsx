@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter as useNextRouter } from 'next/navigation';
 import { Users, DollarSign, Menu, X, Search, ArrowRight, AlertCircle, RefreshCw, LogOut, AlertTriangle, MessageCircle, BellRing } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
@@ -10,6 +10,9 @@ import { calculateResponseTimeFromTabs, formatResponseTime, type ResponseTimeRes
 import { PaymentNotificationContainer, usePaymentNotifications, type PaymentNotificationData } from '@/components/PaymentNotification';
 import VenueModeOnboarding from '@/components/VenueModeOnboarding';
 import { type VenueConfiguration } from '@tabeza/shared';
+import UnmatchedReceipts from '@/components/printer/UnmatchedReceipts';
+
+const useRouter = useNextRouter;
 
 // Format functions for thousand separators
 const formatCurrency = (amount: number | string, decimals = 0): string => {
@@ -534,7 +537,7 @@ export default function TabsPage() {
           onboarding_completed: true,
           authority_configured_at: new Date().toISOString(),
           mode_last_changed_at: new Date().toISOString()
-        })
+        } as any)
         .eq('id', bar.id);
 
       if (error) throw error;
@@ -1341,6 +1344,18 @@ export default function TabsPage() {
           )}
         </div>
 
+        {/* TAB CARDS */}
+        <div className="p-4 pb-24">
+          {/* ... existing tab cards code ... */}
+        </div>
+
+        {/* UNMATCHED RECEIPTS - NEW SECTION */}
+        {bar && (
+          <div className="p-4">
+            <UnmatchedReceipts barId={bar.id} />
+          </div>
+        )}
+
         {/* HIGH VISIBILITY ALERT OVERLAY */}
         <HighVisibilityAlert 
           isVisible={showAlert} 
@@ -1381,7 +1396,7 @@ export default function TabsPage() {
         )}
 
         {/* CSS Animations */}
-        <style jsx global>{`
+        <style>{`
           .hide-scrollbar::-webkit-scrollbar {
             display: none;
           }

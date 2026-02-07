@@ -46,6 +46,22 @@ interface ParsedReceipt {
 }
 
 /**
+ * OPTIONS /api/printer/relay
+ * 
+ * Handle CORS preflight requests
+ */
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  });
+}
+
+/**
  * POST /api/printer/relay
  * 
  * Receives print jobs from virtual printer drivers
@@ -122,13 +138,22 @@ export async function POST(request: NextRequest) {
       success: true,
       jobId: printJob.id,
       message: 'Print job received and queued for processing',
+    }, {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+      },
     });
 
   } catch (error) {
     console.error('Printer relay error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
     );
   }
 }
@@ -217,7 +242,9 @@ async function parseESCPOSReceipt(data: Buffer): Promise<ParsedReceipt> {
 /**
  * Process receipt asynchronously
  * 
- * Matches receipt to open tab and delivers to customer
+ * Stores receipt as unmatched - staff will manually select tab
+ * CORE TRUTH: We can't assume anything about POS receipts
+ * Staff knows which customer ordered what - let them decide
  */
 async function processReceiptAsync(
   printJobId: string,
@@ -225,65 +252,16 @@ async function processReceiptAsync(
   receipt: ParsedReceipt
 ) {
   try {
-    // Find matching open tab
-    // Strategy: Look for recent open tabs at this bar
-    const { data: openTabs } = await supabase
-      .from('tabs')
-      .select('id, tab_number, owner_identifier')
-      .eq('bar_id', barId)
-      .eq('status', 'open')
-      .order('opened_at', { ascending: false })
-      .limit(10);
-
-    if (!openTabs || openTabs.length === 0) {
-      console.log('No open tabs found for receipt');
-      await supabase
-        .from('print_jobs')
-        .update({ 
-          status: 'no_match',
-          processed_at: new Date().toISOString(),
-        })
-        .eq('id', printJobId);
-      return;
-    }
-
-    // For now, match to most recent tab
-    // TODO: Implement smart matching based on receipt content
-    const targetTab = openTabs[0];
-
-    // Create digital receipt record
-    const { data: digitalReceipt, error: receiptError } = await supabase
-      .from('digital_receipts')
-      .insert({
-        tab_id: targetTab.id,
-        bar_id: barId,
-        print_job_id: printJobId,
-        receipt_data: receipt,
-        receipt_number: receipt.receiptNumber,
-        total_amount: receipt.total,
-        status: 'delivered',
-        delivered_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (receiptError) {
-      console.error('Failed to create digital receipt:', receiptError);
-      return;
-    }
-
-    // Update print job status
+    // Store as unmatched - waiting for staff to select tab
     await supabase
       .from('print_jobs')
       .update({ 
-        status: 'processed',
+        status: 'no_match',
         processed_at: new Date().toISOString(),
-        matched_tab_id: targetTab.id,
       })
       .eq('id', printJobId);
 
-    // Notify customer (via real-time subscription)
-    console.log(`Receipt delivered to tab ${targetTab.tab_number}`);
+    console.log(`Receipt stored as unmatched - waiting for staff selection`);
 
   } catch (error) {
     console.error('Receipt processing error:', error);
@@ -308,5 +286,9 @@ export async function GET() {
     status: 'online',
     version: '1.0.0',
     timestamp: new Date().toISOString(),
+  }, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+    },
   });
 }
