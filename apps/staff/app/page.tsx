@@ -68,7 +68,14 @@ const calculatePendingWaitTime = (tabs: any[], currentTime?: number): string => 
 };
 
 // Play alert sound function with mobile support and continuous option
-const playAlertSound = async (customAudioUrl: string, soundEnabled: boolean, volume: number = 0.8, vibrationEnabled: boolean = true, continuous: boolean = false) => {
+const playAlertSound = async (
+  customAudioUrl: string, 
+  soundEnabled: boolean, 
+  volume: number = 0.8, 
+  vibrationEnabled: boolean = true, 
+  continuous: boolean = false,
+  notificationManager?: NotificationManager | null
+) => {
   try {
     console.log('🔔 playAlertSound called:', { soundEnabled, vibrationEnabled, continuous, hasNotificationManager: !!notificationManager });
     
@@ -627,7 +634,7 @@ export default function TabsPage() {
             if (payload.new?.initiated_by === 'customer') {
               console.log('🚨 STAFF APP: Customer message detected - triggering MESSAGE alert');
               if (mounted.current) {
-                playAlertSound(alertSettings.customAudioUrl, alertSettings.soundEnabled, alertSettings.volume, alertSettings.vibrationEnabled, true);
+                playAlertSound(alertSettings.customAudioUrl, alertSettings.soundEnabled, alertSettings.volume, alertSettings.vibrationEnabled, true, notificationManager);
                 setAlertType('message');
                 setShowAlert(true);
                 
@@ -683,7 +690,7 @@ export default function TabsPage() {
             if (payload.new?.initiated_by === 'customer') {
               console.log('🚨 Triggering ORDER alert');
               if (mounted.current) {
-                playAlertSound(alertSettings.customAudioUrl, alertSettings.soundEnabled, alertSettings.volume, alertSettings.vibrationEnabled, true);
+                playAlertSound(alertSettings.customAudioUrl, alertSettings.soundEnabled, alertSettings.volume, alertSettings.vibrationEnabled, true, notificationManager);
                 setAlertType('order');
                 setShowAlert(true);
                 
@@ -1085,7 +1092,7 @@ export default function TabsPage() {
               <button 
                 onClick={() => {
                   console.log('🚨 Test button clicked!');
-                  playAlertSound(alertSettings.customAudioUrl, alertSettings.soundEnabled, alertSettings.volume, alertSettings.vibrationEnabled, true);
+                  playAlertSound(alertSettings.customAudioUrl, alertSettings.soundEnabled, alertSettings.volume, alertSettings.vibrationEnabled, true, notificationManager);
                   setAlertType('order');
                   setShowAlert(true);
                   
