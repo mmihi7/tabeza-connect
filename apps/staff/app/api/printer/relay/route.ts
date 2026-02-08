@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
  * Parse ESC/POS receipt data
  * 
  * This is a basic implementation that extracts text from ESC/POS commands
- * Will be enhanced with proper ESC/POS parser
+ * Will be enhanced with AI parser in future
  */
 async function parseESCPOSReceipt(data: Buffer): Promise<ParsedReceipt> {
   // Convert ESC/POS to text (basic implementation)
@@ -199,7 +199,7 @@ async function parseESCPOSReceipt(data: Buffer): Promise<ParsedReceipt> {
   let total = 0;
   let receiptNumber: string | undefined;
 
-  // Simple pattern matching (will be enhanced)
+  // Simple pattern matching (will be enhanced with AI)
   for (const line of lines) {
     // Look for receipt number
     if (line.match(/receipt|invoice|#/i)) {

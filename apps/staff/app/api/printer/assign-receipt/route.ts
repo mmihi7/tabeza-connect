@@ -94,36 +94,55 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Convert receipt to tab_order so it appears in customer's order history
-    // CORE TRUTH: POS receipts become orders in Tabeza - customer sees them like any other order
-    // Customer must approve POS orders just like staff-initiated orders
+    // Create tab_order from POS receipt - exactly like staff-initiated orders
+    // CORE TRUTH: POS receipts become pending orders that customers must approve
+    // This matches the existing Tabeza flow for staff orders
     const receiptData = printJob.parsed_data;
-    const items = receiptData?.items || [];
+    const receiptItems = receiptData?.items || [];
     const total = receiptData?.total || 0;
 
-    // Create tab_order from POS receipt - PENDING status requires customer approval
+    // Transform receipt items to match tab_order format
+    // Receipt format: { name, price }
+    // Tab order format: { name, quantity, total }
+    const items = receiptItems.map((item: any) => ({
+      name: item.name,
+      quantity: 1, // POS receipts don't have quantity, assume 1
+      total: item.price || 0,
+    }));
+
+    console.log('Creating pending order from receipt:', {
+      tabId,
+      itemsCount: items.length,
+      total,
+      items: items
+    });
+
+    // Create tab_order with status='pending' - customer must approve
     const { data: tabOrder, error: orderError } = await supabase
       .from('tab_orders')
       .insert({
         tab_id: tabId,
-        items: JSON.stringify(items),
+        items: items, // Store as JSONB directly
         total: total,
-        status: 'pending', // Customer must approve POS orders
-        initiated_by: 'staff', // POS orders are initiated by staff
+        status: 'pending', // Customer must approve
+        initiated_by: 'staff', // POS orders are staff-initiated
       })
       .select()
       .single();
 
     if (orderError) {
-      console.error('Failed to create tab order from receipt:', orderError);
+      console.error('Failed to create pending order from receipt:', orderError);
+      console.error('Order data that failed:', { tabId, items, total });
       return NextResponse.json(
-        { error: 'Failed to deliver receipt as order' },
+        { error: 'Failed to create order', details: orderError.message },
         { status: 500 }
       );
     }
 
+    console.log('✅ Pending order created:', tabOrder.id);
+
     // Also store in digital_receipts for audit trail
-    await supabase
+    const { error: receiptError } = await supabase
       .from('digital_receipts')
       .insert({
         tab_id: tabId,
@@ -135,6 +154,10 @@ export async function POST(request: NextRequest) {
         status: 'delivered',
         delivered_at: new Date().toISOString(),
       });
+
+    if (receiptError) {
+      console.warn('Failed to store digital receipt (non-critical):', receiptError);
+    }
 
     // Update print job status
     await supabase
@@ -148,7 +171,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Receipt delivered to Tab #${tab.tab_number} - awaiting customer approval`,
+      message: `Order sent to Tab #${tab.tab_number} - awaiting customer approval`,
       tabOrderId: tabOrder.id,
     }, {
       headers: {
@@ -207,7 +230,7 @@ export async function GET(request: NextRequest) {
     // Get open tabs
     const { data: openTabs, error: tabsError } = await supabase
       .from('tabs')
-      .select('id, tab_number, opened_at')
+      .select('id, tab_number, opened_at, notes')
       .eq('bar_id', barId)
       .eq('status', 'open')
       .order('opened_at', { ascending: false });

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter as useNextRouter } from 'next/navigation';
-import { Users, DollarSign, Menu, X, Search, ArrowRight, AlertCircle, RefreshCw, LogOut, AlertTriangle, MessageCircle, BellRing } from 'lucide-react';
+import { Users, DollarSign, Menu, X, Search, ArrowRight, AlertCircle, RefreshCw, LogOut, AlertTriangle, MessageCircle, BellRing, Receipt } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { checkAndUpdateOverdueTabs } from '@/lib/businessHours';
@@ -10,7 +10,7 @@ import { calculateResponseTimeFromTabs, formatResponseTime, type ResponseTimeRes
 import { PaymentNotificationContainer, usePaymentNotifications, type PaymentNotificationData } from '@/components/PaymentNotification';
 import VenueModeOnboarding from '@/components/VenueModeOnboarding';
 import { type VenueConfiguration } from '@tabeza/shared';
-import UnmatchedReceipts from '@/components/printer/UnmatchedReceipts';
+import CaptainsOrders from '@/components/printer/CaptainsOrders';
 
 const useRouter = useNextRouter;
 
@@ -1157,6 +1157,10 @@ export default function TabsPage() {
                   <Users size={20} />
                   Active Tabs
                 </button>
+                <button onClick={() => { router.push('/unmatched-receipts'); setShowMenu(false); }} className="flex items-center gap-3 w-full text-left py-2 font-medium hover:bg-orange-50 px-2 rounded">
+                  <Receipt size={20} />
+                  Unmatched Receipts
+                </button>
                 <button onClick={() => { router.push('/overdue'); setShowMenu(false); }} className="flex items-center gap-3 w-full text-left py-2 font-medium text-orange-600 hover:bg-orange-50 px-2 rounded">
                   <AlertTriangle size={20} />
                   Overdue Tabs
@@ -1349,10 +1353,10 @@ export default function TabsPage() {
           {/* ... existing tab cards code ... */}
         </div>
 
-        {/* UNMATCHED RECEIPTS - NEW SECTION */}
-        {bar && (
+        {/* CAPTAIN'S ORDERS - POS RECEIPTS WAITING FOR TAB ASSIGNMENT */}
+        {bar && bar.authority_mode === 'pos' && (
           <div className="p-4">
-            <UnmatchedReceipts barId={bar.id} />
+            <CaptainsOrders barId={bar.id} />
           </div>
         )}
 

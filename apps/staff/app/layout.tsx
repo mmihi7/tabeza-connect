@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { BarProvider } from '@/contexts/page';
 import { ToastProvider } from '@/components/ui/Toast';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 import PWAUpdateManager from '@/components/PWAUpdateManager';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 import { SpeedInsights } from '@vercel/speed-insights/next';
@@ -149,13 +150,15 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans antialiased">
-        <ToastProvider>
-          <BarProvider>
-            <PWAInstallPrompt />
-            <PWAUpdateManager />
-            {children}
-          </BarProvider>
-        </ToastProvider>
+        <ThemeProvider>
+          <ToastProvider>
+            <BarProvider>
+              <PWAInstallPrompt />
+              <PWAUpdateManager />
+              {children}
+            </BarProvider>
+          </ToastProvider>
+        </ThemeProvider>
         <SpeedInsights />
         <Analytics />
       </body>
