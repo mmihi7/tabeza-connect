@@ -1,5 +1,25 @@
 import '@testing-library/jest-dom'
 
+// Load environment variables from .env.local for testing
+// This ensures Supabase client can be initialized during tests
+const fs = require('fs')
+const path = require('path')
+
+const envPath = path.join(__dirname, '.env.local')
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf-8')
+  envContent.split('\n').forEach(line => {
+    const trimmed = line.trim()
+    if (trimmed && !trimmed.startsWith('#')) {
+      const [key, ...valueParts] = trimmed.split('=')
+      if (key && valueParts.length > 0) {
+        const value = valueParts.join('=')
+        process.env[key] = value
+      }
+    }
+  })
+}
+
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
   useRouter() {

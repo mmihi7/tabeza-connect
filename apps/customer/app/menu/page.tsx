@@ -1541,6 +1541,11 @@ export default function MenuPage() {
     try {
       if (!tab) {
         console.error('No tab to close');
+        showToast({
+          type: 'error',
+          title: 'Error',
+          message: 'No active tab found'
+        });
         return;
       }
 
@@ -1563,23 +1568,118 @@ export default function MenuPage() {
         return; // Stop here - don't close the tab
       }
 
+      // Get device identifier from cookies
+      const deviceId = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('tabeza_device_id_v2=') || row.startsWith('tabeza_device_id='))
+        ?.split('=')[1];
+
+      console.log('🔒 Closing tab:', { tabId: tab.id, deviceId });
+
       // Call the close tab API
       const response = await fetch('/api/tabs/close', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Device-ID': deviceId || '',
         },
         body: JSON.stringify({
           tabId: tab.id,
-          writeOffAmount: 0 // Customer tabs should have 0 balance when closing
         }),
       });
 
+      const responseData = await response.json();
+
+      // Handle different response status codes
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to close tab');
+        console.error('❌ Close tab failed:', { status: response.status, data: responseData });
+
+        // 400 - Validation errors (balance, pending orders)
+        if (response.status === 400) {
+          if (responseData.details?.balance) {
+            showToast({
+              type: 'error',
+              title: 'Cannot Close Tab',
+              message: `Outstanding balance: ${formatCurrency(responseData.details.balance)}. Please pay before closing.`
+            });
+          } else if (responseData.details?.pendingStaffOrders) {
+            showToast({
+              type: 'error',
+              title: 'Cannot Close Tab',
+              message: responseData.details.message || 'You have pending staff orders awaiting approval'
+            });
+          } else if (responseData.details?.pendingCustomerOrders) {
+            showToast({
+              type: 'error',
+              title: 'Cannot Close Tab',
+              message: responseData.details.message || 'You have pending orders not yet served'
+            });
+          } else {
+            showToast({
+              type: 'error',
+              title: 'Cannot Close Tab',
+              message: responseData.error || 'Please ensure all orders are confirmed and paid'
+            });
+          }
+          return;
+        }
+
+        // 401 - Unauthorized (device mismatch)
+        if (response.status === 401) {
+          showToast({
+            type: 'error',
+            title: 'Unauthorized',
+            message: 'This tab does not belong to your device'
+          });
+          return;
+        }
+
+        // 404 - Tab not found
+        if (response.status === 404) {
+          showToast({
+            type: 'error',
+            title: 'Tab Not Found',
+            message: 'This tab no longer exists'
+          });
+          // Clear session and redirect
+          sessionStorage.removeItem('currentTab');
+          sessionStorage.removeItem('cart');
+          router.replace('/');
+          return;
+        }
+
+        // 503 - Service unavailable (connection error)
+        if (response.status === 503) {
+          showToast({
+            type: 'error',
+            title: 'Connection Error',
+            message: 'Unable to connect. Please check your internet connection and try again.'
+          });
+          return;
+        }
+
+        // 500 - Server error
+        if (response.status === 500) {
+          showToast({
+            type: 'error',
+            title: 'Server Error',
+            message: responseData.message || 'An error occurred. Please try again or contact support.'
+          });
+          return;
+        }
+
+        // Generic error fallback
+        showToast({
+          type: 'error',
+          title: 'Error',
+          message: responseData.error || 'Failed to close tab. Please try again.'
+        });
+        return;
       }
 
+      // Success - clear session and redirect
+      console.log('✅ Tab closed successfully');
+      
       sessionStorage.removeItem('currentTab');
       sessionStorage.removeItem('cart');
       sessionStorage.removeItem('oldestPendingCustomerOrderTime');
@@ -1588,13 +1688,29 @@ export default function MenuPage() {
       showToast({
         type: 'success',
         title: 'Tab Closed',
-        message: 'Tab closed successfully. Thank you!'
+        message: responseData.message || 'Tab closed successfully. Thank you!'
       });
 
+      // Redirect to home page
       router.replace('/');
-    } catch (error) {
-      console.error('Error in handleCloseTab:', error);
-      alert('An error occurred while closing the tab');
+      
+    } catch (error: any) {
+      console.error('❌ Error in handleCloseTab:', error);
+      
+      // Handle network errors
+      if (error.message?.includes('fetch') || error.name === 'TypeError') {
+        showToast({
+          type: 'error',
+          title: 'Connection Error',
+          message: 'Unable to connect. Please check your internet connection and try again.'
+        });
+      } else {
+        showToast({
+          type: 'error',
+          title: 'Error',
+          message: 'An unexpected error occurred while closing the tab'
+        });
+      }
     }
   };
 

@@ -3,6 +3,7 @@ export * from './types';
 export * from './tokens-service';
 export * from './utils';
 export * from './lib/response-time';
+export * from './error-handling';
 
 // Export phone validation utilities (simplified version)
 export * from './lib/services/phoneValidation';

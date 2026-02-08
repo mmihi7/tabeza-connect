@@ -1,0 +1,246 @@
+{
+  "baseline_capture_date": "2024-01-XX",
+  "task": "0.2 Capture baseline metrics",
+  "file_location": "apps/staff/app/page.tsx",
+  "line_range": "1155-1270",
+  
+  "card_states": {
+    "normal_tab_card": {
+      "description": "Tab card without pending orders or messages",
+      "condition": "!hasPendingOrders && !hasPendingMessages",
+      "container_classes": [
+        "rounded-lg",
+        "p-4",
+        "shadow-sm",
+        "hover:shadow-lg",
+        "cursor-pointer",
+        "transition",
+        "transform",
+        "hover:scale-105",
+        "relative",
+        "bg-white",
+        "border",
+        "border-gray-200"
+      ],
+      "background": {
+        "type": "solid",
+        "color": "white",
+        "tailwind_class": "bg-white"
+      },
+      "border": {
+        "width": "1px",
+        "color": "gray-200",
+        "tailwind_classes": ["border", "border-gray-200"]
+      },
+      "shadow": {
+        "default": "shadow-sm",
+        "hover": "shadow-lg"
+      },
+      "text_colors": {
+        "title": "text-gray-800",
+        "table_number": "text-orange-600",
+        "timestamp": "text-gray-500",
+        "balance_amount_positive": "text-orange-700",
+        "balance_amount_zero": "text-green-600",
+        "balance_label": "text-gray-500",
+        "footer_orders": "text-gray-600",
+        "footer_pending": "text-yellow-600"
+      },
+      "balance_section": {
+        "background": "bg-orange-50",
+        "classes": ["text-center", "py-4", "rounded-lg", "mb-3"]
+      },
+      "footer": {
+        "border": "border-t border-gray-100",
+        "text": "text-gray-600"
+      }
+    },
+    
+    "pending_order_card": {
+      "description": "Tab card with pending orders or messages",
+      "condition": "hasPendingOrders || hasPendingMessages",
+      "container_classes": [
+        "rounded-lg",
+        "p-4",
+        "shadow-sm",
+        "hover:shadow-lg",
+        "cursor-pointer",
+        "transition",
+        "transform",
+        "hover:scale-105",
+        "relative",
+        "bg-gradient-to-br",
+        "from-red-900",
+        "to-red-800",
+        "border-2",
+        "border-red-500",
+        "animate-pulse",
+        "text-white"
+      ],
+      "background": {
+        "type": "gradient",
+        "direction": "to-br",
+        "from": "red-900",
+        "to": "red-800",
+        "tailwind_classes": ["bg-gradient-to-br", "from-red-900", "to-red-800"]
+      },
+      "border": {
+        "width": "2px",
+        "color": "red-500",
+        "tailwind_classes": ["border-2", "border-red-500"]
+      },
+      "shadow": {
+        "default": "shadow-sm",
+        "hover": "shadow-lg"
+      },
+      "animation": "animate-pulse",
+      "text_colors": {
+        "title": "text-white",
+        "table_number": "text-yellow-300",
+        "timestamp": "text-gray-300",
+        "balance_amount": "text-white",
+        "balance_label": "text-gray-400",
+        "footer_orders": "text-gray-300",
+        "footer_pending": "text-yellow-300"
+      },
+      "balance_section": {
+        "background": "bg-gray-800",
+        "classes": ["text-center", "py-4", "rounded-lg", "mb-3"]
+      },
+      "footer": {
+        "border": "border-t border-gray-700",
+        "text": "text-gray-300"
+      },
+      "critical_issue": "Dark red-900 background becomes INVISIBLE in high brightness conditions"
+    },
+    
+    "paid_tab_card": {
+      "description": "Tab card with zero balance and positive bill total",
+      "condition": "balance === 0 && billTotal > 0",
+      "inherits_from": "normal_tab_card or pending_order_card",
+      "overlay_sticker": {
+        "position": "absolute -top-2 -right-2 z-10",
+        "transform": "rotate-12",
+        "background": "bg-green-500",
+        "border": "border-2 border-green-400",
+        "shadow": "shadow-lg",
+        "text": "text-white text-xs font-bold",
+        "content": "PAID"
+      }
+    },
+    
+    "overdue_tab_card": {
+      "description": "Tab card with overdue status",
+      "condition": "tab.status === 'overdue'",
+      "current_styling": "No separate styling - uses normal_tab_card classes",
+      "issue": "No visual distinction from normal tabs"
+    }
+  },
+  
+  "additional_elements": {
+    "message_badge": {
+      "condition": "tab.unreadMessages > 0",
+      "container": "bg-blue-500 text-white rounded-lg p-1 relative",
+      "counter": "absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded w-4 h-4",
+      "icon": "MessageCircle size 14"
+    },
+    "pending_indicator_badge": {
+      "condition": "hasPending",
+      "container": "flex items-center justify-center w-6 h-6 bg-amber-500 rounded animate-pulse",
+      "icon": "AlertCircle size 14",
+      "icon_color": "text-amber-900"
+    }
+  },
+  
+  "contrast_measurements": {
+    "normal_card": {
+      "card_vs_page_background": {
+        "colors": "white vs light gray/white",
+        "estimated_ratio": "1.1:1",
+        "wcag_requirement": "3:1 minimum",
+        "status": "FAIL"
+      },
+      "border_vs_card": {
+        "colors": "gray-200 vs white",
+        "estimated_ratio": "1.2:1",
+        "wcag_requirement": "3:1 minimum",
+        "status": "FAIL"
+      },
+      "text_title": {
+        "colors": "gray-800 vs white",
+        "estimated_ratio": "5.7:1",
+        "wcag_requirement": "4.5:1 (AA)",
+        "status": "PASS"
+      },
+      "text_orange": {
+        "colors": "orange-600 vs white",
+        "estimated_ratio": "4.5:1",
+        "wcag_requirement": "4.5:1 (AA)",
+        "status": "PASS"
+      }
+    },
+    "pending_card": {
+      "card_vs_page_background": {
+        "colors": "red-900 vs light gray/white",
+        "estimated_ratio": "12:1",
+        "wcag_requirement": "3:1 minimum",
+        "status": "PASS (but invisible in bright conditions)"
+      },
+      "border_vs_card": {
+        "colors": "red-500 vs red-900",
+        "estimated_ratio": "3.5:1",
+        "wcag_requirement": "3:1 minimum",
+        "status": "PASS"
+      },
+      "text_white": {
+        "colors": "white vs red-900",
+        "estimated_ratio": "12.6:1",
+        "wcag_requirement": "4.5:1 (AA)",
+        "status": "PASS"
+      },
+      "text_yellow": {
+        "colors": "yellow-300 vs red-900",
+        "estimated_ratio": "8.4:1",
+        "wcag_requirement": "4.5:1 (AA)",
+        "status": "PASS"
+      }
+    }
+  },
+  
+  "visibility_issues": {
+    "high_brightness_problems": [
+      "Normal card borders (gray-200) disappear in bright conditions",
+      "Normal card shadows (shadow-sm) become invisible",
+      "Pending card dark backgrounds (red-900) appear black/invisible",
+      "Cards blend into page background at 100% brightness",
+      "Insufficient visual separation between cards"
+    ],
+    "critical_issue": "Pending cards with dark red-900 background are PRIMARY visibility problem"
+  },
+  
+  "test_suite_status": {
+    "existing_tests": 1,
+    "tab_card_tests": 0,
+    "styling_tests": 0,
+    "contrast_tests": 0,
+    "pass_rate": "N/A - no Tab card tests exist"
+  },
+  
+  "recommendations": {
+    "priority_1_critical": [
+      "Change pending cards from dark (red-900) to light (amber-50/100) backgrounds",
+      "Increase border thickness to 2-4px",
+      "Use darker border colors (orange-500, amber-700, red-700)"
+    ],
+    "priority_2_high": [
+      "Enhance shadows for better depth (shadow-md to shadow-lg)",
+      "Add icon indicators for pending/overdue states",
+      "Create distinct styling for overdue tabs"
+    ],
+    "priority_3_medium": [
+      "Add ARIA labels for accessibility",
+      "Implement keyboard focus indicators",
+      "Add prefers-reduced-motion support"
+    ]
+  }
+}

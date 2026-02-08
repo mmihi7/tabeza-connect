@@ -308,7 +308,7 @@ export default function TabsPage() {
   
   const [tabs, setTabs] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState('open');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [showMenu, setShowMenu] = useState(false);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(Date.now());
@@ -926,7 +926,10 @@ export default function TabsPage() {
     const hasPendingMessages = (tab.unreadMessages || 0) > 0;
     
     let matchesFilter = false;
-    if (filterStatus === 'pending') {
+    if (filterStatus === 'all') {
+      // Show all tabs
+      matchesFilter = true;
+    } else if (filterStatus === 'pending') {
       // For pending filter, show tabs that have pending orders OR messages
       matchesFilter = hasPendingOrders || hasPendingMessages;
     } else {
@@ -1120,11 +1123,14 @@ export default function TabsPage() {
           </div>
           
           <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
-            {['pending', 'open', 'overdue'].map(status => {
+            {['all', 'pending', 'open', 'overdue'].map(status => {
               let count = 0;
               let displayText = status.charAt(0).toUpperCase() + status.slice(1);
               
-              if (status === 'pending') {
+              if (status === 'all') {
+                count = tabs.length;
+                displayText = `All (${tabs.length})`;
+              } else if (status === 'pending') {
                 count = totalPending;
                 displayText = `⚡ Pending (${totalPending})`;
               } else if (status === 'open') {
@@ -1169,15 +1175,28 @@ export default function TabsPage() {
                 );
                 const hasPendingMessages = (tab.unreadMessages || 0) > 0;
                 const hasPending = hasPendingOrders || hasPendingMessages;
+                const isOverdue = tab.status === 'overdue';
+                
+                // Debug logging
+                if (isOverdue || hasPendingOrders) {
+                  console.log(`Tab ${tab.tab_number}:`, {
+                    status: tab.status,
+                    isOverdue,
+                    hasPendingOrders,
+                    hasPendingMessages
+                  });
+                }
                 
                 return (
                   <div 
                     key={tab.id} 
                     onClick={() => router.push(`/tabs/${tab.id}`)}
-                    className={`rounded-lg p-4 shadow-sm hover:shadow-lg cursor-pointer transition transform hover:scale-105 relative ${
-                      hasPendingOrders 
-                        ? 'bg-gradient-to-br from-red-900 to-red-800 border-2 border-red-500 animate-pulse text-white' 
-                        : 'bg-white border border-gray-200'
+                    className={`rounded-lg p-4 cursor-pointer transition-all duration-200 transform hover:scale-[1.02] relative ${
+                      isOverdue
+                        ? 'bg-gradient-to-br from-red-900 to-red-800 border border-red-700 shadow-lg'
+                        : hasPendingOrders 
+                        ? 'bg-gradient-to-br from-amber-500 to-amber-600 border border-amber-700 shadow-lg' 
+                        : 'bg-gradient-to-br from-green-600 to-green-700 border border-green-800 shadow-lg'
                     }`}
                   >
                     {/* PAID Overlay Sticker */}
@@ -1188,12 +1207,32 @@ export default function TabsPage() {
                         </div>
                       </div>
                     )}
+                    
+                    {/* Pending Orders Icon Indicator */}
+                    {hasPendingOrders && !isOverdue && (
+                      <div className="absolute top-2 right-2">
+                        <AlertCircle className="w-6 h-6 text-amber-900" />
+                        <span className="sr-only">Pending orders</span>
+                      </div>
+                    )}
+                    
+                    {/* Overdue Tab Icon Indicator */}
+                    {isOverdue && (
+                      <div className="absolute top-2 right-2">
+                        <AlertTriangle className="w-6 h-6 text-yellow-200" />
+                        <span className="sr-only">Overdue tab</span>
+                      </div>
+                    )}
                     <div className="mb-3">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex-1 min-w-0">
-                          <h3 className={`text-lg font-bold truncate ${hasPendingOrders ? 'text-white' : 'text-gray-800'}`}>{getDisplayName(tab)}</h3>
+                          <h3 className={`text-lg font-bold truncate ${
+                            isOverdue ? 'text-white' : hasPendingOrders ? 'text-gray-900' : 'text-white'
+                          }`}>{getDisplayName(tab)}</h3>
                           {getTableNumber(tab) && (
-                            <p className={`text-sm font-medium ${hasPendingOrders ? 'text-yellow-300' : 'text-orange-600'}`}>
+                            <p className={`text-sm font-medium ${
+                              isOverdue ? 'text-yellow-200' : hasPendingOrders ? 'text-amber-900' : 'text-green-200'
+                            }`}>
                               Table {getTableNumber(tab)}
                             </p>
                           )}
@@ -1207,27 +1246,28 @@ export default function TabsPage() {
                               </span>
                             </div>
                           )}
-                          {hasPending && (
-                            <span className="flex items-center justify-center w-6 h-6 bg-amber-500 rounded animate-pulse">
-                              <AlertCircle size={14} className="text-amber-900" />
-                            </span>
-                          )}
                         </div>
                       </div>
-                      <p className={`text-xs ${hasPendingOrders ? 'text-gray-300' : 'text-gray-500'}`}>Opened {timeAgo(tab.opened_at)}</p>
+                      <p className={`text-xs ${
+                        isOverdue ? 'text-gray-200' : hasPendingOrders ? 'text-amber-900' : 'text-green-200'
+                      }`}>Opened {timeAgo(tab.opened_at)}</p>
                     </div>
 
                     {/* Balance section - Updated to show bill total and paid amount */}
                     <div className={`text-center py-4 rounded-lg mb-3 ${
-                      hasPendingOrders ? 'bg-gray-800' : 'bg-orange-50'
+                      isOverdue ? 'bg-red-800' : hasPendingOrders ? 'bg-amber-600' : 'bg-green-800'
                     }`}>
                       {balance === 0 && billTotal > 0 ? (
                         // Fully paid - show bill total and paid amount
                         <div>
-                          <p className={`text-lg font-bold ${hasPendingOrders ? 'text-white' : 'text-gray-700'}`}>
+                          <p className={`text-lg font-bold ${
+                            isOverdue ? 'text-white' : hasPendingOrders ? 'text-gray-900' : 'text-white'
+                          }`}>
                             Bill: {formatCurrency(billTotal)}
                           </p>
-                          <p className={`text-sm font-medium ${hasPendingOrders ? 'text-green-300' : 'text-green-600'}`}>
+                          <p className={`text-sm font-medium ${
+                            isOverdue ? 'text-green-200' : hasPendingOrders ? 'text-green-700' : 'text-green-200'
+                          }`}>
                             Paid: {formatCurrency(paidTotal)}
                           </p>
                         </div>
@@ -1235,13 +1275,13 @@ export default function TabsPage() {
                         // Outstanding balance - show balance as before
                         <div>
                           <p className={`text-2xl font-bold ${
-                            hasPendingOrders 
-                              ? 'text-white' 
-                              : balance > 0 ? 'text-orange-700' : 'text-green-600'
+                            isOverdue ? 'text-white' : hasPendingOrders ? 'text-gray-900' : 'text-white'
                           }`}>
                             {formatCurrency(balance)}
                           </p>
-                          <p className={`text-xs ${hasPendingOrders ? 'text-gray-400' : 'text-gray-500'}`}>
+                          <p className={`text-xs ${
+                            isOverdue ? 'text-gray-200' : hasPendingOrders ? 'text-amber-900' : 'text-green-200'
+                          }`}>
                             Balance
                           </p>
                         </div>
@@ -1249,12 +1289,20 @@ export default function TabsPage() {
                     </div>
 
                     <div className={`flex items-center justify-between text-xs pt-3 border-t ${
-                      hasPendingOrders 
-                        ? 'text-gray-300 border-gray-700' 
-                        : 'text-gray-600 border-gray-100'
+                      isOverdue
+                        ? 'text-gray-100 border-red-700'
+                        : hasPendingOrders
+                        ? 'text-gray-900 border-amber-700'
+                        : 'text-gray-100 border-green-800'
                     }`}>
                       <span>{tab.orders?.filter((o: any) => o.status !== 'cancelled').length || 0} orders</span>
-                      <span className={hasPendingOrders ? 'text-yellow-300 font-medium' : 'text-yellow-600 font-medium'}>
+                      <span className={
+                        isOverdue
+                          ? 'text-yellow-200 font-medium'
+                          : hasPendingOrders
+                          ? 'text-amber-900 font-medium'
+                          : 'text-green-200 font-medium'
+                      }>
                         {tab.orders?.filter((o: any) => o.status === 'pending' && o.status !== 'cancelled').length || 0} pending
                       </span>
                     </div>
