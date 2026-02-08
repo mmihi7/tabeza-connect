@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import ReactDOM from 'react-dom/client';
 import { ShoppingCart, Plus, Search, X, CreditCard, Clock, CheckCircle, Minus, User, UserCog, ThumbsUp, ChevronDown, ChevronUp, Eye, EyeOff, Phone, CreditCardIcon, DollarSign, MessageCircle, Send, AlertCircle, FileText, ZoomIn, ZoomOut, Maximize2, Package,
@@ -29,6 +29,7 @@ import PWAUpdateManager from '../../components/PWAUpdateManager';
 import PDFViewer from '../../../../components/PDFViewer'; 
 import MessagePanel from './MessagePanel';
 import { playCustomerNotification } from '@/lib/notifications'; // ADDED MISSING IMPORT
+import { updateOrderInList, addOrderToList, removeOrderFromList, type TabOrder } from '@/lib/order-state-helpers';
 
 // Temporary format function to bypass import issue
 const tempFormatCurrency = (amount: number | string, decimals = 0): string => {
@@ -549,6 +550,263 @@ export default function MenuPage() {
     }
   }, [tab?.id]);
 
+  // Real-time subscription handlers with proper state management
+  // Requirements: 5, 6, 10, 11, 14, 15
+  
+  // Handle order updates (UPDATE events)
+  const handleOrderUpdate = useCallback((payload: any) => {
+    console.log('📦 [REALTIME] Order UPDATE received:', {
+      eventType: payload.eventType,
+      orderId: payload.new?.id,
+      oldStatus: payload.old?.status,
+      newStatus: payload.new?.status,
+      initiatedBy: payload.new?.initiated_by,
+      timestamp: new Date().toISOString()
+    });
+
+    try {
+      // Validate payload
+      if (!payload.new || !payload.new.id) {
+        console.error('❌ [REALTIME] Invalid order update payload:', payload);
+        return;
+      }
+
+      const updatedOrder = payload.new as TabOrder;
+
+      // Update orders state using state updater function
+      // This ensures we work with the latest state and trigger re-render
+      setOrders(prevOrders => {
+        console.log('🔄 [REALTIME] Updating orders state:', {
+          previousCount: prevOrders.length,
+          updatedOrderId: updatedOrder.id
+        });
+
+        const newOrders = updateOrderInList(prevOrders, updatedOrder);
+
+        console.log('✅ [REALTIME] Orders state updated:', {
+          newCount: newOrders.length,
+          updatedOrder: {
+            id: updatedOrder.id,
+            status: updatedOrder.status,
+            initiatedBy: updatedOrder.initiated_by
+          }
+        });
+
+        return newOrders;
+      });
+
+      // Handle customer approval of staff order
+      const isCustomerApproval = (
+        payload.new?.status === 'confirmed' && 
+        payload.old?.status === 'pending' && 
+        payload.new?.initiated_by === 'staff'
+      );
+
+      if (isCustomerApproval && !processedOrders.has(payload.new.id)) {
+        console.log('✅ [REALTIME] Customer approved staff order:', payload.new.id);
+        setProcessedOrders(prev => new Set([...prev, payload.new.id]));
+        
+        showToast({
+          type: 'success',
+          title: 'Order Approved!',
+          message: 'Staff order has been approved and will be prepared'
+        });
+        
+        setShowRejectModal(false);
+      }
+
+      // Handle customer rejection of staff order
+      const isCustomerRejection = (
+        payload.new?.status === 'cancelled' && 
+        payload.old?.status === 'pending' && 
+        payload.new?.initiated_by === 'staff' &&
+        payload.new?.cancelled_by === 'customer'
+      );
+
+      if (isCustomerRejection && !processedOrders.has(payload.new.id)) {
+        console.log('❌ [REALTIME] Customer rejected staff order:', payload.new.id);
+        setProcessedOrders(prev => new Set([...prev, payload.new.id]));
+        
+        showToast({
+          type: 'info',
+          title: 'Order Rejected',
+          message: 'Staff order has been rejected'
+        });
+        
+        setShowRejectModal(false);
+      }
+
+      // Handle staff acceptance of customer order
+      const isStaffAcceptance = (
+        payload.new?.status === 'confirmed' && 
+        payload.old?.status === 'pending' && 
+        payload.new?.initiated_by === 'customer'
+      );
+
+      if (isStaffAcceptance && !processedOrders.has(payload.new.id)) {
+        console.log('🎉 [REALTIME] Staff accepted customer order:', payload.new.id);
+        setProcessedOrders(prev => new Set([...prev, payload.new.id]));
+        
+        // Trigger notifications
+        buzz([200, 100, 200]);
+        playAcceptanceSound();
+        
+        setAcceptanceModal({
+          show: true,
+          orderTotal: payload.new.total,
+          message: 'Your order has been accepted and is being prepared'
+        });
+      }
+
+    } catch (error) {
+      console.error('❌ [REALTIME] Error handling order update:', error);
+      // Fallback: refetch orders data
+      console.log('🔄 [REALTIME] Falling back to refetch...');
+      if (supabase && tab?.id) {
+        supabase
+          .from('tab_orders')
+          .select('*')
+          .eq('tab_id', tab.id)
+          .order('created_at', { ascending: false })
+          .then(({ data, error }) => {
+            if (!error && data) {
+              setOrders(data as TabOrder[]);
+              console.log('✅ [REALTIME] Orders refetched successfully');
+            }
+          });
+      }
+    }
+  }, [tab?.id, processedOrders, buzz, playAcceptanceSound, showToast, setShowRejectModal, setAcceptanceModal]);
+
+  // Handle new orders (INSERT events)
+  const handleOrderInsert = useCallback((payload: any) => {
+    console.log('➕ [REALTIME] Order INSERT received:', {
+      eventType: payload.eventType,
+      orderId: payload.new?.id,
+      status: payload.new?.status,
+      initiatedBy: payload.new?.initiated_by,
+      timestamp: new Date().toISOString()
+    });
+
+    try {
+      // Validate payload
+      if (!payload.new || !payload.new.id) {
+        console.error('❌ [REALTIME] Invalid order insert payload:', payload);
+        return;
+      }
+
+      const newOrder = payload.new as TabOrder;
+
+      // Add order to state using state updater function
+      setOrders(prevOrders => {
+        console.log('🔄 [REALTIME] Adding order to state:', {
+          previousCount: prevOrders.length,
+          newOrderId: newOrder.id
+        });
+
+        const updatedOrders = addOrderToList(prevOrders, newOrder);
+
+        console.log('✅ [REALTIME] Order added to state:', {
+          newCount: updatedOrders.length,
+          newOrder: {
+            id: newOrder.id,
+            status: newOrder.status,
+            initiatedBy: newOrder.initiated_by
+          }
+        });
+
+        return updatedOrders;
+      });
+
+      // Show notification for new staff orders
+      if (newOrder.initiated_by === 'staff' && newOrder.status === 'pending') {
+        console.log('📢 [REALTIME] New staff order requires approval:', newOrder.id);
+        
+        showToast({
+          type: 'info',
+          title: 'New Order from Staff',
+          message: 'Please review and approve the order',
+          duration: 8000
+        });
+
+        // Trigger notification
+        buzz([200, 100, 200]);
+        playAcceptanceSound();
+      }
+
+    } catch (error) {
+      console.error('❌ [REALTIME] Error handling order insert:', error);
+      // Fallback: refetch orders data
+      console.log('🔄 [REALTIME] Falling back to refetch...');
+      if (supabase && tab?.id) {
+        supabase
+          .from('tab_orders')
+          .select('*')
+          .eq('tab_id', tab.id)
+          .order('created_at', { ascending: false })
+          .then(({ data, error }) => {
+            if (!error && data) {
+              setOrders(data as TabOrder[]);
+              console.log('✅ [REALTIME] Orders refetched successfully');
+            }
+          });
+      }
+    }
+  }, [tab?.id, buzz, playAcceptanceSound, showToast]);
+
+  // Handle order deletions (DELETE events)
+  const handleOrderDelete = useCallback((payload: any) => {
+    console.log('🗑️ [REALTIME] Order DELETE received:', {
+      eventType: payload.eventType,
+      orderId: payload.old?.id,
+      timestamp: new Date().toISOString()
+    });
+
+    try {
+      // Validate payload
+      if (!payload.old || !payload.old.id) {
+        console.error('❌ [REALTIME] Invalid order delete payload:', payload);
+        return;
+      }
+
+      const deletedOrderId = payload.old.id;
+
+      // Remove order from state using state updater function
+      setOrders(prevOrders => {
+        console.log('🔄 [REALTIME] Removing order from state:', {
+          previousCount: prevOrders.length,
+          deletedOrderId
+        });
+
+        const updatedOrders = removeOrderFromList(prevOrders, deletedOrderId);
+
+        console.log('✅ [REALTIME] Order removed from state:', {
+          newCount: updatedOrders.length
+        });
+
+        return updatedOrders;
+      });
+
+    } catch (error) {
+      console.error('❌ [REALTIME] Error handling order delete:', error);
+      // Fallback: refetch orders data
+      console.log('🔄 [REALTIME] Falling back to refetch...');
+      if (supabase && tab?.id) {
+        supabase
+          .from('tab_orders')
+          .select('*')
+          .eq('tab_id', tab.id)
+          .order('created_at', { ascending: false })
+          .then(({ data, error }) => {
+            if (!error && data) {
+              setOrders(data as TabOrder[]);
+              console.log('✅ [REALTIME] Orders refetched successfully');
+            }
+          });
+      }
+    }
+  }, [tab?.id]);
+
   // Set up real-time subscriptions with improved error handling and debouncing
   const realtimeConfigs = [
     {
@@ -557,135 +815,13 @@ export default function MenuPage() {
       filter: tab?.id ? `tab_id=eq.${tab.id}` : undefined,
       event: '*' as const,
       handler: async (payload: any) => {
-        console.log('📦 Real-time order update received:', payload);
-        console.log('📊 Payload details:', {
-          eventType: payload.eventType,
-          new: payload.new,
-          old: payload.old,
-          table: payload.table,
-          schema: payload.schema
-        });
-        
-        // Check if customer approved a staff order (NEW)
-        const isCustomerApproval = (
-          (payload.new?.status === 'confirmed' && 
-           payload.old?.status === 'pending' && 
-           payload.new?.initiated_by === 'staff')
-        );
-        
-        console.log('👤 Is customer approval?', isCustomerApproval);
-        console.log('📋 Processed orders:', Array.from(processedOrders));
-        
-        if (isCustomerApproval && !processedOrders.has(payload.new.id)) {
-          console.log('✅ Customer approved staff order:', payload.new.id);
-          
-          // Mark this order as processed to avoid duplicate notifications
-          setProcessedOrders(prev => new Set([...prev, payload.new.id]));
-          
-          // Show success feedback
-          showToast({
-            type: 'success',
-            title: 'Order Approved!',
-            message: 'Staff order has been approved and will be prepared'
-          });
-          
-          // Close rejection modal if open
-          setShowRejectModal(false);
-          
-          // Refresh orders data
-          await loadTabData();
-        }
-        
-        // Check if customer rejected a staff order (NEW)
-        const isCustomerRejection = (
-          (payload.new?.status === 'cancelled' && 
-           payload.old?.status === 'pending' && 
-           payload.new?.initiated_by === 'staff' &&
-           payload.new?.cancelled_by === 'customer')
-        );
-        
-        if (isCustomerRejection && !processedOrders.has(payload.new.id)) {
-          console.log('❌ Customer rejected staff order:', payload.new.id);
-          
-          // Mark this order as processed to avoid duplicate notifications
-          setProcessedOrders(prev => new Set([...prev, payload.new.id]));
-          
-          // Show rejection feedback
-          showToast({
-            type: 'info',
-            title: 'Order Rejected',
-            message: 'Staff order has been rejected'
-          });
-          
-          // Close rejection modal if open
-          setShowRejectModal(false);
-          
-          // Refresh orders data
-          await loadTabData();
-        }
-        
-        // Check if staff accepted an order (multiple scenarios)
-        const isStaffAcceptance = (
-          // Scenario 1: pending -> confirmed (staff accepts customer order)
-          (payload.new?.status === 'confirmed' && 
-           payload.old?.status === 'pending' && 
-           payload.new?.initiated_by === 'customer') ||
-          // Scenario 2: Any change to confirmed status for customer orders
-          (payload.new?.status === 'confirmed' && 
-           payload.new?.initiated_by === 'customer' && 
-           payload.old?.status !== 'confirmed')
-        );
-        
-        // Check if order was served/completed (for notification purposes only)
-        const isOrderCompleted = (
-          (payload.new?.status === 'served' || payload.new?.status === 'completed') &&
-          payload.old?.status !== 'served' && payload.old?.status !== 'completed'
-        );
-        
-        console.log('🤖 Is staff acceptance?', isStaffAcceptance);
-        console.log('📋 Processed orders:', Array.from(processedOrders));
-        
-        if (isStaffAcceptance && !processedOrders.has(payload.new.id)) {
-          console.log('🎉 Staff accepted order:', payload.new.id);
-          
-          // Mark this order as processed to avoid duplicate notifications
-          setProcessedOrders(prev => new Set([...prev, payload.new.id]));
-          
-          console.log('🔔 Showing acceptance modal with notifications...');
-          
-          // Trigger vibration and sound
-          buzz([200, 100, 200]); // Vibration pattern: buzz-pause-buzz
-          playAcceptanceSound(); // Play acceptance sound
-          
-          // Show modal instead of toast
-          setAcceptanceModal({
-            show: true,
-            orderTotal: payload.new.total, // Pass the number, not formatted string
-            message: 'Your order has been accepted and is being prepared'
-          });
-        } else if (isOrderCompleted && !processedOrders.has(payload.new.id)) {
-          console.log('✅ Order completed:', payload.new.id);
-          
-          // Mark this order as processed to avoid duplicate notifications
-          setProcessedOrders(prev => new Set([...prev, payload.new.id]));
-        } else {
-          console.log('❌ Not showing modal - conditions not met:', {
-            isStaffAcceptance,
-            alreadyProcessed: processedOrders.has(payload.new?.id),
-            orderId: payload.new?.id
-          });
-        }
-        
-        // Refresh orders data
-        if (!supabase) return;
-        const { data: ordersData, error } = await supabase
-          .from('tab_orders')
-          .select('*')
-          .eq('tab_id', tab?.id || '')
-          .order('created_at', { ascending: false });
-        
-        if (!error && ordersData) {
-          setOrders(ordersData);
+        // Route to appropriate handler based on event type
+        if (payload.eventType === 'UPDATE') {
+          handleOrderUpdate(payload);
+        } else if (payload.eventType === 'INSERT') {
+          handleOrderInsert(payload);
+        } else if (payload.eventType === 'DELETE') {
+          handleOrderDelete(payload);
         }
       }
     },
@@ -1000,7 +1136,7 @@ export default function MenuPage() {
 
   const { connectionStatus, retryCount, reconnect, isConnected } = supabase ? useRealtimeSubscription(
     realtimeConfigs,
-    [tab?.id, router, processedOrders],
+    [tab?.id, router, processedOrders, handleOrderUpdate, handleOrderInsert, handleOrderDelete],
     {
       maxRetries: 10,
       retryDelay: [1000, 2000, 5000, 10000, 30000, 60000],

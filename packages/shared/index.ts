@@ -32,6 +32,12 @@ export * from './lib/services/tab-resolution';
 // Export diagnostic services
 export * from './lib/diagnostics/environment-validator';
 
+// Export notification and audio unlock services
+export * from './lib/audio-unlock';
+export * from './lib/notification-manager';
+export * from './lib/browser-capabilities';
+export * from './lib/subscription-error-handler';
+
 // Note: React hooks and components are not exported here to avoid server-side import issues
 // Import them directly from their specific paths when needed in client components:
 // - './hooks/useRealtimeSubscription'

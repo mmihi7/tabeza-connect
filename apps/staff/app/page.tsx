@@ -6,8 +6,9 @@ import { Users, DollarSign, Menu, X, Search, ArrowRight, AlertCircle, RefreshCw,
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { checkAndUpdateOverdueTabs } from '@/lib/businessHours';
-import { calculateResponseTimeFromTabs, formatResponseTime, type ResponseTimeResult } from '@tabeza/shared';
+import { calculateResponseTimeFromTabs, formatResponseTime, type ResponseTimeResult, createNotificationManager, type AudioUnlockManager, type NotificationManager } from '@tabeza/shared';
 import { PaymentNotificationContainer, usePaymentNotifications, type PaymentNotificationData } from '@/components/PaymentNotification';
+import { AudioUnlockPrompt } from '@/components/AudioUnlockPrompt';
 
 // Format functions for thousand separators
 const formatCurrency = (amount: number | string, decimals = 0): string => {
@@ -67,8 +68,27 @@ const calculatePendingWaitTime = (tabs: any[], currentTime?: number): string => 
 };
 
 // Play alert sound function with mobile support and continuous option
-const playAlertSound = (customAudioUrl: string, soundEnabled: boolean, volume: number = 0.8, vibrationEnabled: boolean = true, continuous: boolean = false) => {
+const playAlertSound = async (customAudioUrl: string, soundEnabled: boolean, volume: number = 0.8, vibrationEnabled: boolean = true, continuous: boolean = false) => {
   try {
+    console.log('🔔 playAlertSound called:', { soundEnabled, vibrationEnabled, continuous, hasNotificationManager: !!notificationManager });
+    
+    // Use new notification manager if available (Requirements 1, 3, 14, 15)
+    if (notificationManager) {
+      console.log('🔔 Using NotificationManager for alert');
+      
+      await notificationManager.notify({
+        sound: soundEnabled ? 'bell' : undefined,
+        vibrate: vibrationEnabled,
+        visual: 'New notification',
+        priority: 'high'
+      });
+      
+      return;
+    }
+    
+    // Fallback to old implementation if notification manager not available
+    console.log('⚠️ Falling back to legacy audio implementation');
+    
     // Vibrate for mobile devices (works for all users including anon)
     if (vibrationEnabled && 'vibrate' in navigator) {
       // Vibration pattern: [duration, pause, duration, pause, ...]
@@ -313,6 +333,11 @@ export default function TabsPage() {
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(Date.now());
 
+  // Audio unlock state
+  const [showAudioUnlockPrompt, setShowAudioUnlockPrompt] = useState(false);
+  const [notificationManager, setNotificationManager] = useState<NotificationManager | null>(null);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
+
   // Alert state
   const [showAlert, setShowAlert] = useState(false);
   const [alertType, setAlertType] = useState<'order' | 'message'>('order');
@@ -341,6 +366,44 @@ export default function TabsPage() {
       stopContinuousAlertSound();
     };
   }, []);
+
+  // Check if we need to show audio unlock prompt (mobile detection)
+  useEffect(() => {
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const hasInteracted = sessionStorage.getItem('audio-unlocked') === 'true';
+    
+    console.log('🔊 Audio unlock check:', { isMobile, hasInteracted, audioUnlocked });
+    
+    // Show prompt on mobile if not already unlocked
+    if (isMobile && !hasInteracted && !audioUnlocked) {
+      console.log('📱 Mobile device detected - showing audio unlock prompt');
+      setShowAudioUnlockPrompt(true);
+    }
+  }, [audioUnlocked]);
+
+  // Handle audio unlock
+  const handleAudioUnlock = (audioManager: AudioUnlockManager) => {
+    console.log('✅ Audio unlocked - creating notification manager');
+    
+    const manager = createNotificationManager(audioManager);
+    setNotificationManager(manager);
+    setAudioUnlocked(true);
+    setShowAudioUnlockPrompt(false);
+    
+    // Persist unlock state for session
+    sessionStorage.setItem('audio-unlocked', 'true');
+    
+    console.log('🔔 Notification manager ready');
+  };
+
+  // Handle audio unlock dismissal
+  const handleAudioUnlockDismiss = () => {
+    console.log('ℹ️ Audio unlock dismissed - notifications will use fallbacks');
+    setShowAudioUnlockPrompt(false);
+    
+    // Still mark as "handled" so we don't show again this session
+    sessionStorage.setItem('audio-unlocked', 'dismissed');
+  };
 
   // Stop sound when alert is hidden
   useEffect(() => {
@@ -997,6 +1060,14 @@ export default function TabsPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex justify-center">
       <div className="w-full lg:max-w-[80%] max-w-full">
+        {/* AUDIO UNLOCK PROMPT */}
+        {showAudioUnlockPrompt && (
+          <AudioUnlockPrompt
+            onUnlock={handleAudioUnlock}
+            onDismiss={handleAudioUnlockDismiss}
+          />
+        )}
+
         {/* HEADER - Updated orange colors */}
         <div className="bg-gradient-to-r from-orange-600 to-orange-700 text-white p-6 pb-8">
           <div className="flex items-center justify-between mb-6">
