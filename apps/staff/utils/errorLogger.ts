@@ -242,11 +242,10 @@ export function clearErrorHistory(): void {
   errorLogHistory.length = 0;
 }
 
-// Automatically add errors to history
+// Store original logError function
 const originalLogError = logError;
-export { originalLogError as logErrorWithHistory };
 
-// Override logError to add to history
+// Override logError to automatically add to history
 export function logErrorWithHistory(
   component: string,
   message: string,

@@ -18,6 +18,9 @@ import {
   getConfigurationDescription,
   getThemeConfiguration,
   type VenueConfiguration,
+  type VenueConfigurationInput
+} from '@tabeza/shared';
+import { logValidationFailure } from '@tabeza/shared/lib/services/audit-logger';
 
 // Extend NextRequest to include ip property
 declare module 'next/server' {
@@ -25,9 +28,6 @@ declare module 'next/server' {
     ip?: string;
   }
 }
-  type VenueConfigurationInput
-} from '@tabeza/shared';
-import { logValidationFailure } from '@tabeza/shared/lib/services/audit-logger';
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();

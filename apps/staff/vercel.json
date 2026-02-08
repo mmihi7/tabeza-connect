@@ -1,8 +1,8 @@
 {
   "name": "Tabeza-staff",
-  "buildCommand": "pnpm --filter staff run build",
+  "buildCommand": "cd ../.. && pnpm install && pnpm run build:packages && pnpm run build:staff",
   "outputDirectory": ".next",
-  "installCommand": "pnpm install --frozen-lockfile",
+  "installCommand": "cd ../.. && pnpm install",
   "framework": "nextjs",
   "regions": ["cdg1"]
 }

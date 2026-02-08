@@ -24,10 +24,10 @@ const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY!;
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const receiptId = params.id;
+    const { id: receiptId } = await params;
 
     // Validate receipt ID
     if (!receiptId) {

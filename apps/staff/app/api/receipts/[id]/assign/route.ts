@@ -64,10 +64,10 @@ interface ReceiptData {
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const receiptId = params.id;
+    const { id: receiptId } = await params;
     const body: AssignReceiptRequest = await request.json();
     const { tabId } = body;
 

@@ -527,6 +527,7 @@ export default function TabsPage() {
       console.log('✅ Onboarding completed with config:', config);
 
       // Update the bar with the onboarding configuration
+      // @ts-ignore - Supabase type inference issue with update
       const { error } = await supabase
         .from('bars')
         .update({
@@ -537,7 +538,7 @@ export default function TabsPage() {
           onboarding_completed: true,
           authority_configured_at: new Date().toISOString(),
           mode_last_changed_at: new Date().toISOString()
-        } as any)
+        })
         .eq('id', bar.id);
 
       if (error) throw error;

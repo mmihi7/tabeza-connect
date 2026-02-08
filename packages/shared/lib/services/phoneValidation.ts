@@ -5,8 +5,6 @@
  * Requirements: 2.4 - THE System SHALL validate phone numbers are in correct Kenyan format (254XXXXXXXXX)
  */
 
-import { sanitizePhoneNumber as sanitizePhoneNumberFromValidation } from '@tabeza/validation';
-
 export interface PhoneValidationResult {
   isValid: boolean;
   normalized?: string; // Always in 254XXXXXXXXX format
@@ -24,19 +22,14 @@ const VALID_KENYAN_PREFIXES = [
 
 /**
  * Sanitize phone number input by removing all non-digit characters
- * Uses the validation package for consistency
+ * Self-contained implementation to avoid external dependencies
  */
 function sanitizePhoneNumber(input: string): string {
   if (typeof input !== 'string') {
     return '';
   }
-  // Use the validation package's sanitization for consistency
-  try {
-    return sanitizePhoneNumberFromValidation(input);
-  } catch {
-    // Fallback to local implementation if validation package fails
-    return input.replace(/\D/g, '');
-  }
+  // Remove all non-digit characters
+  return input.replace(/\D/g, '');
 }
 
 /**

@@ -34,10 +34,21 @@ interface RecoveryRequest {
   dryRun?: boolean;
 }
 
+interface VenueConfig {
+  id: string;
+  name: string;
+  slug: string;
+  venue_mode: 'basic' | 'venue';
+  authority_mode: 'pos' | 'tabeza';
+  onboarding_completed: boolean;
+  pos_integration_enabled: boolean;
+  printer_required: boolean;
+}
+
 /**
  * Validate venue configuration against Core Truth constraints
  */
-function validateVenueConfig(venue: any): string[] {
+function validateVenueConfig(venue: VenueConfig): string[] {
   const issues: string[] = [];
   
   // Check Core Truth constraints
@@ -58,7 +69,7 @@ function validateVenueConfig(venue: any): string[] {
   }
   
   // Check for NULL values
-  const requiredFields = ['venue_mode', 'authority_mode', 'pos_integration_enabled', 'printer_required', 'onboarding_completed'];
+  const requiredFields: (keyof VenueConfig)[] = ['venue_mode', 'authority_mode', 'pos_integration_enabled', 'printer_required', 'onboarding_completed'];
   const nullFields = requiredFields.filter(field => venue[field] === null || venue[field] === undefined);
   
   if (nullFields.length > 0) {
@@ -325,7 +336,7 @@ async function fixInvalidConfigurations(dryRun: boolean) {
   }
   
   // Find venues with invalid configurations
-  const invalidVenues = venues.filter(venue => {
+  const invalidVenues = (venues as VenueConfig[]).filter((venue: VenueConfig) => {
     const issues = validateVenueConfig(venue);
     return issues.length > 0;
   });
