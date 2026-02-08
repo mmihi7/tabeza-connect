@@ -708,21 +708,13 @@ export default function TabDetailPage() {
   };
 
   const handleCancelOrder = async (orderId: string, initiatedBy: string) => {
-    if (initiatedBy === 'staff') {
-      showToast({
-        type: 'warning',
-        title: 'Cannot Cancel',
-        message: 'Staff orders cannot be cancelled after submission'
-      });
-      return;
-    }
-
     try {
       const { error } = await (supabase as any)
         .from('tab_orders')
         .update({ 
           status: 'cancelled',
-          cancelled_at: new Date().toISOString()
+          cancelled_at: new Date().toISOString(),
+          cancelled_by: 'staff'
         })
         .eq('id', orderId) as { data: any, error: any };
 
@@ -733,7 +725,9 @@ export default function TabDetailPage() {
       showToast({
         type: 'success',
         title: 'Order Cancelled',
-        message: 'Customer order has been cancelled'
+        message: initiatedBy === 'staff' 
+          ? 'Your order has been cancelled' 
+          : 'Customer order has been cancelled'
       });
       
     } catch (error) {
@@ -1717,8 +1711,16 @@ export default function TabDetailPage() {
                               </button>
                             </div>
                           ) : (
-                            <div className="w-full bg-blue-50 border border-blue-200 text-blue-700 py-2 rounded-lg text-sm font-medium text-center">
-                              ⏳ Waiting for customer approval
+                            <div className="flex flex-col gap-2">
+                              <div className="w-full bg-blue-50 border border-blue-200 text-blue-700 py-2 rounded-lg text-sm font-medium text-center">
+                                ⏳ Waiting for customer approval
+                              </div>
+                              <button
+                                onClick={() => handleCancelOrder(order.id, initiatedBy)}
+                                className="w-full bg-red-500 text-white py-2 rounded-lg text-sm font-medium hover:bg-red-600"
+                              >
+                                Cancel Order
+                              </button>
                             </div>
                           )}
                         </>

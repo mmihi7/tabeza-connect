@@ -228,18 +228,26 @@ export const checkTabOverdueStatus = async (tabId: string): Promise<{
 // Check and update multiple overdue tabs
 export const checkAndUpdateOverdueTabs = async (tabsData: any[]): Promise<void> => {
   try {
-    // Use the unified SQL function to update all overdue tabs at once
+    // Use the new automatic tab closure function
     const { data: result, error } = await (supabase as any)
-      .rpc('update_overdue_tabs_unified');
+      .rpc('auto_close_tabs_outside_business_hours');
     
     if (error) {
-      console.error('Error updating overdue tabs:', error);
+      console.error('Error auto-closing tabs:', error);
       throw error;
     }
 
     if (result && Array.isArray(result) && result.length > 0) {
-      const { tabs_marked_overdue, tabs_kept_open } = result[0];
-      console.log(`✅ Overdue update complete: ${tabs_marked_overdue} marked overdue, ${tabs_kept_open} kept open`);
+      const { tabs_closed, tabs_moved_to_overdue, pending_orders_cancelled } = result[0];
+      console.log(`✅ Auto-closure complete:`, {
+        closed: tabs_closed,
+        movedToOverdue: tabs_moved_to_overdue,
+        pendingOrdersCancelled: pending_orders_cancelled
+      });
+      
+      if (tabs_closed > 0 || tabs_moved_to_overdue > 0) {
+        console.log(`📊 Summary: ${tabs_closed} tabs closed, ${tabs_moved_to_overdue} moved to overdue, ${pending_orders_cancelled} pending orders cancelled`);
+      }
     }
   } catch (error) {
     console.error('Error checking overdue tabs:', error);
