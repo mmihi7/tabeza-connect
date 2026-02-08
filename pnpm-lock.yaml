@@ -366,9 +366,6 @@ importers:
       '@tabeza/tax-rules':
         specifier: workspace:*
         version: link:../tax-rules
-      '@tabeza/validation':
-        specifier: workspace:*
-        version: link:../validation
       react:
         specifier: ^19.2.3
         version: 19.2.3

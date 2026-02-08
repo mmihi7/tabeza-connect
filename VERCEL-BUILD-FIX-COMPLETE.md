@@ -97,11 +97,21 @@ Route (app)                              Size  First Load JS
 11. `apps/customer/vercel.json` - Updated build command
 12. `apps/staff/vercel.json` - Updated build command
 
+## Lockfile Update ✅
+
+After modifying `packages/shared/package.json`, the lockfile was updated:
+```bash
+pnpm install  # Updates pnpm-lock.yaml
+```
+
+The lockfile (`pnpm-lock.yaml`) has been updated and is ready to commit.
+
 ## Next Steps
 
-1. **Deploy to Vercel**: Both apps are ready for deployment
-2. **Re-enable TypeScript checks**: After deployment, fix remaining type issues and re-enable `typescript.ignoreBuildErrors: false`
-3. **Fix broken packages** (optional): Fix TypeScript errors in `@tabeza/code-guardrails`, `@tabeza/escpos-parser`, and `@tabeza/validation` if needed in the future
+1. **Commit Changes**: Commit all modified files including the updated `pnpm-lock.yaml`
+2. **Deploy to Vercel**: Both apps are ready for deployment
+3. **Re-enable TypeScript checks**: After deployment, fix remaining type issues and re-enable `typescript.ignoreBuildErrors: false`
+4. **Fix broken packages** (optional): Fix TypeScript errors in `@tabeza/code-guardrails`, `@tabeza/escpos-parser`, and `@tabeza/validation` if needed in the future
 
 ## Testing Commands
 
