@@ -1,0 +1,44 @@
+{
+  "name": "@tabeza/printer-service",
+  "version": "1.0.0",
+  "description": "Local service that intercepts POS print jobs and sends to Tabeza cloud",
+  "main": "index.js",
+  "bin": {
+    "tabeza-printer-service": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "install-service": "node install-service.js",
+    "uninstall-service": "node uninstall-service.js",
+    "test": "node test-service.js",
+    "create-package": "node create-package.js",
+    "build-exe": "pkg . --targets node18-win-x64 --output dist/tabeza-printer-service.exe",
+    "build-installer": "node build-installer.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "chokidar": "^3.5.3",
+    "node-windows": "^1.0.0-beta.8"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
+  },
+  "pkg": {
+    "assets": [
+      "node_modules/**/*"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "dist"
+  },
+  "keywords": [
+    "tabeza",
+    "printer",
+    "pos",
+    "receipt"
+  ],
+  "author": "Tabeza",
+  "license": "MIT"
+}

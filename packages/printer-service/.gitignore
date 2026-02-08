@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Configuration
+config.json
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Build output
+dist/
+*.zip
+
+# Windows service files
+daemon/
