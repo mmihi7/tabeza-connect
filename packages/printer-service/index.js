@@ -15,6 +15,9 @@ const chokidar = require('chokidar');
 const app = express();
 const PORT = 8765;
 
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, 'public')));
+
 // Configuration
 let config = {
   barId: process.env.TABEZA_BAR_ID || '',
@@ -438,23 +441,21 @@ Your printer service is monitoring for print jobs.
 
 To connect this service to your Tabeza account:
 
-📋 Steps:
-   1. Open Tabeza Staff App: http://localhost:3003/settings
-   2. Go to Settings → Configuration tab
-   3. Find your Bar ID in the Printer Setup section
-   4. Copy your Bar ID
-   5. Configure this service:
+📋 Easy Setup (Recommended):
+   1. Open your web browser
+   2. Go to: http://localhost:${PORT}/configure.html
+   3. Enter your Bar ID from Tabeza Settings
+   4. Click "Configure"
 
-   Windows PowerShell:
+   OR use command line:
    Invoke-WebRequest -Uri "http://localhost:${PORT}/api/configure" \`
      -Method POST \`
      -ContentType "application/json" \`
-     -Body '{"barId": "YOUR_BAR_ID_HERE"}'
-
-   Or visit Settings page for easier configuration.
+     -Body '{"barId": "YOUR_BAR_ID_HERE", "apiUrl": "https://staff.tabeza.co.ke"}'
 
 🔗 Quick Links:
-   • Tabeza Settings: http://localhost:3003/settings
+   • Configuration Page: http://localhost:${PORT}/configure.html
+   • Tabeza Settings: https://staff.tabeza.co.ke/settings
    • Service Status: http://localhost:${PORT}/api/status
 
 💡 After configuration, set up your POS to print to:

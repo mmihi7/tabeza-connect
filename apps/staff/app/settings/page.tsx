@@ -121,6 +121,7 @@ export default function SettingsPage() {
   // Printer Setup State
   const [printerServiceStatus, setPrinterServiceStatus] = useState<'checking' | 'online' | 'offline' | 'error'>('checking');
   const [printerBarIdCopied, setPrinterBarIdCopied] = useState(false);
+  const [configuringPrinter, setConfiguringPrinter] = useState(false);
 
   // Configuration Change Validation State
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
@@ -217,6 +218,51 @@ export default function SettingsPage() {
       navigator.clipboard.writeText(barInfo.id);
       setPrinterBarIdCopied(true);
       setTimeout(() => setPrinterBarIdCopied(false), 2000);
+    }
+  };
+
+  const handleAutoConfigurePrinter = async () => {
+    if (!barInfo.id) {
+      alert('❌ Bar ID not found. Please refresh the page.');
+      return;
+    }
+
+    setConfiguringPrinter(true);
+    try {
+      const response = await fetch('/api/printer/configure-service', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ barId: barInfo.id }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert('✅ Printer service configured successfully!\n\nYour printer is now connected to Tabeza.');
+      } else {
+        if (response.status === 503) {
+          alert(
+            '❌ Cannot connect to printer service.\n\n' +
+            'Please make sure:\n' +
+            '1. You have downloaded the printer service\n' +
+            '2. The printer service is running on this computer\n' +
+            '3. You can see the terminal window with "Tabeza Printer Service - Running"\n\n' +
+            'Then try again.'
+          );
+        } else {
+          alert(`❌ Configuration failed: ${data.error || 'Unknown error'}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error configuring printer:', error);
+      alert(
+        '❌ Failed to configure printer service.\n\n' +
+        'Make sure the printer service is running on this computer.'
+      );
+    } finally {
+      setConfiguringPrinter(false);
     }
   };
 
@@ -1841,32 +1887,53 @@ export default function SettingsPage() {
                       <div className="flex items-start gap-2 mb-3">
                         <AlertCircle size={16} className="text-blue-600 mt-0.5" />
                         <div className="flex-1">
-                          <span className="text-sm font-medium text-blue-800 block mb-1">Configure Service</span>
-                          <p className="text-xs text-blue-700 mb-2">
-                            After installing the service, configure it with your Bar ID:
+                          <span className="text-sm font-medium text-blue-800 block mb-2">Quick Setup</span>
+                          <p className="text-xs text-blue-700 mb-3">
+                            After downloading and running the printer service, click the button below to configure it automatically:
                           </p>
-                          <div className="bg-white rounded p-2 mb-2">
-                            <code className="text-xs text-gray-800 break-all">
-                              Bar ID: <strong>{barInfo.id || 'Loading...'}</strong>
-                            </code>
-                          </div>
+                          
                           <button
-                            onClick={() => {
-                              if (barInfo.id) {
-                                navigator.clipboard.writeText(barInfo.id);
-                                alert('✅ Bar ID copied to clipboard!');
-                              }
-                            }}
-                            className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                            onClick={handleAutoConfigurePrinter}
+                            disabled={configuringPrinter || !barInfo.id}
+                            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mb-3"
                           >
-                            <Copy size={12} />
-                            Copy Bar ID
+                            {configuringPrinter ? (
+                              <>
+                                <RefreshCw size={16} className="animate-spin" />
+                                Configuring...
+                              </>
+                            ) : (
+                              <>
+                                <Settings size={16} />
+                                Auto-Configure Printer Service
+                              </>
+                            )}
                           </button>
+                          
+                          <div className="border-t border-blue-200 pt-3 mt-3">
+                            <p className="text-xs text-blue-700 mb-2">
+                              Or manually copy your Bar ID:
+                            </p>
+                            <div className="bg-white rounded p-2 mb-2">
+                              <code className="text-xs text-gray-800 break-all">
+                                {barInfo.id || 'Loading...'}
+                              </code>
+                            </div>
+                            <button
+                              onClick={() => {
+                                if (barInfo.id) {
+                                  navigator.clipboard.writeText(barInfo.id);
+                                  alert('✅ Bar ID copied to clipboard!');
+                                }
+                              }}
+                              className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                            >
+                              <Copy size={12} />
+                              Copy Bar ID
+                            </button>
+                          </div>
                         </div>
                       </div>
-                      <p className="text-xs text-blue-700">
-                        Use this Bar ID when configuring the printer service.
-                      </p>
                     </div>
                   </div>
                 )}
