@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, Store, Bell, QrCode, Save, X, MessageSquare, Copy, Check, Edit2, Download, AlertCircle, CreditCard, Phone, DollarSign, Send, Clock, Calendar, Sun, Moon, BellRing, Grid3X3, Menu, Printer, AlertTriangle, Settings, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowRight, Store, Bell, QrCode, Save, X, MessageSquare, Copy, Check, Edit2, Download, AlertCircle, CreditCard, Phone, DollarSign, Send, Clock, Calendar, Sun, Moon, BellRing, Grid3X3, Menu, Printer, AlertTriangle, Settings, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import VenueModeOnboarding from '@/components/VenueModeOnboarding';
 import { useVenueConfigurationValidation } from '@/hooks/useVenueConfigurationValidation';
