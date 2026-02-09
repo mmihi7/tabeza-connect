@@ -407,6 +407,8 @@ async function start() {
 ║                                                           ║
 ║   ✅ Tabeza Printer Service - Running                     ║
 ║                                                           ║
+║   ⚠️  KEEP THIS WINDOW OPEN - Service must stay running  ║
+║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
 
 📍 Service Status:
@@ -435,35 +437,39 @@ Your printer service is monitoring for print jobs.
    • Service Status: http://localhost:${PORT}/api/status
    • Tabeza Settings: http://localhost:3003/settings
 
-💡 Tip: Keep this window open - service must run continuously!
+💡 IMPORTANT: Keep this window open - service must run continuously!
+   Closing this window will stop the printer service.
 ` : `
 ⚠️  CONFIGURATION REQUIRED
 
 To connect this service to your Tabeza account:
 
 📋 Easy Setup (Recommended):
-   1. Open your web browser
-   2. Go to: http://localhost:${PORT}/configure.html
-   3. Enter your Bar ID from Tabeza Settings
-   4. Click "Configure"
+   1. Keep this window open (service is running)
+   2. Open Tabeza Settings in your browser
+   3. Go to: https://staff.tabeza.co.ke/settings
+   4. Navigate to "Venue Configuration" tab
+   5. Click "Auto-Configure Printer Service" button
+   6. Done! ✅
 
-   OR use command line:
-   Invoke-WebRequest -Uri "http://localhost:${PORT}/api/configure" \`
-     -Method POST \`
-     -ContentType "application/json" \`
-     -Body '{"barId": "YOUR_BAR_ID_HERE", "apiUrl": "https://staff.tabeza.co.ke"}'
+   OR use the web configuration page:
+   1. Go to: http://localhost:${PORT}/configure.html
+   2. Enter your Bar ID from Tabeza Settings
+   3. Click "Configure"
 
 🔗 Quick Links:
    • Configuration Page: http://localhost:${PORT}/configure.html
    • Tabeza Settings: https://staff.tabeza.co.ke/settings
    • Service Status: http://localhost:${PORT}/api/status
 
-💡 After configuration, set up your POS to print to:
+💡 IMPORTANT: Keep this window open - service must run continuously!
+   After configuration, set up your POS to print to:
    ${config.watchFolder}
 `}
 
 ═══════════════════════════════════════════════════════════
 
+⚠️  DO NOT CLOSE THIS WINDOW - Service is running
 Press Ctrl+C to stop the service
     `);
   });
