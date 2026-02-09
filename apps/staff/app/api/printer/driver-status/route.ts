@@ -44,13 +44,13 @@ export async function GET(request: NextRequest) {
       status: 'not_found',
       error: error instanceof Error ? error.message : 'Unknown error',
       message: 'Tabeza printer drivers are not installed or not running',
-      downloadUrl: 'https://tabeza.co.ke/downloads/printer-drivers',
+      downloadUrl: 'https://github.com/billoapp/tabeza-printer-service/releases/latest/download/tabeza-printer-service.exe',
     }, { status: 404 });
   }
 }
 
 /**
- * POST /api/printer/driver-status/test
+ * POST /api/printer/driver-status
  * 
  * Test printer connectivity
  */
@@ -76,7 +76,6 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         barId,
         testMessage: 'Tabeza Printer Test',
-        timestamp: new Date().toISOString(),
       }),
       signal: AbortSignal.timeout(5000),
     });
@@ -91,15 +90,29 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Get error details from printer service
+    let errorDetails = 'Test print failed';
+    try {
+      const errorData = await response.json();
+      errorDetails = errorData.error || errorData.message || errorDetails;
+    } catch {
+      errorDetails = `HTTP ${response.status}: ${response.statusText}`;
+    }
+
+    console.error('Test print failed:', errorDetails);
+
     return NextResponse.json({
       success: false,
-      error: 'Test print failed',
+      error: errorDetails,
     }, { status: 500 });
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Test print failed';
+    console.error('Test print error:', errorMessage);
+    
     return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : 'Test print failed',
+      error: errorMessage,
     }, { status: 500 });
   }
 }

@@ -446,9 +446,9 @@ To connect this service to your Tabeza account:
    5. Configure this service:
 
    Windows PowerShell:
-   Invoke-WebRequest -Uri "http://localhost:${PORT}/api/configure" `
-     -Method POST `
-     -ContentType "application/json" `
+   Invoke-WebRequest -Uri "http://localhost:${PORT}/api/configure" \`
+     -Method POST \`
+     -ContentType "application/json" \`
      -Body '{"barId": "YOUR_BAR_ID_HERE"}'
 
    Or visit Settings page for easier configuration.
@@ -460,6 +460,7 @@ To connect this service to your Tabeza account:
 💡 After configuration, set up your POS to print to:
    ${config.watchFolder}
 `}
+
 ═══════════════════════════════════════════════════════════
 
 Press Ctrl+C to stop the service

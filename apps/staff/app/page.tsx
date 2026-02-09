@@ -12,6 +12,7 @@ import VenueModeOnboarding from '@/components/VenueModeOnboarding';
 import { type VenueConfiguration } from '@tabeza/shared';
 import CaptainsOrders from '@/components/printer/CaptainsOrders';
 import PlaceSwitcher from '@/components/PlaceSwitcher';
+import PrinterStatusIndicator from '@/components/PrinterStatusIndicator';
 
 const useRouter = useNextRouter;
 
@@ -1160,6 +1161,19 @@ export default function TabsPage() {
           </div>
         </div>
 
+        {/* PRINTER STATUS - Show for venues that require printer integration */}
+        {(venueMode === 'basic' || (venueMode === 'venue' && authorityMode === 'pos')) && (
+          <div className="p-4 bg-white border-b border-gray-200">
+            <PrinterStatusIndicator 
+              barId={bar?.id}
+              autoRefresh={true}
+              refreshInterval={10000}
+              showDetails={true}
+              compact={false}
+            />
+          </div>
+        )}
+
         {showMenu && (
           <div 
             className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-end"
@@ -1250,6 +1264,13 @@ export default function TabsPage() {
             })}
           </div>
         </div>
+
+        {/* CAPTAIN'S ORDERS - POS RECEIPTS WAITING FOR TAB ASSIGNMENT (URGENT - SHOWN FIRST) */}
+        {bar && bar.authority_mode === 'pos' && (
+          <div className="p-4 pt-0">
+            <CaptainsOrders barId={bar.id} />
+          </div>
+        )}
 
         {/* TAB CARDS - Changed from rounded-xl to rounded-lg (less rounded) */}
         <div className="p-4 pb-24">
@@ -1363,18 +1384,6 @@ export default function TabsPage() {
             </div>
           )}
         </div>
-
-        {/* TAB CARDS */}
-        <div className="p-4 pb-24">
-          {/* ... existing tab cards code ... */}
-        </div>
-
-        {/* CAPTAIN'S ORDERS - POS RECEIPTS WAITING FOR TAB ASSIGNMENT */}
-        {bar && bar.authority_mode === 'pos' && (
-          <div className="p-4">
-            <CaptainsOrders barId={bar.id} />
-          </div>
-        )}
 
         {/* HIGH VISIBILITY ALERT OVERLAY */}
         <HighVisibilityAlert 

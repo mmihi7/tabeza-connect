@@ -12,9 +12,9 @@ import { ThemedButton } from '@/components/themed/ThemedButton';
 import { ThemedCard } from '@/components/themed/ThemedCard';
 import ConfigurationHistory from '@/components/ConfigurationHistory';
 import { type VenueConfiguration } from '@tabeza/shared';
+import PrinterStatusIndicator from '@/components/PrinterStatusIndicator';
 
-// Import useRouter dynamically to avoid TypeScript cache issues
-import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
+import { useRouter } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,14 +31,7 @@ type DayHours = {
 type BusinessHoursMode = 'simple' | 'advanced' | '24hours';
 
 export default function SettingsPage() {
-  // Use dynamic import for router to avoid TypeScript cache issues
-  const [router, setRouter] = useState<AppRouterInstance | null>(null);
-  
-  useEffect(() => {
-    import('next/navigation').then((mod) => {
-      setRouter(mod.useRouter());
-    });
-  }, []);
+  const router = useRouter();
   const [barInfo, setBarInfo] = useState({
     id: '',
     name: '',
@@ -1834,99 +1827,46 @@ export default function SettingsPage() {
 
                 {/* Printer Setup Section - Show if printer is required */}
                 {printerRequired && (
-                  <div className="bg-white border-2 border-blue-200 rounded-lg p-6 mb-6">
-                    <div className="flex items-start gap-4">
-                      <div className="p-3 bg-blue-100 rounded-lg">
-                        <Printer size={24} className="text-blue-600" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-2">Printer Service Setup</h3>
-                        <p className="text-gray-600 text-sm mb-4">
-                          {venueMode === 'basic' 
-                            ? 'Basic mode requires the Tabeza Printer Service to relay receipts from your POS system.'
-                            : authorityMode === 'pos'
-                            ? 'POS integration requires the Tabeza Printer Service to relay receipts.'
-                            : 'Printer service is required for your current configuration.'}
-                        </p>
-                        
-                        {/* Service Status Check */}
-                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-gray-700">Service Status</span>
-                            <button
-                              onClick={async () => {
-                                try {
-                                  const response = await fetch('http://localhost:8765/api/status');
-                                  if (response.ok) {
-                                    const data = await response.json();
-                                    alert(`✅ Service Running\n\nBar ID: ${data.barId || 'Not configured'}\nDriver: ${data.driverId}\nVersion: ${data.version}`);
-                                  }
-                                } catch (error) {
-                                  alert('❌ Service Not Running\n\nPlease install and start the printer service.');
-                                }
-                              }}
-                              className="text-xs text-blue-600 hover:text-blue-700"
-                            >
-                              Check Now
-                            </button>
-                          </div>
-                          <p className="text-xs text-gray-500">
-                            The service must be running on the computer connected to your POS printer.
+                  <div className="mb-6">
+                    <PrinterStatusIndicator 
+                      barId={barInfo.id}
+                      autoRefresh={true}
+                      refreshInterval={15000}
+                      showDetails={true}
+                      compact={false}
+                    />
+                    
+                    {/* Configuration Instructions */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                      <div className="flex items-start gap-2 mb-3">
+                        <AlertCircle size={16} className="text-blue-600 mt-0.5" />
+                        <div className="flex-1">
+                          <span className="text-sm font-medium text-blue-800 block mb-1">Configure Service</span>
+                          <p className="text-xs text-blue-700 mb-2">
+                            After installing the service, configure it with your Bar ID:
                           </p>
-                        </div>
-
-                        {/* Configuration Instructions */}
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                          <div className="flex items-start gap-2 mb-3">
-                            <AlertCircle size={16} className="text-blue-600 mt-0.5" />
-                            <div className="flex-1">
-                              <span className="text-sm font-medium text-blue-800 block mb-1">Configure Service</span>
-                              <p className="text-xs text-blue-700 mb-2">
-                                After installing the service, configure it with your Bar ID:
-                              </p>
-                              <div className="bg-white rounded p-2 mb-2">
-                                <code className="text-xs text-gray-800 break-all">
-                                  Bar ID: <strong>{barInfo.id || 'Loading...'}</strong>
-                                </code>
-                              </div>
-                              <button
-                                onClick={() => {
-                                  if (barInfo.id) {
-                                    navigator.clipboard.writeText(barInfo.id);
-                                    alert('✅ Bar ID copied to clipboard!');
-                                  }
-                                }}
-                                className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                              >
-                                <Copy size={12} />
-                                Copy Bar ID
-                              </button>
-                            </div>
+                          <div className="bg-white rounded p-2 mb-2">
+                            <code className="text-xs text-gray-800 break-all">
+                              Bar ID: <strong>{barInfo.id || 'Loading...'}</strong>
+                            </code>
                           </div>
-                          <p className="text-xs text-blue-700">
-                            Use this Bar ID when configuring the printer service.
-                          </p>
-                        </div>
-
-                        <div className="flex gap-3">
                           <button
-                            onClick={() => router.push('/setup/printer')}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                            onClick={() => {
+                              if (barInfo.id) {
+                                navigator.clipboard.writeText(barInfo.id);
+                                alert('✅ Bar ID copied to clipboard!');
+                              }
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
                           >
-                            <Download size={16} />
-                            <span>Download & Install Service</span>
+                            <Copy size={12} />
+                            Copy Bar ID
                           </button>
-                          <a
-                            href="http://localhost:8765/api/status"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
-                          >
-                            <AlertCircle size={16} />
-                            <span>View Service Status</span>
-                          </a>
                         </div>
                       </div>
+                      <p className="text-xs text-blue-700">
+                        Use this Bar ID when configuring the printer service.
+                      </p>
                     </div>
                   </div>
                 )}
