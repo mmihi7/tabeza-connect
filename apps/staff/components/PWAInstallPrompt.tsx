@@ -13,12 +13,19 @@ interface PWAInstallPromptProps {
 }
 
 export default function PWAInstallPrompt({ className = '' }: PWAInstallPromptProps) {
+  const [mounted, setMounted] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [showFeatures, setShowFeatures] = useState(false);
 
+  // Prevent hydration mismatch
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     // Check if already installed
     const checkStandalone = () => {
       const standalone = window.matchMedia('(display-mode: standalone)').matches ||
@@ -66,7 +73,7 @@ export default function PWAInstallPrompt({ className = '' }: PWAInstallPromptPro
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
-  }, [isStandalone]);
+  }, [mounted, isStandalone]);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
@@ -109,8 +116,8 @@ export default function PWAInstallPrompt({ className = '' }: PWAInstallPromptPro
     setShowFeatures(true);
   };
 
-  // Don't show if already installed or dismissed
-  if (isStandalone || !showInstallBanner || sessionStorage.getItem('pwa-install-dismissed')) {
+  // Don't show if not mounted, already installed, or dismissed
+  if (!mounted || isStandalone || !showInstallBanner || sessionStorage.getItem('pwa-install-dismissed')) {
     return null;
   }
 

@@ -28,7 +28,8 @@ import PWAInstallPrompt from '../../components/PWAInstallPrompt';
 import PWAUpdateManager from '../../components/PWAUpdateManager';
 import PDFViewer from '../../../../components/PDFViewer'; 
 import MessagePanel from './MessagePanel';
-import { playCustomerNotification } from '@/lib/notifications'; // ADDED MISSING IMPORT
+import { playCustomerNotification } from '@/lib/notifications';
+import { useModeConfig } from './MenuWrapper'; // Import mode config hook
 
 // Temporary format function to bypass import issue
 const tempFormatCurrency = (amount: number | string, decimals = 0): string => {
@@ -99,7 +100,21 @@ interface MessageResponseData {
 export default function MenuPage() {
   const router = useRouter();
   const { buzz } = useVibrate(); 
-  const playAcceptanceSound = useSound(); // Use synthetic beep by default
+  const playAcceptanceSound = useSound();
+  
+  // Get mode configuration from context
+  const { config: modeConfig, loading: modeLoading } = useModeConfig();
+  const isPOSMode = modeConfig?.isBasic || modeConfig?.isPOSAuthority;
+  
+  console.log('🎨 Menu page rendering with mode:', {
+    modeConfig,
+    modeLoading,
+    isPOSMode,
+    willShowOrdering: !isPOSMode,
+    isBasic: modeConfig?.isBasic,
+    isPOSAuthority: modeConfig?.isPOSAuthority
+  });
+  
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [tab, setTab] = useState<Tab | null>(null);
   const [loading, setLoading] = useState(true);
@@ -2299,18 +2314,23 @@ export default function MenuPage() {
         {/* Bottom Row: Quick Actions */}
         <div className="px-4 py-2.5">
           <div className="flex items-center justify-between gap-3">
-            <button 
-              onClick={() => foodMenuRef.current?.scrollIntoView({ behavior: 'smooth' })} 
-              className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all"
-            >
-              Food
-            </button>
-            <button 
-              onClick={() => drinksMenuRef.current?.scrollIntoView({ behavior: 'smooth' })} 
-              className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all"
-            >
-              Drinks
-            </button>
+            {/* Only show Food/Drinks buttons in Tabeza mode */}
+            {!isPOSMode && (
+              <>
+                <button 
+                  onClick={() => foodMenuRef.current?.scrollIntoView({ behavior: 'smooth' })} 
+                  className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all"
+                >
+                  Food
+                </button>
+                <button 
+                  onClick={() => drinksMenuRef.current?.scrollIntoView({ behavior: 'smooth' })} 
+                  className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all"
+                >
+                  Drinks
+                </button>
+              </>
+            )}
             <button 
               onClick={() => ordersRef.current?.scrollIntoView({ behavior: 'smooth' })} 
               className="flex-1 bg-white bg-opacity-20 backdrop-blur-sm hover:bg-opacity-30 rounded-lg px-4 py-2 text-sm font-medium transition-all"
@@ -2492,7 +2512,8 @@ export default function MenuPage() {
         </div>
       </div>
 
-      {/* FOOD Menu Section - Always Visible */}
+      {/* FOOD Menu Section - Only visible in Tabeza mode */}
+      {!isPOSMode && (
       <div className="bg-gray-50 px-4 mt-4">
         <div className="bg-white border-b border-gray-100 overflow-hidden rounded-lg">
           <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50">
@@ -2620,8 +2641,10 @@ export default function MenuPage() {
           </div>
         </div>
       </div>
+      )}
 
-      {/* DRINKS Menu Section - Always Visible */}
+      {/* DRINKS Menu Section - Only visible in Tabeza mode */}
+      {!isPOSMode && (
       <div className="bg-gray-50 px-4 mt-4">
         <div className="bg-white border-b border-gray-100 overflow-hidden rounded-lg">
           <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50">
@@ -2740,9 +2763,10 @@ export default function MenuPage() {
           </div>
         </div>
       </div>
+      )}
 
-      {/* Cart Section - Only show when cart has items */}
-      {cart.length > 0 && (
+      {/* Cart Section - Only show when cart has items in Tabeza mode */}
+      {!isPOSMode && cart.length > 0 && (
         <div className="p-4 mb-4 bg-gradient-to-br from-orange-50 to-orange-100 border-t border-orange-200">
           <div className="mb-3">
             <h2 className="text-xs font-semibold text-orange-600 uppercase tracking-wide">YOUR CART</h2>
@@ -2861,8 +2885,8 @@ export default function MenuPage() {
         </div>
       )}
 
-      {/* Floating Cart Button */}
-      {cart.length > 0 && (
+      {/* Floating Cart Button - Only visible in Tabeza mode */}
+      {!isPOSMode && cart.length > 0 && (
         <button
           onClick={toggleCart}
           className="fixed bottom-6 right-6 z-50 bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg hover:from-blue-700 hover:to-indigo-800 hover:scale-110 active:scale-95 transition-all duration-200 animate-bounce-once"
@@ -2880,7 +2904,8 @@ export default function MenuPage() {
         </button>
       )}
 
-      {/* PROMO Section - Always Visible */}
+      {/* PROMO Section - Only visible in Tabeza mode */}
+      {!isPOSMode && (
       <div className="bg-gray-50 px-4">
         <div className="bg-white border-b border-gray-100 overflow-hidden rounded-lg">
           <div className="p-4 bg-gradient-to-r from-orange-50 to-red-50">
@@ -3021,6 +3046,7 @@ export default function MenuPage() {
           </div>
         </div>
       </div>
+      )}
 
       <div ref={ordersRef} className="p-4">
         {/* Section Header - NEW */}

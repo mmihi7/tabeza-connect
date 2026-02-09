@@ -24,7 +24,8 @@
     "test:packages": "pnpm --recursive --filter \"./packages/*\" test",
     "lint": "pnpm --recursive lint",
     "clean": "pnpm --recursive clean && rimraf node_modules",
-    "type-check": "pnpm --recursive type-check"
+    "type-check": "pnpm --recursive type-check",
+    "set-mode": "node dev-tools/scripts/set-venue-mode.js"
   },
   "devDependencies": {
     "@types/node": "^20.19.27",

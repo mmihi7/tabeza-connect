@@ -63,13 +63,16 @@ export function useAuth() {
           .from('bars')
           .select('*')
           .eq('id', barId)
-          .single();
+          .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no rows
         
         if (error) {
           console.error('❌ Error loading bar data:', error);
-        } else {
+          console.error('Error details:', { code: error.code, message: error.message, details: error.details, hint: error.hint });
+        } else if (barData) {
           console.log('✅ Bar data loaded:', barData);
           setBar(barData);
+        } else {
+          console.warn('⚠️ No bar found with ID:', barId);
         }
       } catch (error) {
         console.error('❌ Exception loading bar data:', error);
@@ -78,8 +81,26 @@ export function useAuth() {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    router.push('/login');
+    try {
+      // Sign out from Supabase
+      await supabase.auth.signOut();
+      
+      // Clear all local storage related to auth
+      localStorage.removeItem('currentBarId');
+      localStorage.removeItem('tabeza-staff-auth');
+      
+      // Clear any session storage
+      sessionStorage.clear();
+      
+      console.log('✅ Signed out successfully');
+      
+      // Redirect to login
+      router.push('/login');
+    } catch (error) {
+      console.error('❌ Error signing out:', error);
+      // Force redirect even if signout fails
+      router.push('/login');
+    }
   };
 
   return { user, bar, loading, signOut };

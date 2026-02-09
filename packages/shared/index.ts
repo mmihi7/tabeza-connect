@@ -34,6 +34,16 @@ export * from './lib/diagnostics/environment-validator';
 // Export venue configuration validation service
 export * from './lib/services/venue-configuration-validation';
 
+// Export mode configuration service
+export * from './services/modeConfigService';
+
+// Export mode context and hooks
+export * from './contexts/ModeContext';
+export * from './hooks/useFeatureGuard';
+
+// Export mode-based UI components
+export * from './components/UnavailableFeatureMessage';
+
 // Re-export pure logic packages for convenience
 // TODO: Re-enable these exports once packages are fixed
 // export * from '@tabeza/validation';

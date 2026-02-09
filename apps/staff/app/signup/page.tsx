@@ -199,8 +199,10 @@ export default function SignupPage() {
 
       if (barError) throw barError;
 
-      // Create user-bar association
-      await supabase
+      console.log('✅ Bar created successfully:', bar.id);
+
+      // Create user-bar association with error handling
+      const { error: userBarError } = await supabase
         .from('user_bars')
         .insert({
           user_id: userId,
@@ -208,16 +210,38 @@ export default function SignupPage() {
           role: 'owner'
         });
 
-      await supabase.auth.updateUser({
+      if (userBarError) {
+        console.error('❌ Failed to create user-bar association:', userBarError);
+        throw new Error(`Failed to link user to bar: ${userBarError.message}`);
+      }
+
+      console.log('✅ User-bar association created successfully');
+
+      // Update user metadata with bar_id
+      const { error: updateUserError } = await supabase.auth.updateUser({
         data: { bar_id: bar.id }
       });
+
+      if (updateUserError) {
+        console.error('❌ Failed to update user metadata:', updateUserError);
+        // Don't throw here - this is not critical since we have user_bars
+      }
+
+      console.log('✅ User metadata updated with bar_id');
+
+      console.log('✅ User metadata updated with bar_id');
+
+      // Small delay to ensure database transaction is fully committed
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Navigate based on printer requirement
       if (printerRequired) {
         // Redirect to printer setup page for Basic or Venue+POS
+        console.log('🖨️ Redirecting to printer setup...');
         router.push('/setup/printer');
       } else {
         // Navigate directly to dashboard for Venue+Tabeza
+        console.log('📊 Redirecting to dashboard...');
         router.push('/dashboard');
       }
 

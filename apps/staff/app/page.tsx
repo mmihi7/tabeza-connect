@@ -11,6 +11,7 @@ import { PaymentNotificationContainer, usePaymentNotifications, type PaymentNoti
 import VenueModeOnboarding from '@/components/VenueModeOnboarding';
 import { type VenueConfiguration } from '@tabeza/shared';
 import CaptainsOrders from '@/components/printer/CaptainsOrders';
+import PlaceSwitcher from '@/components/PlaceSwitcher';
 
 const useRouter = useNextRouter;
 
@@ -322,6 +323,10 @@ export default function TabsPage() {
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = useState(true);
 
+  // Venue mode state
+  const [venueMode, setVenueMode] = useState<'basic' | 'venue'>('venue');
+  const [authorityMode, setAuthorityMode] = useState<'pos' | 'tabeza'>('tabeza');
+
   // Alert state
   const [showAlert, setShowAlert] = useState(false);
   const [alertType, setAlertType] = useState<'order' | 'message'>('order');
@@ -372,7 +377,7 @@ export default function TabsPage() {
       try {
         const { data, error } = await supabase
           .from('bars')
-          .select('onboarding_completed')
+          .select('onboarding_completed, venue_mode, authority_mode')
           .eq('id', bar.id)
           .single() as { data: any, error: any };
 
@@ -383,6 +388,14 @@ export default function TabsPage() {
 
         const isCompleted = data?.onboarding_completed ?? true;
         setOnboardingCompleted(isCompleted);
+
+        // Load venue mode and authority mode
+        if (data?.venue_mode) {
+          setVenueMode(data.venue_mode);
+        }
+        if (data?.authority_mode) {
+          setAuthorityMode(data.authority_mode);
+        }
 
         if (!isCompleted) {
           console.log('🚨 Onboarding incomplete - showing onboarding modal on dashboard');
@@ -1077,9 +1090,12 @@ export default function TabsPage() {
         {/* HEADER - Updated orange colors */}
         <div className="bg-gradient-to-r from-orange-600 to-orange-700 text-white p-6 pb-8">
           <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold">{bar?.name || 'Bar'}</h1>
-              <p className="text-orange-200 text-sm">{user?.email}</p>
+            <div className="flex items-center gap-3">
+              <div>
+                <h1 className="text-2xl font-bold">{bar?.name || 'Bar'}</h1>
+                <p className="text-orange-200 text-sm">{user?.email}</p>
+              </div>
+              <PlaceSwitcher />
             </div>
             <div className="flex gap-2">
               <button 
@@ -1158,10 +1174,6 @@ export default function TabsPage() {
                   <Users size={20} />
                   Active Tabs
                 </button>
-                <button onClick={() => { router.push('/unmatched-receipts'); setShowMenu(false); }} className="flex items-center gap-3 w-full text-left py-2 font-medium hover:bg-orange-50 px-2 rounded">
-                  <Receipt size={20} />
-                  Unmatched Receipts
-                </button>
                 <button onClick={() => { router.push('/overdue'); setShowMenu(false); }} className="flex items-center gap-3 w-full text-left py-2 font-medium text-orange-600 hover:bg-orange-50 px-2 rounded">
                   <AlertTriangle size={20} />
                   Overdue Tabs
@@ -1170,10 +1182,13 @@ export default function TabsPage() {
                   <DollarSign size={20} />
                   Reports & Export
                 </button>
-                <button onClick={() => { router.push('/menu'); setShowMenu(false); }} className="flex items-center gap-3 w-full text-left py-2 font-medium hover:bg-orange-50 px-2 rounded">
-                  <Menu size={20} />
-                  Menu Management
-                </button>
+                {/* Only show Menu Management for Venue mode with Tabeza authority */}
+                {!(venueMode === 'basic' || authorityMode === 'pos') && (
+                  <button onClick={() => { router.push('/menu'); setShowMenu(false); }} className="flex items-center gap-3 w-full text-left py-2 font-medium hover:bg-orange-50 px-2 rounded">
+                    <Menu size={20} />
+                    Menu Management
+                  </button>
+                )}
                 <button onClick={() => { router.push('/settings'); setShowMenu(false); }} className="flex items-center gap-3 w-full text-left py-2 font-medium hover:bg-orange-50 px-2 rounded">
                   <Menu size={20} />
                   Settings

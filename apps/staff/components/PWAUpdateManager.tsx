@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { RefreshCw, X, Sparkles, Shield, Zap } from 'lucide-react';
 
 export default function PWAUpdateManager() {
+  const [mounted, setMounted] = useState(false);
   const [showUpdate, setShowUpdate] = useState(false);
   const [newWorker, setNewWorker] = useState<ServiceWorker | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -13,7 +14,13 @@ export default function PWAUpdateManager() {
     improvements?: string[];
   }>({});
 
+  // Prevent hydration mismatch by only rendering after mount
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     if ('serviceWorker' in navigator) {
       // Unregister any existing service workers first to avoid conflicts
       navigator.serviceWorker.getRegistrations().then(registrations => {
@@ -133,6 +140,8 @@ export default function PWAUpdateManager() {
 
   // Check if update was recently dismissed (within 1 hour)
   useEffect(() => {
+    if (!mounted) return;
+    
     const dismissalData = sessionStorage.getItem('pwa-update-dismissed');
     if (dismissalData) {
       try {
@@ -146,9 +155,9 @@ export default function PWAUpdateManager() {
         sessionStorage.removeItem('pwa-update-dismissed');
       }
     }
-  }, []);
+  }, [mounted]);
 
-  if (!showUpdate) return null;
+  if (!mounted || !showUpdate) return null;
 
   return (
     <div className="fixed bottom-4 right-4 z-50 bg-white border border-gray-200 rounded-xl shadow-2xl max-w-sm w-full animate-in slide-in-from-bottom-4">
