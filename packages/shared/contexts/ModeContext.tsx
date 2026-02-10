@@ -34,7 +34,7 @@ export interface ModeProviderProps {
  * Provider component that fetches and caches mode configuration
  * Wraps the application to provide mode context to all components
  */
-export function ModeProvider({ barId, children }: ModeProviderProps): JSX.Element {
+export function ModeProvider({ barId, children }: ModeProviderProps): React.JSX.Element {
   const [config, setConfig] = useState<ModeConfiguration | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);

@@ -18,7 +18,7 @@ export interface UnavailableFeatureMessageProps {
  * Component that displays why a feature is unavailable
  * Shows a simple message with a "View My Tab" button
  */
-export function UnavailableFeatureMessage({ feature }: UnavailableFeatureMessageProps): JSX.Element {
+export function UnavailableFeatureMessage({ feature }: UnavailableFeatureMessageProps): React.JSX.Element {
   return (
     <div className="flex flex-col items-center justify-center min-h-[400px] p-6 text-center">
       <div className="mb-4 text-6xl">🚫</div>

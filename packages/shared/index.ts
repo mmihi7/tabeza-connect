@@ -32,7 +32,18 @@ export * from './lib/services/tab-resolution';
 export * from './lib/diagnostics/environment-validator';
 
 // Export venue configuration validation service
-export * from './lib/services/venue-configuration-validation';
+export {
+  validateVenueConfiguration,
+  validateConfigurationChange,
+  generateCorrectedConfiguration,
+  isValidCoreConfiguration,
+  getConfigurationDescription,
+  getThemeConfiguration,
+  getDefaultMigrationConfiguration,
+  type VenueConfiguration,
+  type VenueConfigurationInput,
+  type ValidationResult
+} from './lib/services/venue-configuration-validation';
 
 // Export mode configuration service
 export * from './services/modeConfigService';

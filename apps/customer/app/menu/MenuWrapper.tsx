@@ -29,7 +29,7 @@ interface MenuWrapperProps {
   children: React.ReactNode;
 }
 
-export function MenuWrapper({ children }: MenuWrapperProps): JSX.Element {
+export function MenuWrapper({ children }: MenuWrapperProps): React.JSX.Element {
   const router = useRouter();
   const [config, setConfig] = useState<ModeConfiguration | null>(null);
   const [loading, setLoading] = useState(true);
