@@ -19,9 +19,10 @@ const PORT = 8765;
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Configuration
+// ✅ FIX #1: Changed default to localhost for local development
 let config = {
   barId: process.env.TABEZA_BAR_ID || '',
-  apiUrl: process.env.TABEZA_API_URL || 'https://staff.tabeza.co.ke',
+  apiUrl: process.env.TABEZA_API_URL || 'http://localhost:3003', // ✅ FIXED: localhost first
   driverId: generateDriverId(),
   watchFolder: path.join(process.env.USERPROFILE || process.env.HOME, 'TabezaPrints'),
 };
@@ -55,9 +56,27 @@ app.get('/api/status', (req, res) => {
 
 // Test print endpoint
 app.post('/api/test-print', async (req, res) => {
-  const { barId, testMessage } = req.body;
+  const { testMessage } = req.body;
   
-  console.log(`📄 Test print requested for bar: ${barId}`);
+  // ✅ FIX #3: Validate service is configured before test print
+  if (!config.barId) {
+    console.log('❌ Test print failed: Service not configured');
+    return res.status(400).json({
+      success: false,
+      error: 'Service not configured. Please configure the service first.',
+      hint: 'Go to Settings and click "Auto-Configure Printer Service"',
+    });
+  }
+  
+  if (!config.apiUrl) {
+    console.log('❌ Test print failed: API URL not configured');
+    return res.status(400).json({
+      success: false,
+      error: 'API URL not configured. Please configure the service first.',
+    });
+  }
+  
+  console.log(`📄 Test print for bar: ${config.barId} to ${config.apiUrl}`);
   
   try {
     // Send test receipt to cloud
@@ -286,6 +305,7 @@ function startWatcher() {
 }
 
 // Process print job and send to cloud
+// Cloud will handle receipt parsing using DeepSeek API
 async function processPrintJob(printData, fileName = 'receipt.prn') {
   const jobId = `job-${Date.now()}`;
   
@@ -296,7 +316,7 @@ async function processPrintJob(printData, fileName = 'receipt.prn') {
   // Convert to base64
   const base64Data = Buffer.from(printData).toString('base64');
   
-  // Send to cloud API
+  // Send raw data to cloud - parsing will be done cloud-side
   await sendToCloud({
     driverId: config.driverId,
     barId: config.barId,
@@ -344,16 +364,59 @@ function generateDriverId() {
 
 // Create test receipt
 function createTestReceipt(message) {
+  const now = new Date();
+  const receiptNumber = `RCP-${now.getTime().toString().slice(-6)}`;
+  
+  // Realistic test items with quantities and prices
+  const items = [
+    { qty: 2, name: 'Tusker Lager 500ml', price: 250.00 },
+    { qty: 1, name: 'Nyama Choma (Half Kg)', price: 800.00 },
+    { qty: 3, name: 'Pilsner 500ml', price: 200.00 },
+    { qty: 1, name: 'Chips Masala', price: 150.00 },
+    { qty: 2, name: 'Soda (Coke)', price: 80.00 },
+  ];
+  
+  // Calculate totals
+  const subtotal = items.reduce((sum, item) => sum + (item.qty * item.price), 0);
+  const tax = subtotal * 0.16; // 16% VAT
+  const total = subtotal + tax;
+  
+  // Format receipt with proper spacing and alignment
   const testData = `
-TABEZA TEST RECEIPT
-${message || 'Test Print'}
-Time: ${new Date().toLocaleString()}
+========================================
+         TABEZA TEST RECEIPT
+========================================
+Receipt #: ${receiptNumber}
+Date: ${now.toLocaleDateString()}
+Time: ${now.toLocaleTimeString()}
+${message ? `\nNote: ${message}\n` : ''}
+========================================
 
-1x Test Item         10.00
+QTY  ITEM                      AMOUNT
+----------------------------------------
+${items.map(item => {
+  const qtyStr = item.qty.toString().padEnd(4);
+  const itemStr = item.name.padEnd(20);
+  const amountStr = (item.qty * item.price).toFixed(2).padStart(10);
+  return `${qtyStr} ${itemStr} ${amountStr}`;
+}).join('\n')}
+----------------------------------------
 
-Total:               10.00
+Subtotal:                  ${subtotal.toFixed(2).padStart(10)}
+VAT (16%):                 ${tax.toFixed(2).padStart(10)}
+========================================
+TOTAL:                     ${total.toFixed(2).padStart(10)}
+========================================
 
-Thank you!
+Payment Method: Cash
+Change: 0.00
+
+Thank you for your business!
+Visit us again soon.
+
+========================================
+        Powered by Tabeza
+========================================
   `.trim();
   
   return {
@@ -362,10 +425,13 @@ Thank you!
     timestamp: new Date().toISOString(),
     rawData: Buffer.from(testData).toString('base64'),
     printerName: 'Tabeza Receipt Printer',
-    documentName: 'Test Receipt',
+    documentName: `Test Receipt ${receiptNumber}`,
     metadata: {
       jobId: `test-${Date.now()}`,
       source: 'test',
+      receiptNumber,
+      itemCount: items.length,
+      totalAmount: total,
     },
   };
 }

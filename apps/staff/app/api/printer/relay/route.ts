@@ -7,12 +7,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase';
+import { parseReceipt } from '@tabeza/shared/services/receiptParser';
 
 export async function POST(request: NextRequest) {
   const supabase = createServiceRoleClient();
   try {
     const body = await request.json();
-    const { driverId, barId, timestamp, rawData, printerName, documentName, metadata } = body;
+    const { driverId, barId, timestamp, rawData, printerName, documentName, metadata, parsedData } = body;
 
     // Validate required fields
     if (!barId || !rawData) {
@@ -27,52 +28,74 @@ export async function POST(request: NextRequest) {
       barId,
       documentName,
       dataSize: rawData.length,
+      hasParsedData: !!parsedData,
       metadata,
     });
 
-    // Decode the raw data to extract text preview
-    let textPreview = '';
-    try {
-      const decodedData = Buffer.from(rawData, 'base64').toString('utf-8');
-      // Extract first 500 characters as preview
-      textPreview = decodedData.substring(0, 500);
-    } catch (error) {
-      console.warn('Could not decode print data for preview:', error);
-      textPreview = 'Binary data - preview not available';
+    // Use parsedData from printer service if available, otherwise parse locally
+    let finalParsedData = null;
+    
+    if (parsedData && typeof parsedData === 'object') {
+      // Use parsed data from printer service
+      finalParsedData = parsedData;
+      console.log('✅ Using parsed data from printer service:', {
+        itemCount: finalParsedData.items?.length || 0,
+        total: finalParsedData.total || 0,
+        receiptNumber: finalParsedData.receiptNumber,
+      });
+    } else {
+      // Fallback: parse locally (this should not happen with proper printer service setup)
+      console.log('⚠️  No parsed data from printer service, parsing locally');
+      try {
+        const decodedData = Buffer.from(rawData, 'base64').toString('utf-8');
+        finalParsedData = await parseReceipt(decodedData, barId, documentName);
+        
+        console.log('📋 Local parsing result:', {
+          itemCount: finalParsedData.items.length,
+          total: finalParsedData.total,
+          receiptNumber: finalParsedData.receiptNumber,
+        });
+        
+      } catch (error) {
+        console.warn('Could not parse receipt data locally:', error);
+        finalParsedData = {
+          items: [],
+          total: 0,
+          rawText: 'Failed to parse receipt',
+        };
+      }
     }
 
-    // Create receipt data object matching the expected schema
-    const receiptData = {
-      driverId: driverId || 'unknown',
-      rawData,
-      textPreview,
-      printerName: printerName || 'Unknown Printer',
-      documentName: documentName || 'Receipt',
-      timestamp: timestamp || new Date().toISOString(),
+    // Create receipt data object matching the print_jobs schema
+    const printJobData = {
+      bar_id: barId,
+      driver_id: driverId || 'unknown',
+      raw_data: rawData,
+      parsed_data: finalParsedData,
+      printer_name: printerName || 'Unknown Printer',
+      document_name: documentName || 'Receipt',
       metadata: metadata || {},
+      status: finalParsedData && finalParsedData.total > 0 ? 'parsed' : 'pending', // Set status based on parsing success
+      received_at: timestamp || new Date().toISOString(),
     };
 
-    // Create unmatched receipt in database
-    const { data: receipt, error: insertError } = await supabase
-      .from('unmatched_receipts')
-      .insert({
-        bar_id: barId,
-        receipt_data: receiptData,
-        status: 'pending',
-      })
+    // Create print job in database
+    const { data: printJob, error: insertError } = await supabase
+      .from('print_jobs')
+      .insert(printJobData)
       .select()
-      .single() as any; // Type assertion needed since table types aren't generated yet
+      .single();
 
     if (insertError) {
-      console.error('Failed to create unmatched receipt:', insertError);
+      console.error('Failed to create print job:', insertError);
       throw insertError;
     }
 
-    console.log('✅ Created unmatched receipt:', receipt?.id);
+    console.log('✅ Created print job:', printJob?.id);
 
     return NextResponse.json({
       success: true,
-      jobId: receipt?.id,
+      jobId: printJob?.id,
       message: 'Print job received and queued for assignment',
     });
 

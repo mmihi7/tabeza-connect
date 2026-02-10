@@ -32,11 +32,231 @@ import {
   type Payment
 } from '@tabeza/receipt-schema';
 
+/**
+ * Types for enhanced receipt extraction
+ */
+interface ExtractedItem {
+  name: string;
+  qty: number;
+  unitPrice: number;
+  total: number;
+  confidence: number;
+  raw: string;
+}
+
+/**
+ * Centralized Regex Library with confidence scoring
+ */
+const ENHANCED_REGEX = {
+  timestamp: /\b(\d{4}[-\/]\d{2}[-\/]\d{2}(?:\s+|T)\d{2}:\d{2}(?::\d{2})?)\b/,
+  
+  totals: /^(SUBTOTAL|TOTAL|TAX|VAT|GRAND TOTAL)\s*[:\-]?\s*(\d+(?:\.\d{2})?)$/i,
+  
+  // Captain's Order specific pattern: "2     Tusker Lager 500ml Kes 250, Kes 500"
+  captainOrderItem: /^(\d+)\s+(.+?)\s+Kes\s+[\d,]+(?:,\s*Kes\s+([\d,]+))?$/i,
+  
+  // Captain's Order simple pattern: "1     Kachumbari Kes 100"
+  captainOrderSimple: /^(\d+)\s+(.+?)\s+Kes\s+([\d,]+)$/i,
+  
+  itemPrimary: new RegExp(
+    [
+      "^",
+      "(?<item>[A-Za-z0-9 .,'\\-()\\/]+?)\\s+",
+      "(?:(?<qty>\\d+)\\s*(?:x|X|@)?\\s*)?",
+      "(?:(?<unit>\\d+(?:\\.\\d{2})?)\\s*)?",
+      "(?<total>\\d+(?:\\.\\d{2})?)",
+      "$"
+    ].join(""),
+    "i"
+  ),
+  
+  itemEmbeddedQty: /^(?<item>.+?)\s*(?:x|\()(?<qty>\d+)\)?\s+(?<total>\d+(?:\.\d{2})?)$/i,
+  
+  itemSimpleQty: /^(?<item>.+?)\s+(?<qty>\d+)\s+(?<total>\d+(?:\.\d{2})?)$/i,
+  
+  itemWithPrice: /^(?<item>.+?)\s+(?<total>\d+(?:\.\d{2})?)$/i
+} as const;
+
 export class ReceiptParser {
   private formatDetector: FormatDetector;
 
   constructor() {
     this.formatDetector = new FormatDetector();
+  }
+
+  /**
+   * Production-Grade Regex Fallback System
+   * Enhanced receipt parsing with confidence scoring and normalization
+   */
+  private extractReceiptEnhanced(rawText: string): {
+    timestamp: string | null;
+    items: ExtractedItem[];
+    totals: Record<string, number>;
+    confidence: number;
+  } {
+    const text = this.normalizeReceipt(rawText);
+    const lines = text.split("\n");
+    
+    const receipt = {
+      timestamp: null as string | null,
+      items: [] as ExtractedItem[],
+      totals: {} as Record<string, number>,
+      confidence: 0
+    };
+    
+    // Extract timestamp (scan once)
+    const tsMatch = text.match(ENHANCED_REGEX.timestamp);
+    if (tsMatch) receipt.timestamp = tsMatch[1];
+    
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      
+      // Extract totals
+      const totalMatch = line.match(ENHANCED_REGEX.totals);
+      if (totalMatch) {
+        receipt.totals[totalMatch[1].toUpperCase()] = Number(totalMatch[2]);
+        continue;
+      }
+      
+      // Extract items
+      const item = this.extractItem(line);
+      if (item) receipt.items.push(item);
+    }
+    
+    // Calculate receipt confidence = average item confidence
+    if (receipt.items.length) {
+      receipt.confidence = 
+        receipt.items.reduce((s, i) => s + i.confidence, 0) / 
+        receipt.items.length;
+    }
+    
+    return receipt;
+  }
+
+  /**
+   * Receipt Normalization Engine
+   * Turns chaotic POS text into predictable lines
+   */
+  private normalizeReceipt(raw: string): string {
+    return raw
+      .replace(/\r\n/g, "\n")
+      .replace(/\t/g, " ")
+      .replace(/[^\S\n]+/g, " ")           // collapse spaces
+      .replace(/-{2,}/g, "")                // remove separators
+      .replace(/_{2,}/g, "")
+      .trim();
+  }
+
+  /**
+   * Enhanced Line Item Extractor
+   * Tries multiple patterns in order of reliability
+   */
+  private extractItem(line: string): ExtractedItem | null {
+    // Try Captain's Order specific patterns first
+    let match = line.match(ENHANCED_REGEX.captainOrderItem);
+    if (match) {
+      const qty = Number(match[1]);
+      const name = match[2].trim(); // Item name is in group 2
+      const total = Number(match[3] ? match[3].replace(/,/g, '') : match[2].replace(/^.+?\s+Kes\s+[\d,]+(?:,\s*Kes\s+)?([\d,]+)$/, '$1')); // Handle optional group 3
+      const unit = +(total / qty).toFixed(2);
+      
+      return {
+        name: name,
+        qty,
+        unitPrice: unit,
+        total,
+        confidence: 0.9, // High confidence for Captain's Order format
+        raw: line
+      };
+    }
+    
+    // Try Captain's Order simple pattern
+    match = line.match(ENHANCED_REGEX.captainOrderSimple);
+    if (match) {
+      const qty = Number(match[1]);
+      const name = match[2].trim(); // Item name is in group 2
+      const total = Number(match[3].replace(/,/g, '')); // Total is in group 3
+      const unit = +(total / qty).toFixed(2);
+      
+      return {
+        name: name,
+        qty,
+        unitPrice: unit,
+        total,
+        confidence: 0.9, // High confidence for Captain's Order format
+        raw: line
+      };
+    }
+    
+    // Try primary pattern
+    match = line.match(ENHANCED_REGEX.itemPrimary);
+    
+    if (!match) {
+      // Try embedded quantity pattern
+      match = line.match(ENHANCED_REGEX.itemEmbeddedQty);
+    }
+    
+    if (!match) {
+      // Try simple quantity pattern
+      match = line.match(ENHANCED_REGEX.itemSimpleQty);
+    }
+    
+    if (!match) {
+      // Try simple price pattern (no quantity)
+      match = line.match(ENHANCED_REGEX.itemWithPrice);
+    }
+    
+    if (!match || !match.groups) return null;
+    
+    const qty = Number(match.groups.qty || 1);
+    const total = Number(match.groups.total);
+    const unit = match.groups.unit 
+      ? Number(match.groups.unit) 
+      : +(total / qty).toFixed(2);
+    
+    return {
+      name: match.groups.item.trim(),
+      qty,
+      unitPrice: unit,
+      total,
+      confidence: this.scoreItem(match),
+      raw: line
+    };
+  }
+
+  /**
+   * Confidence Scoring Engine
+   * Each extracted line gets a 0 → 1 confidence score
+   */
+  private scoreItem(match: RegExpMatchArray): number {
+    let score = 0;
+    
+    if (match.groups?.item) score += 0.3;
+    if (match.groups?.qty) score += 0.2;
+    if (match.groups?.total) score += 0.3;
+    if (match.groups?.unit) score += 0.1;
+    
+    // Sanity checks
+    const qty = Number(match.groups?.qty || 1);
+    const total = Number(match.groups?.total || 0);
+    const unit = Number(match.groups?.unit || total);
+    
+    if (qty > 0 && total > 0) score += 0.1;
+    if (qty * unit === total) score += 0.1;
+    
+    return Math.min(score, 1);
+  }
+
+  /**
+   * Convert enhanced extraction to LineItem format
+   */
+  private convertToLineItems(extractedItems: ExtractedItem[]): LineItem[] {
+    return extractedItems.map(item => ({
+      name: item.name,
+      qty: item.qty,
+      unit_price: item.unitPrice,
+      total_price: item.total
+    }));
   }
 
   /**
@@ -453,7 +673,7 @@ export class ReceiptParser {
   }
 
   /**
-   * Extract line items from receipt
+   * Extract line items from receipt with enhanced fallback
    */
   private extractItems(lines: string[], context: ParsingContext, options: ParsingOptions): LineItem[] {
     const items: LineItem[] = [];
@@ -509,6 +729,24 @@ export class ReceiptParser {
           unit_price: unit,
           total_price: quantity * unit
         });
+      }
+    }
+
+    // If no items found with traditional patterns, use enhanced fallback
+    if (items.length === 0 && options.enableHeuristics) {
+      context.warnings.push('Using enhanced regex fallback for item extraction');
+      
+      const rawText = lines.join('\n');
+      const enhancedReceipt = this.extractReceiptEnhanced(rawText);
+      
+      // Only use high-confidence items (>0.6)
+      const highConfidenceItems = enhancedReceipt.items.filter(item => item.confidence > 0.6);
+      
+      if (highConfidenceItems.length > 0) {
+        const convertedItems = this.convertToLineItems(highConfidenceItems);
+        items.push(...convertedItems);
+        
+        context.warnings.push(`Enhanced fallback extracted ${highConfidenceItems.length} items with avg confidence ${enhancedReceipt.confidence.toFixed(2)}`);
       }
     }
 

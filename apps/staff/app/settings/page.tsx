@@ -203,7 +203,8 @@ export default function SettingsPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setPrinterServiceStatus(data.isOnline ? 'online' : 'offline');
+        // Check if printer service is running (status === 'running' means it's online)
+        setPrinterServiceStatus(data.status === 'running' ? 'online' : 'offline');
       } else {
         setPrinterServiceStatus('offline');
       }

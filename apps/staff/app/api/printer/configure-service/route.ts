@@ -19,6 +19,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ✅ FIX #2: Detect environment dynamically
+    const host = request.headers.get('host') || 'localhost:3003';
+    const protocol = host.includes('localhost') || host.includes('127.0.0.1') 
+      ? 'http' 
+      : 'https';
+    const apiUrl = `${protocol}://${host}`;
+
+    console.log(`🔧 Configuring printer service with API URL: ${apiUrl}`);
+
     // Call the local printer service configuration endpoint
     const response = await fetch('http://localhost:8765/api/configure', {
       method: 'POST',
@@ -27,7 +36,7 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         barId: barId,
-        apiUrl: 'https://staff.tabeza.co.ke'
+        apiUrl: apiUrl  // ✅ FIXED: Dynamic URL
       }),
     });
 
