@@ -35,21 +35,25 @@ Code merged to main and pushed to GitHub:
 - Branch: main
 - Pushed: Successfully
 
-### Step 2: Vercel Auto-Deployment ⏳
-**Status:** IN PROGRESS
+### Step 2: Vercel Auto-Deployment ✅
+**Status:** DEPLOYED (with fix needed)
 
-Vercel is automatically deploying from main branch:
-- Trigger: Push to main detected
-- Apps deploying: Staff app with new API endpoints
-- Monitor at: https://vercel.com/your-team/staff-app/deployments
+**Current Status:**
+- Initial deployment completed (commit bffc627)
+- Production app accessible at https://staff.tabeza.co.ke
+- **Issue discovered:** Mixed content error when checking localhost from HTTPS
+- **Fix applied:** Prioritize database heartbeat checks over local detection (commit 0357fa2)
+- **Branch:** new-settings (needs merge to main for production deployment)
 
-**What's being deployed:**
-- `/api/printer/heartbeat` - Receives heartbeats from printer service
-- `/api/printer/driver-status` - Checks printer online/offline status
-- `/api/printer/configure-service` - Auto-configure printer with barId
-- Updated settings page with local printer detection fix
+**What's deployed:**
+- `/api/printer/heartbeat` - Receives heartbeats from printer service ✅
+- `/api/printer/driver-status` - Checks printer online/offline status ✅
+- `/api/printer/configure-service` - Auto-configure printer with barId ✅
+- Settings page with printer status detection ✅
 
-**Expected deployment time:** 2-5 minutes
+**Fix needed:**
+- Merge new-settings to main to deploy the database-first check
+- This fixes the issue where production HTTPS can't check localhost HTTP
 
 ### Step 3: Verify Production Endpoints
 After Vercel deployment completes:
