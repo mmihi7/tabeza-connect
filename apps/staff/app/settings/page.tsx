@@ -194,7 +194,37 @@ export default function SettingsPage() {
   const checkPrinterServiceStatus = async () => {
     try {
       setPrinterServiceStatus('checking');
-      const response = await fetch('/api/printer/driver-status', {
+      
+      // STEP 1: Check if printer service is running locally (port 8765)
+      // This works even if not configured yet
+      try {
+        const localCheck = await fetch('http://localhost:8765/api/status', {
+          method: 'GET',
+        });
+        
+        if (localCheck.ok) {
+          const localData = await localCheck.json();
+          console.log('✅ Printer service detected locally:', localData);
+          
+          // If service is running but not configured, show as "online" so auto-configure button appears
+          if (!localData.configured) {
+            console.log('⚠️  Printer service running but not configured');
+            setPrinterServiceStatus('online'); // Show as online so button appears!
+            return;
+          }
+        }
+      } catch (localError) {
+        console.log('Local printer service not detected on port 8765');
+      }
+      
+      // STEP 2: Check database for heartbeats (for configured printers)
+      if (!barInfo.id) {
+        console.log('No bar ID available yet');
+        setPrinterServiceStatus('offline');
+        return;
+      }
+      
+      const response = await fetch(`/api/printer/driver-status?barId=${barInfo.id}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -203,8 +233,8 @@ export default function SettingsPage() {
 
       if (response.ok) {
         const data = await response.json();
-        // Check if printer service is running (status === 'running' means it's online)
-        setPrinterServiceStatus(data.status === 'running' ? 'online' : 'offline');
+        // Check if printer service is connected (status === 'online' means heartbeat received)
+        setPrinterServiceStatus(data.status === 'online' ? 'online' : 'offline');
       } else {
         setPrinterServiceStatus('offline');
       }

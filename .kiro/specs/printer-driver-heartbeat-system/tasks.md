@@ -88,7 +88,7 @@
 ## 7. Deployment
 
 - [x] 7.1 Deploy database migration to production
-- [-] 7.2 Deploy API endpoints to Vercel
+- [x] 7.2 Deploy API endpoints to Vercel
 - [~] 7.3 Release printer service update
 - [~] 7.4 Monitor deployment and error logs
 - [~] 7.5 Verify heartbeat success rate
