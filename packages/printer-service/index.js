@@ -452,8 +452,49 @@ function loadConfig() {
   return null;
 }
 
+// Check if port is available
+function checkPort(port) {
+  return new Promise((resolve) => {
+    const net = require('net');
+    const tester = net.createServer()
+      .once('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          resolve(false);
+        } else {
+          resolve(true);
+        }
+      })
+      .once('listening', () => {
+        tester.once('close', () => {
+          resolve(true);
+        }).close();
+      })
+      .listen(port);
+  });
+}
+
 // Start server
 async function start() {
+  // Check if port is available
+  const portAvailable = await checkPort(PORT);
+  if (!portAvailable) {
+    console.error(`
+╔═══════════════════════════════════════════════════════════╗
+║                                                           ║
+║   ❌ ERROR: Port ${PORT} is already in use                   ║
+║                                                           ║
+║   Another instance of Tabeza Connect may be running.     ║
+║                                                           ║
+║   To fix this:                                           ║
+║   1. Run: kill-port-8765.bat                             ║
+║   2. Or restart your computer                            ║
+║   3. Then start Tabeza Connect again                     ║
+║                                                           ║
+╚═══════════════════════════════════════════════════════════╝
+    `);
+    process.exit(1);
+  }
+  
   // Load saved config
   const savedConfig = loadConfig();
   if (savedConfig) {
@@ -471,7 +512,9 @@ async function start() {
     console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║                                                           ║
-║   ✅ Tabeza Printer Service - Running                     ║
+║   🔗 Tabeza Connect - Running                             ║
+║                                                           ║
+║   Bridge your POS to the cloud                           ║
 ║                                                           ║
 ║   ⚠️  KEEP THIS WINDOW OPEN - Service must stay running  ║
 ║                                                           ║
@@ -543,7 +586,7 @@ Press Ctrl+C to stop the service
 
 // Handle shutdown
 process.on('SIGINT', () => {
-  console.log('\n👋 Shutting down Tabeza Printer Service...');
+  console.log('\n👋 Shutting down Tabeza Connect...');
   if (watcher) {
     watcher.close();
   }

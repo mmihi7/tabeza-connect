@@ -16,7 +16,6 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",
     "@tabeza/tax-rules": "workspace:*",
-    "@tabeza/escpos-parser": "workspace:*",
     "openai": "^4.77.3",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"

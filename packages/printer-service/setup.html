@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tabeza Connect Setup</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      max-width: 500px;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .logo {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 15px;
+      background: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      font-size: 14px;
+      opacity: 0.95;
+    }
+
+    .content {
+      padding: 30px;
+    }
+
+    .info-box {
+      background: #E8F5E9;
+      border-left: 4px solid #4CAF50;
+      padding: 15px;
+      margin-bottom: 25px;
+      border-radius: 4px;
+    }
+
+    .info-box p {
+      color: #2E7D32;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .info-box strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 15px;
+    }
+
+    .form-group {
+      margin-bottom: 25px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px;
+      border: 2px solid #E0E0E0;
+      border-radius: 6px;
+      font-size: 15px;
+      transition: all 0.3s ease;
+      font-family: 'Courier New', monospace;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #4CAF50;
+      box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    }
+
+    input::placeholder {
+      color: #999;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(76, 175, 80, 0.4);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      background: #BDBDBD;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .error {
+      background: #FFEBEE;
+      border-left: 4px solid #F44336;
+      color: #C62828;
+      padding: 12px;
+      border-radius: 4px;
+      font-size: 14px;
+      margin-top: 15px;
+      display: none;
+    }
+
+    .error.show {
+      display: block;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .steps {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #E0E0E0;
+    }
+
+    .steps h3 {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .steps ol {
+      padding-left: 20px;
+    }
+
+    .steps li {
+      color: #666;
+      font-size: 13px;
+      line-height: 1.8;
+      margin-bottom: 6px;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .loading.show {
+      display: block;
+    }
+
+    .spinner {
+      border: 3px solid #E0E0E0;
+      border-top: 3px solid #4CAF50;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 15px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading p {
+      color: #666;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">🔗</div>
+      <h1>Tabeza Connect</h1>
+      <p>Bridge your POS to the cloud</p>
+    </div>
+
+    <div class="content">
+      <div class="info-box">
+        <strong>📋 Find your Bar ID:</strong>
+        <p>Open Tabeza Staff Dashboard → Settings → Venue Configuration</p>
+        <p>Copy your Bar ID and paste it below</p>
+      </div>
+
+      <form id="setupForm">
+        <div class="form-group">
+          <label for="barId">Bar ID</label>
+          <input 
+            type="text" 
+            id="barId" 
+            placeholder="e.g., venue_abc123"
+            autocomplete="off"
+            spellcheck="false"
+            autofocus
+            required
+          />
+        </div>
+
+        <button type="submit" id="submitBtn">
+          Save & Start Service
+        </button>
+
+        <div id="error" class="error"></div>
+      </form>
+
+      <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Configuring Tabeza Connect...</p>
+      </div>
+
+      <div class="steps">
+        <h3>What happens next?</h3>
+        <ol>
+          <li>Service will start automatically</li>
+          <li>Green tray icon will appear (bottom-right)</li>
+          <li>Service will auto-start on Windows login</li>
+          <li>Configure your POS to print receipts</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+    
+    const form = document.getElementById('setupForm');
+    const barIdInput = document.getElementById('barId');
+    const submitBtn = document.getElementById('submitBtn');
+    const errorDiv = document.getElementById('error');
+    const loadingDiv = document.getElementById('loading');
+
+    // Handle form submission
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      
+      const barId = barIdInput.value.trim();
+      
+      // Clear previous errors
+      errorDiv.classList.remove('show');
+      errorDiv.textContent = '';
+      
+      // Validate Bar ID
+      if (!barId) {
+        showError('Please enter your Bar ID');
+        return;
+      }
+      
+      if (barId.length < 5) {
+        showError('Bar ID seems too short. Please check and try again.');
+        return;
+      }
+      
+      // Basic format validation (alphanumeric, underscores, hyphens)
+      if (!/^[a-zA-Z0-9_-]+$/.test(barId)) {
+        showError('Bar ID contains invalid characters. Use only letters, numbers, underscores, and hyphens.');
+        return;
+      }
+      
+      // Show loading state
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Configuring...';
+      loadingDiv.classList.add('show');
+      form.style.display = 'none';
+      
+      // Send to main process
+      ipcRenderer.send('save-config', barId);
+    });
+    
+    // Listen for errors from main process
+    ipcRenderer.on('config-error', (event, message) => {
+      showError(message);
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Save & Start Service';
+      loadingDiv.classList.remove('show');
+      form.style.display = 'block';
+    });
+    
+    function showError(message) {
+      errorDiv.textContent = message;
+      errorDiv.classList.add('show');
+      barIdInput.focus();
+    }
+    
+    // Auto-focus input on load
+    window.addEventListener('load', () => {
+      barIdInput.focus();
+    });
+    
+    // Handle Enter key
+    barIdInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        form.dispatchEvent(new Event('submit'));
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,242 +1,144 @@
-# Notepad to Tabeza - Quick Start Guide
+# Tabeza Connect - Quick Start Guide
 
-## ✅ System Status: WORKING!
+## 🚀 Get Running in 5 Steps
 
-The complete Notepad → TCP Server → Tabeza → Captain's Orders flow is operational.
+### Step 1: Create Windows Icon (5 minutes)
+```bash
+# Go to: https://convertio.co/svg-ico/
+# Upload: assets/logo-green.svg
+# Download as: icon.ico
+# Save to: assets/icon.ico
+```
 
-## 🚀 Quick Start (3 Steps)
+**Or use ImageMagick:**
+```bash
+cd assets
+magick convert logo-green.svg -define icon:auto-resize=256,128,64,48,32,16 icon.ico
+```
 
-### Step 1: Install the Printer (One-Time Setup)
-
-Open PowerShell as Administrator and run:
-
-```powershell
+### Step 2: Install Dependencies (2 minutes)
+```bash
 cd packages/printer-service
-.\setup-test-printer.ps1
+npm install
 ```
 
-This creates "TABEZA Test Printer" that sends to `127.0.0.1:9100`.
-
-### Step 2: Start the TCP Server
-
-```cmd
-cd packages/printer-service
-set TABEZA_BAR_ID=438c80c1-fe11-4ac5-8a48-2fc45104ba31
-set TABEZA_API_URL=http://localhost:3003
-node tabeza-tcp-server.js
+### Step 3: Test Electron App (2 minutes)
+```bash
+npm run start:electron
 ```
 
-You should see:
-```
-✅ Server started successfully!
-🌐 Listening on: 127.0.0.1:9100
-⏳ Waiting for print jobs...
-```
+**Expected:**
+- Setup window appears
+- Enter any test Bar ID (e.g., "test_venue_123")
+- Click "Save & Start Service"
+- Tray icon appears (green)
+- Service starts
 
-### Step 3: Test with Notepad
-
-1. Open Notepad
-2. Type a simple receipt:
-   ```
-   1 x Tusker 250
-   1 x White Cap 250
-   Total 500
-   ```
-3. File → Print → Select "TABEZA Test Printer"
-4. Click Print
-
-Watch the TCP server console - you'll see:
-```
-📄 NEW PRINT JOB RECEIVED
-✅ Print job complete
-☁️  Sending to Tabeza cloud...
-✅ Successfully sent to Tabeza!
+### Step 4: Build Installer (5 minutes)
+```bash
+npm run build:electron
 ```
 
-### Step 4: Check Captain's Orders
+**Output:**
+- `dist/Tabeza Connect Setup 1.0.0.exe`
 
-1. Open http://localhost:3003 (staff dashboard)
-2. Navigate to Captain's Orders
-3. You'll see the unassigned receipt
-4. Click "Assign Tab" to assign it to a customer
-
-## 🎯 What Just Happened?
-
-```
-Notepad → Windows Print System → TCP Server (port 9100) 
-  → Tabeza API → Database → Captain's Orders UI
+### Step 5: Test Installer (10 minutes)
+```bash
+# Run the installer
+cd dist
+start "Tabeza Connect Setup 1.0.0.exe"
 ```
 
-The captain (staff) now sees the receipt and can assign it to the correct customer tab.
-
-## 🔧 Configuration
-
-### Environment Variables
-
-```cmd
-# Required
-set TABEZA_BAR_ID=438c80c1-fe11-4ac5-8a48-2fc45104ba31
-
-# Optional (defaults shown)
-set TABEZA_API_URL=http://localhost:3003
-```
-
-### Server Configuration
-
-Edit `tabeza-tcp-server.js` if needed:
-
-```javascript
-const CONFIG = {
-  port: 9100,              // TCP port
-  host: '127.0.0.1',       // TCP host
-  apiUrl: '...',           // Tabeza API URL
-  barId: '...',            // Your bar ID
-  outputDir: '...',        // Local backup folder
-  verbose: true,           // Logging
-};
-```
-
-## 📊 Verify Everything Works
-
-Run the test suite:
-
-```cmd
-cd packages/printer-service
-node test-with-barid.js
-```
-
-Expected output:
-```
-✅ API is online!
-✅ Test print job sent successfully!
-🎉 ALL TESTS PASSED!
-```
-
-Check the database:
-
-```cmd
-node check-print-job.js
-```
-
-Expected output:
-```
-✅ Found 1 print job(s):
-📄 Print Job 1:
-   Status: no_match
-   Items: 2
-   Total: 100
-```
-
-## 🐛 Troubleshooting
-
-### Problem: "Port 9100 already in use"
-
-```cmd
-netstat -ano | findstr :9100
-taskkill /PID [PID] /F
-```
-
-### Problem: "TABEZA_BAR_ID is required"
-
-Make sure you set the environment variable:
-
-```cmd
-set TABEZA_BAR_ID=438c80c1-fe11-4ac5-8a48-2fc45104ba31
-```
-
-### Problem: "Failed to send to Tabeza"
-
-1. Check the API is running: `pnpm dev:staff`
-2. Check the URL is correct: `http://localhost:3003`
-3. Run the connection test: `node test-with-barid.js`
-
-### Problem: "Printer not found"
-
-Re-run the printer setup:
-
-```powershell
-.\setup-test-printer.ps1
-```
-
-Verify it exists:
-
-```powershell
-Get-Printer -Name "TABEZA Test Printer"
-Get-PrinterPort -Name "TABEZA_TEST_PORT"
-```
-
-## 📁 Files Created
-
-- `tabeza-tcp-server.js` - Production TCP server
-- `test-connection.js` - Connection tester
-- `test-with-barid.js` - Test with your bar ID
-- `check-print-job.js` - Database verification
-- `setup-test-printer.ps1` - Printer installer
-- `received-prints/` - Local backup folder
-
-## 🎉 Success Criteria
-
-You know it's working when:
-
-- ✅ TCP server starts without errors
-- ✅ Notepad prints appear in server console
-- ✅ Print jobs stored in database
-- ✅ Orders appear in Captain's Orders
-- ✅ Staff can assign orders to tabs
-
-## 🚀 Next Steps
-
-### For Testing:
-1. Test with different applications (Word, Excel, PDF)
-2. Test with real POS system
-3. Verify receipt parsing accuracy
-
-### For Production:
-1. Run TCP server as Windows Service
-2. Configure POS to print to TABEZA printer
-3. Train staff on Captain's Orders workflow
-4. Monitor `received-prints/` folder
-5. Set up logging and alerts
-
-## 📝 Real-World Usage
-
-### Scenario: Bar with POS
-
-1. Customer orders verbally
-2. Waiter enters order in POS
-3. POS prints to "TABEZA Test Printer"
-4. Receipt appears in Captain's Orders
-5. Staff assigns to customer's tab
-6. Customer sees digital receipt
-7. Customer pays via M-Pesa
-
-### Scenario: Manual Entry
-
-1. Customer orders verbally
-2. Staff types receipt in Notepad
-3. Prints to "TABEZA Test Printer"
-4. Assigns to customer's tab
-5. Customer receives digital receipt
-
-## 🔐 Security
-
-- TCP server only listens on localhost (127.0.0.1)
-- No external access to port 9100
-- All data sent to Tabeza API over HTTPS (in production)
-- Bar ID required for authentication
-- Print data backed up locally
-
-## 📈 Performance
-
-- Latency: < 500ms from print to Captain's Orders
-- Throughput: 100+ prints per hour
-- Reliability: Auto-retry on network errors
-- Storage: Minimal (raw prints are small)
+**Verify:**
+- Installer runs
+- Setup window appears
+- Can configure Bar ID
+- Service starts
+- Tray icon appears
+- Auto-start works (check Startup folder)
 
 ---
 
-**System Status:** ✅ FULLY OPERATIONAL
+## ✅ Success Checklist
 
-**Last Tested:** February 7, 2026
+After completing all steps:
 
-**Test Result:** All tests passed! Print job successfully stored with ID `a3fb8ae5-b7ab-436b-a534-2d22c2936186`
+- [ ] `icon.ico` file exists in `assets/`
+- [ ] Dependencies installed (`node_modules/` exists)
+- [ ] Electron app runs (`npm run start:electron`)
+- [ ] Setup window appears and works
+- [ ] Tray icon appears after setup
+- [ ] Installer builds successfully
+- [ ] Installer runs on test machine
+- [ ] Auto-start shortcut created
+- [ ] Service connects to cloud
+
+---
+
+## 🐛 Troubleshooting
+
+### "Cannot find module 'electron'"
+```bash
+npm install
+```
+
+### "icon.ico not found"
+Create the icon file first (Step 1)
+
+### Setup window doesn't appear
+Delete config and try again:
+```bash
+# Windows
+del %APPDATA%\Tabeza\config.json
+npm run start:electron
+```
+
+### Tray icon doesn't appear
+- Check if Electron process is running (Task Manager)
+- Try restarting: Close and run `npm run start:electron` again
+
+### Build fails
+```bash
+# Clean and rebuild
+rm -rf dist node_modules
+npm install
+npm run build:electron
+```
+
+---
+
+## 📁 File Locations
+
+### Development
+- Source: `packages/printer-service/`
+- Config: `packages/printer-service/config.json` (if running from source)
+
+### Installed App
+- Executable: `C:\Program Files\Tabeza Connect\`
+- Config: `%APPDATA%\Tabeza\config.json`
+- Logs: `%APPDATA%\Tabeza\logs\`
+- Startup: `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\`
+
+---
+
+## 🎯 Next Steps After Testing
+
+1. **Upload installer** to hosting/CDN
+2. **Add download link** to Staff Dashboard Settings
+3. **Create user documentation** (video/guide)
+4. **Announce to venues** via email/dashboard
+5. **Monitor support requests** for issues
+
+---
+
+## 📞 Need Help?
+
+- **Documentation:** See `TABEZA-CONNECT-IMPLEMENTATION-SUMMARY.md`
+- **Icon Guide:** See `CREATE-ICON-GUIDE.md`
+- **Full Details:** See `TABEZA-CONNECT-SETUP-COMPLETE.md`
+
+---
+
+**Estimated Total Time:** 30 minutes
+**Difficulty:** Easy
+**Prerequisites:** Node.js, npm, Windows machine

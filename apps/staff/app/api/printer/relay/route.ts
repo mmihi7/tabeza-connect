@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
 
     // Use parsedData from printer service if available, otherwise parse locally
     let finalParsedData = null;
+    let parsingConfidence = 'low'; // low, medium, high
     
     if (parsedData && typeof parsedData === 'object') {
       // Use parsed data from printer service
@@ -66,6 +67,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // FOUNDATIONAL RULE: Never reject a receipt. Always accept, always store.
+    // The POS is the source of truth. Tabeza is a convenience layer.
+    // Determine parsing confidence level for UI display
+    const hasItems = finalParsedData?.items && Array.isArray(finalParsedData.items) && finalParsedData.items.length > 0;
+    const hasTotal = finalParsedData?.total && typeof finalParsedData.total === 'number' && finalParsedData.total > 0;
+    
+    if (hasItems && hasTotal) {
+      parsingConfidence = 'high';
+      console.log('✅ High confidence parse:', {
+        itemCount: finalParsedData.items.length,
+        total: finalParsedData.total,
+      });
+    } else if (hasTotal && !hasItems) {
+      parsingConfidence = 'medium';
+      console.log('⚠️  Medium confidence parse: total only, no items');
+    } else if (hasItems && !hasTotal) {
+      parsingConfidence = 'medium';
+      console.log('⚠️  Medium confidence parse: items only, no total');
+    } else {
+      parsingConfidence = 'low';
+      console.log('⚠️  Low confidence parse: no items or total extracted');
+    }
+
     // Create receipt data object matching the print_jobs schema
     const printJobData = {
       bar_id: barId,
@@ -74,7 +98,10 @@ export async function POST(request: NextRequest) {
       parsed_data: finalParsedData,
       printer_name: printerName || 'Unknown Printer',
       document_name: documentName || 'Receipt',
-      metadata: metadata || {},
+      metadata: {
+        ...metadata,
+        parsing_confidence: parsingConfidence, // high, medium, low
+      },
       status: 'no_match', // Always set to 'no_match' so it appears in Captain's Orders
       received_at: timestamp || new Date().toISOString(),
     };
