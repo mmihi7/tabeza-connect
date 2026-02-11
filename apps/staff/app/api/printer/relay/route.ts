@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
       printer_name: printerName || 'Unknown Printer',
       document_name: documentName || 'Receipt',
       metadata: metadata || {},
-      status: finalParsedData && finalParsedData.total > 0 ? 'parsed' : 'pending', // Set status based on parsing success
+      status: 'no_match', // Always set to 'no_match' so it appears in Captain's Orders
       received_at: timestamp || new Date().toISOString(),
     };
 

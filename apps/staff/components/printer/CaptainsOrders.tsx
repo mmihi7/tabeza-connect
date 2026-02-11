@@ -12,12 +12,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-);
+import { supabase } from '@/lib/supabase';
 
 interface PrintJob {
   id: string;
@@ -55,7 +50,7 @@ export default function CaptainsOrders({ barId }: CaptainsOrdersProps) {
   useEffect(() => {
     fetchData();
 
-    // Subscribe to real-time updates
+    // Subscribe to real-time updates for both INSERT and UPDATE events
     const subscription = supabase
       .channel('print_jobs_changes')
       .on(
@@ -66,11 +61,27 @@ export default function CaptainsOrders({ barId }: CaptainsOrdersProps) {
           table: 'print_jobs',
           filter: `bar_id=eq.${barId}`,
         },
-        () => {
+        (payload) => {
+          console.log('🔔 Real-time INSERT event received:', payload);
           fetchData();
         }
       )
-      .subscribe();
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'print_jobs',
+          filter: `bar_id=eq.${barId}`,
+        },
+        (payload) => {
+          console.log('🔔 Real-time UPDATE event received:', payload);
+          fetchData();
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Subscription status:', status);
+      });
 
     return () => {
       subscription.unsubscribe();

@@ -181,7 +181,8 @@ function parseWithRegex(receiptText: string): ParsedReceipt {
   let receiptNumber = '';
   let inItemsSection = false;
   
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const trimmed = line.trim();
     
     // Extract receipt number
@@ -196,16 +197,26 @@ function parseWithRegex(receiptText: string): ParsedReceipt {
       continue;
     }
     
-    // End of items section
-    if (inItemsSection && (trimmed.startsWith('---') || trimmed.match(/subtotal|tax|total/i))) {
-      inItemsSection = false;
-    }
-    
     // Parse item lines - try multiple patterns
     if (inItemsSection && trimmed.length > 5) {
-      // Pattern 1: "2    Tusker Lager 500ml       500.00"
-      let match = trimmed.match(/^(\d+)\s+(.+?)\s+([\d,]+\.?\d+)$/);
+      // Captain's Order Pattern 1: "2     Tusker Lager 500ml Kes 250, Kes 500"
+      let match = trimmed.match(/^(\d+)\s+(.+?)\s+Kes\s+[\d,]+(?:,\s*Kes\s+([\d,]+))?$/i);
+      if (match) {
+        const qty = parseInt(match[1]);
+        const name = match[2].trim();
+        // Extract the final total (after last "Kes")
+        const total = match[3] ? parseFloat(match[3].replace(/,/g, '')) : 
+                     parseFloat(match[2].replace(/^.+?\s+Kes\s+[\d,]+(?:,\s*Kes\s+)?([\d,]+)$/, '$1').replace(/,/g, ''));
+        
+        items.push({
+          name: `${qty}x ${name}`,
+          price: total,
+        });
+        continue;
+      }
       
+      // Captain's Order Pattern 2: "1     Kachumbari Kes 100"
+      match = trimmed.match(/^(\d+)\s+(.+?)\s+Kes\s+([\d,]+)$/i);
       if (match) {
         const qty = parseInt(match[1]);
         const name = match[2].trim();
@@ -218,7 +229,35 @@ function parseWithRegex(receiptText: string): ParsedReceipt {
         continue;
       }
       
-      // Pattern 2: "Item Name    $10.00" or "Item Name    10.00"
+      // Test Receipt Pattern 1: "2   Tusker Lager 500ml       500.00"
+      match = trimmed.match(/^(\d+)\s+(.+?)\s+([\d,]+\.?\d*)$/);
+      if (match) {
+        const qty = parseInt(match[1]);
+        const name = match[2].trim();
+        const price = parseFloat(match[3].replace(/,/g, ''));
+        
+        items.push({
+          name: `${qty}x ${name}`,
+          price,
+        });
+        continue;
+      }
+      
+      // Pattern 3: "2    Tusker Lager 500ml       500.00"
+      match = trimmed.match(/^(\d+)\s+(.+?)\s+([\d,]+\.?\d+)$/);
+      if (match) {
+        const qty = parseInt(match[1]);
+        const name = match[2].trim();
+        const price = parseFloat(match[3].replace(/,/g, ''));
+        
+        items.push({
+          name: `${qty}x ${name}`,
+          price,
+        });
+        continue;
+      }
+      
+      // Pattern 4: "Item Name    $10.00" or "Item Name    10.00"
       match = trimmed.match(/^(.+?)\s+\$?([\d,]+\.?\d+)$/);
       if (match && !match[1].match(/subtotal|tax|total|payment/i)) {
         items.push({
@@ -228,9 +267,21 @@ function parseWithRegex(receiptText: string): ParsedReceipt {
       }
     }
     
+    // End of items section (check AFTER trying to parse items)
+    // But don't end on the separator line right after the header
+    if (inItemsSection && trimmed.startsWith('---')) {
+      // Check if this is the separator right after the header
+      const prevLine = i > 0 ? lines[i - 1]?.trim() || '' : '';
+      if (!prevLine.match(/qty|quantity|item/i) || !prevLine.match(/amount|price|total/i)) {
+        inItemsSection = false;
+      }
+    } else if (inItemsSection && trimmed.match(/subtotal|tax|total/i)) {
+      inItemsSection = false;
+    }
+    
     // Extract total - look for "TOTAL:" or "Total:" anywhere
-    if (trimmed.match(/total\s*:?\s*([\d,]+\.?\d+)/i)) {
-      const match = trimmed.match(/total\s*:?\s*([\d,]+\.?\d+)/i);
+    if (trimmed.match(/total\s*:?\s*(?:Kes\s*)?([\d,]+\.?\d+)/i)) {
+      const match = trimmed.match(/total\s*:?\s*(?:Kes\s*)?([\d,]+\.?\d+)/i);
       if (match) {
         total = parseFloat(match[1].replace(/,/g, ''));
       }
