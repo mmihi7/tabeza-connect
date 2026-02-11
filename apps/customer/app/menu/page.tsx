@@ -3094,7 +3094,7 @@ export default function MenuPage() {
                     <div className="space-y-1">
                       {items.map((item: any, i: number) => (
                         <div key={i} className="flex justify-between">
-                          <p className="text-xs text-gray-600">{item.quantity}x {item.name}</p>
+                          <p className="text-xs text-gray-600">{item.name}</p>
                           <p className="text-xs text-gray-500">{tempFormatCurrency(item.total)}</p>
                         </div>
                       ))}

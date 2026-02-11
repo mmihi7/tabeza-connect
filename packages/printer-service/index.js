@@ -18,6 +18,21 @@ const PORT = 8765;
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Generate unique driver ID (moved to top to avoid crash)
+function generateDriverId() {
+  const { hostname } = require('os');
+  return `driver-${hostname()}-${Date.now()}`;
+}
+
+// Heartbeat configuration
+const HEARTBEAT_INTERVAL = 30000; // 30 seconds
+const HEARTBEAT_RETRY_ATTEMPTS = 3;
+const HEARTBEAT_RETRY_DELAY = 5000; // 5 seconds
+
+// Heartbeat state tracking
+let heartbeatInterval = null;
+let heartbeatFailures = 0;
+
 // Configuration
 // ✅ FIX #1: Changed default to localhost for local development
 let config = {
@@ -362,6 +377,84 @@ function generateDriverId() {
   return `driver-${hostname()}-${Date.now()}`;
 }
 
+// Send heartbeat to cloud
+async function sendHeartbeat(attempt = 1) {
+  try {
+    // Build heartbeat payload
+    const payload = {
+      barId: config.barId,
+      driverId: config.driverId,
+      version: '1.0.0',
+      status: 'online',
+      metadata: {
+        hostname: require('os').hostname(),
+        platform: process.platform,
+        nodeVersion: process.version,
+      },
+    };
+    
+    // Send POST request to /api/printer/heartbeat
+    const response = await fetch(`${config.apiUrl}/api/printer/heartbeat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Heartbeat failed: ${response.status}`);
+    }
+    
+    // Reset failure count on success
+    if (heartbeatFailures > 0) {
+      console.log('✅ Heartbeat connection restored');
+      heartbeatFailures = 0;
+    }
+    
+  } catch (error) {
+    // Track failure count and log errors
+    heartbeatFailures++;
+    
+    console.error(`❌ Heartbeat failed (attempt ${attempt}/${HEARTBEAT_RETRY_ATTEMPTS}):`, error.message);
+    
+    // Add retry logic with exponential backoff
+    if (attempt < HEARTBEAT_RETRY_ATTEMPTS) {
+      const delay = HEARTBEAT_RETRY_DELAY * Math.pow(2, attempt - 1);
+      console.log(`   Retrying in ${delay / 1000}s...`);
+      
+      setTimeout(() => {
+        sendHeartbeat(attempt + 1);
+      }, delay);
+    } else {
+      console.error(`   Max retries reached. Will try again in ${HEARTBEAT_INTERVAL / 1000}s`);
+    }
+  }
+}
+
+// Start heartbeat service
+function startHeartbeat() {
+  if (!config.barId) {
+    console.log('⚠️  Heartbeat disabled - Bar ID not configured');
+    return;
+  }
+  
+  console.log('💓 Starting heartbeat service...');
+  
+  // Send initial heartbeat immediately
+  sendHeartbeat();
+  
+  // Then send every 30 seconds
+  heartbeatInterval = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
+}
+
+// Stop heartbeat service
+function stopHeartbeat() {
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+    console.log('💔 Heartbeat service stopped');
+  }
+}
+
 // Create test receipt
 function createTestReceipt(message) {
   const now = new Date();
@@ -499,6 +592,14 @@ async function start() {
   const savedConfig = loadConfig();
   if (savedConfig) {
     config = { ...config, ...savedConfig };
+    
+    // Reuse existing driver_id if exists
+    if (savedConfig.driverId) {
+      config.driverId = savedConfig.driverId;
+    }
+  } else {
+    // Generate and save new driver_id if not exists
+    saveConfig(config);
   }
   
   // Start file watcher
@@ -506,6 +607,9 @@ async function start() {
   
   // Start cloud polling (for receiving print jobs from cloud)
   startCloudPolling();
+  
+  // Start heartbeat service
+  startHeartbeat();
   
   app.listen(PORT, async () => {
     console.clear();
@@ -593,6 +697,7 @@ process.on('SIGINT', () => {
   if (pollInterval) {
     clearInterval(pollInterval);
   }
+  stopHeartbeat();
   process.exit(0);
 });
 

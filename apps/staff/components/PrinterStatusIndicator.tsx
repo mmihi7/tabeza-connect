@@ -2,15 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { Printer, CheckCircle, XCircle, AlertCircle, RefreshCw, Download, Zap } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
 
 type PrinterStatus = {
-  installed: boolean;
-  status: 'running' | 'error' | 'not_found' | 'checking';
-  version?: string;
-  printerName?: string;
-  lastSeen?: string;
-  message?: string;
-  downloadUrl?: string;
+  connected: boolean;
+  status: 'online' | 'offline' | 'not_configured' | 'checking' | 'error';
+  driver?: {
+    id: string;
+    version: string;
+    lastSeen: string;
+    firstSeen: string;
+    lastSeenMinutes: number;
+  };
+  message: string;
   error?: string;
 };
 
@@ -25,40 +29,72 @@ interface PrinterStatusIndicatorProps {
 export default function PrinterStatusIndicator({
   barId,
   autoRefresh = true,
-  refreshInterval = 10000, // 10 seconds
+  refreshInterval = 60000, // 60 seconds (reduced from 10s to match heartbeat interval)
   showDetails = true,
   compact = false,
 }: PrinterStatusIndicatorProps) {
   const [status, setStatus] = useState<PrinterStatus>({
-    installed: false,
+    connected: false,
     status: 'checking',
     message: 'Checking printer service...',
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [testingPrinter, setTestingPrinter] = useState(false);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
+  const [lastSeenText, setLastSeenText] = useState<string>('');
 
   const checkPrinterStatus = async () => {
+    if (!barId) {
+      setStatus({
+        connected: false,
+        status: 'error',
+        message: 'Bar ID is required',
+      });
+      return;
+    }
+
     setIsRefreshing(true);
     try {
-      const response = await fetch('/api/printer/driver-status', {
+      const response = await fetch(`/api/printer/driver-status?barId=${barId}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data: PrinterStatus = await response.json();
       setStatus(data);
       setLastChecked(new Date());
+      
+      // Update last seen text
+      if (data.driver?.lastSeenMinutes !== undefined) {
+        updateLastSeenText(data.driver.lastSeenMinutes);
+      }
     } catch (error) {
       console.error('Error checking printer status:', error);
       setStatus({
-        installed: false,
+        connected: false,
         status: 'error',
         message: 'Failed to check printer service',
         error: error instanceof Error ? error.message : 'Unknown error',
       });
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const updateLastSeenText = (minutes: number) => {
+    if (minutes < 1) {
+      setLastSeenText('just now');
+    } else if (minutes === 1) {
+      setLastSeenText('1 minute ago');
+    } else if (minutes < 60) {
+      setLastSeenText(`${minutes} minutes ago`);
+    } else {
+      const hours = Math.floor(minutes / 60);
+      setLastSeenText(hours === 1 ? '1 hour ago' : `${hours} hours ago`);
     }
   };
 
@@ -108,23 +144,73 @@ export default function PrinterStatusIndicator({
     }
   };
 
+  // Initial check and setup realtime subscription
   useEffect(() => {
+    if (!barId) return;
+
+    // Initial status check
     checkPrinterStatus();
 
-    if (autoRefresh) {
-      const interval = setInterval(checkPrinterStatus, refreshInterval);
-      return () => clearInterval(interval);
-    }
-  }, [autoRefresh, refreshInterval]);
+    // Setup Supabase realtime subscription
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+    );
+
+    const channel = supabase
+      .channel('printer-drivers-status')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'printer_drivers',
+          filter: `bar_id=eq.${barId}`,
+        },
+        (payload) => {
+          console.log('Printer driver update received:', payload);
+          // Refresh status when heartbeat received
+          checkPrinterStatus();
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription on unmount
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [barId]);
+
+  // Auto-refresh polling (backup to realtime)
+  useEffect(() => {
+    if (!autoRefresh || !barId) return;
+
+    const interval = setInterval(checkPrinterStatus, refreshInterval);
+    return () => clearInterval(interval);
+  }, [autoRefresh, refreshInterval, barId]);
+
+  // Update "last seen" text every minute
+  useEffect(() => {
+    if (!status.driver?.lastSeenMinutes) return;
+
+    const interval = setInterval(() => {
+      if (status.driver?.lastSeenMinutes !== undefined) {
+        updateLastSeenText(status.driver.lastSeenMinutes + 1);
+      }
+    }, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, [status.driver?.lastSeenMinutes]);
 
   const getStatusColor = () => {
     switch (status.status) {
-      case 'running':
+      case 'online':
         return 'text-green-600 bg-green-50 border-green-200';
+      case 'offline':
+      case 'not_configured':
+        return 'text-red-600 bg-red-50 border-red-200';
       case 'error':
         return 'text-orange-600 bg-orange-50 border-orange-200';
-      case 'not_found':
-        return 'text-red-600 bg-red-50 border-red-200';
       case 'checking':
         return 'text-gray-600 bg-gray-50 border-gray-200';
       default:
@@ -134,12 +220,13 @@ export default function PrinterStatusIndicator({
 
   const getStatusIcon = () => {
     switch (status.status) {
-      case 'running':
+      case 'online':
         return <CheckCircle className="w-5 h-5" />;
+      case 'offline':
+      case 'not_configured':
+        return <XCircle className="w-5 h-5" />;
       case 'error':
         return <AlertCircle className="w-5 h-5" />;
-      case 'not_found':
-        return <XCircle className="w-5 h-5" />;
       case 'checking':
         return <RefreshCw className="w-5 h-5 animate-spin" />;
       default:
@@ -149,12 +236,14 @@ export default function PrinterStatusIndicator({
 
   const getStatusText = () => {
     switch (status.status) {
-      case 'running':
+      case 'online':
         return 'Connected';
+      case 'offline':
+        return 'Disconnected';
+      case 'not_configured':
+        return 'Not Configured';
       case 'error':
         return 'Error';
-      case 'not_found':
-        return 'Disconnected';
       case 'checking':
         return 'Checking...';
       default:
@@ -189,24 +278,21 @@ export default function PrinterStatusIndicator({
               </h3>
             </div>
             <p className="text-sm mt-1 opacity-90">
-              {status.message || 'No status message'}
+              {status.message}
             </p>
             
-            {showDetails && status.status === 'running' && (
+            {showDetails && status.status === 'online' && status.driver && (
               <div className="mt-2 space-y-1 text-xs opacity-75">
-                {status.printerName && (
-                  <div>Printer: {status.printerName}</div>
-                )}
-                {status.version && (
-                  <div>Version: {status.version}</div>
-                )}
+                <div>Driver ID: {status.driver.id.substring(0, 8)}...</div>
+                <div>Version: {status.driver.version}</div>
+                <div>Last seen: {lastSeenText}</div>
                 {lastChecked && (
-                  <div>Last checked: {lastChecked.toLocaleTimeString()}</div>
+                  <div>Status checked: {lastChecked.toLocaleTimeString()}</div>
                 )}
               </div>
             )}
 
-            {status.status === 'not_found' && (
+            {(status.status === 'not_configured' || status.status === 'offline') && (
               <div className="mt-3">
                 <a
                   href="https://github.com/billoapp/tabeza-printer-service/releases/latest/download/tabeza-printer-service.exe"
@@ -234,7 +320,7 @@ export default function PrinterStatusIndicator({
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
 
-          {status.status === 'running' && barId && (
+          {status.status === 'online' && barId && (
             <button
               onClick={testPrinter}
               disabled={testingPrinter}
