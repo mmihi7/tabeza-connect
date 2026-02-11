@@ -80,15 +80,15 @@
 
 ## 6. Documentation
 
-- [~] 6.1 Update printer service README with heartbeat feature
-- [~] 6.2 Document troubleshooting for heartbeat failures
-- [~] 6.3 Update staff app documentation for printer status
-- [~] 6.4 Create deployment guide
+- [x] 6.1 Update printer service README with heartbeat feature
+- [x] 6.2 Document troubleshooting for heartbeat failures
+- [x] 6.3 Update staff app documentation for printer status
+- [x] 6.4 Create deployment guide
 
 ## 7. Deployment
 
-- [~] 7.1 Deploy database migration to production
-- [~] 7.2 Deploy API endpoints to Vercel
+- [x] 7.1 Deploy database migration to production
+- [-] 7.2 Deploy API endpoints to Vercel
 - [~] 7.3 Release printer service update
 - [~] 7.4 Monitor deployment and error logs
 - [~] 7.5 Verify heartbeat success rate

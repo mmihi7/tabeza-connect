@@ -14,6 +14,8 @@ This service acts as a virtual printer driver, capturing receipt data from POS s
 - Automatic reconnection and retry logic
 - Configuration via web interface or config file
 - Health monitoring and status reporting
+- **Real-time heartbeat system** - Automatic connection status monitoring
+- **Cloud connectivity detection** - Know when your printer service is online/offline
 
 ## Installation
 
@@ -127,9 +129,42 @@ curl http://localhost:8765/api/status
   "printerName": "Tabeza Receipt Printer",
   "timestamp": "2024-01-15T10:30:00Z",
   "barId": "bar-123",
-  "driverId": "driver-hostname-1234567890"
+  "driverId": "driver-hostname-1234567890",
+  "heartbeat": {
+    "enabled": true,
+    "interval": 30000,
+    "lastSent": "2024-01-15T10:29:45Z",
+    "failures": 0
+  }
 }
 ```
+
+### Heartbeat System
+
+The service automatically sends heartbeat signals to the Tabeza cloud every 30 seconds to maintain connection status. This allows the staff app to display real-time printer connectivity.
+
+**How it works:**
+- Heartbeat starts automatically when service starts
+- Sends status update every 30 seconds
+- Includes driver ID, version, and system metadata
+- Retries up to 3 times on failure with exponential backoff
+- Continues running even if cloud is temporarily unreachable
+
+**Heartbeat logs:**
+```
+💓 Starting heartbeat service...
+✅ Heartbeat connection restored
+❌ Heartbeat failed (attempt 1/3): <error>
+   Retrying in 5s...
+💔 Heartbeat service stopped
+```
+
+**Troubleshooting heartbeat:**
+- If heartbeat fails, check your internet connection
+- Verify the API URL is correct in config.json
+- Check firewall isn't blocking outbound HTTPS
+- Service continues to work even if heartbeat fails
+- Heartbeat will automatically resume when connection restored
 
 ### POST /api/test-print
 
@@ -293,6 +328,29 @@ sc query "Tabeza Printer Service"
    ```
 5. Check for proxy/firewall blocking outbound HTTPS
 
+### Heartbeat failures
+
+**Symptoms:** Staff app shows "Disconnected" even though service is running
+
+**Solutions:**
+1. Check service logs for heartbeat errors:
+   ```
+   ❌ Heartbeat failed (attempt 1/3): <error>
+   ```
+2. Verify internet connection is stable
+3. Check firewall allows outbound HTTPS to Tabeza cloud
+4. Verify API URL in config.json is correct
+5. Test heartbeat endpoint manually:
+   ```bash
+   curl -X POST https://your-tabeza-url.vercel.app/api/printer/heartbeat ^
+     -H "Content-Type: application/json" ^
+     -d "{\"barId\":\"your-bar-id\",\"driverId\":\"your-driver-id\",\"version\":\"1.0.0\",\"status\":\"online\"}"
+   ```
+6. If heartbeat continues to fail, service will still process print jobs
+7. Heartbeat will automatically resume when connection is restored
+
+**Note:** The service can process print jobs even if heartbeat is failing. Heartbeat only affects the connection status display in the staff app.
+
 ### Port 8765 already in use
 
 **Symptoms:** Error "EADDRINUSE" when starting
@@ -376,7 +434,16 @@ MIT License - See LICENSE file for details
 
 ## Version History
 
-### 1.0.0 (Current)
+### 1.1.0 (Current)
+- **NEW:** Real-time heartbeat system for connection monitoring
+- **NEW:** Automatic driver registration with cloud
+- **NEW:** Connection status visible in staff app
+- **IMPROVED:** Better error handling and retry logic
+- **IMPROVED:** Enhanced logging for troubleshooting
+- Driver ID persistence across restarts
+- System metadata reporting (hostname, platform, Node version)
+
+### 1.0.0
 - Initial release
 - Windows service support
 - Basic receipt parsing
