@@ -27,26 +27,29 @@
 
 ## 🚀 Deployment Steps Needed
 
-### Step 1: Merge to Main Branch
-**Current Status:** Code is on `new-settings` branch
+### Step 1: Merge to Main Branch ✅
+**Status:** COMPLETED
 
-```bash
-# Option A: Merge to main
-git checkout main
-git merge new-settings
-git push origin main
+Code merged to main and pushed to GitHub:
+- Commit: bffc627
+- Branch: main
+- Pushed: Successfully
 
-# Option B: Create PR and merge via GitHub
-# (Recommended for team review)
-```
+### Step 2: Vercel Auto-Deployment ⏳
+**Status:** IN PROGRESS
 
-### Step 2: Vercel Auto-Deployment
-Once merged to `main`, Vercel will automatically deploy:
-- Staff app with new API endpoints
-- UI components with heartbeat indicator
+Vercel is automatically deploying from main branch:
+- Trigger: Push to main detected
+- Apps deploying: Staff app with new API endpoints
+- Monitor at: https://vercel.com/your-team/staff-app/deployments
 
-**Monitor deployment:**
-- https://vercel.com/your-team/staff-app/deployments
+**What's being deployed:**
+- `/api/printer/heartbeat` - Receives heartbeats from printer service
+- `/api/printer/driver-status` - Checks printer online/offline status
+- `/api/printer/configure-service` - Auto-configure printer with barId
+- Updated settings page with local printer detection fix
+
+**Expected deployment time:** 2-5 minutes
 
 ### Step 3: Verify Production Endpoints
 After Vercel deployment completes:
@@ -107,17 +110,22 @@ Check metrics:
 | Task | Status | Notes |
 |------|--------|-------|
 | 7.1 Database Migration | ✅ Complete | Table deployed and verified |
-| 7.2 API Endpoints | 🟡 Ready | Code pushed, needs merge to main |
+| 7.2 API Endpoints | ✅ Complete | Merged to main, Vercel deploying |
 | 7.3 Printer Service Release | ⏳ Pending | Package and distribute |
-| 7.4 Monitor Deployment | ⏳ Pending | After Vercel deployment |
+| 7.4 Monitor Deployment | ⏳ In Progress | Waiting for Vercel deployment |
 | 7.5 Verify Success Rate | ⏳ Pending | After monitoring period |
 
 ## 🎯 Next Actions
 
-### Immediate (You)
-1. **Merge `new-settings` to `main`** to trigger Vercel deployment
-2. **Monitor Vercel deployment** until complete
-3. **Test production endpoints** to verify deployment
+### Immediate (Next 5-10 minutes)
+1. **Monitor Vercel deployment** - Check deployment logs
+2. **Wait for deployment to complete** - Usually takes 2-5 minutes
+3. **Test production endpoints** once deployment finishes
+
+### After Deployment Completes
+1. Run `node dev-tools/scripts/test-production-endpoints.js`
+2. Verify printer service can connect to production
+3. Check settings page shows printer status correctly
 
 ### Short-term (Next 24 hours)
 1. Package printer service for distribution
@@ -142,8 +150,8 @@ Check metrics:
 - [ ] Rollback plan ready
 
 ### Deployment
-- [ ] Merge to main branch
-- [ ] Vercel deployment triggered
+- [x] Merge to main branch
+- [x] Vercel deployment triggered
 - [ ] Deployment successful
 - [ ] Endpoints tested
 - [ ] UI verified
