@@ -33,14 +33,41 @@ const HEARTBEAT_RETRY_DELAY = 5000; // 5 seconds
 let heartbeatInterval = null;
 let heartbeatFailures = 0;
 
+// Load configuration from file first, then environment variables
+function loadConfig() {
+  try {
+    // Try to load from config file first
+    const configPath = path.join(__dirname, 'config.json');
+    if (fs.existsSync(configPath)) {
+      const configData = fs.readFileSync(configPath, 'utf8');
+      const config = JSON.parse(configData);
+      console.log('✅ Loaded configuration from config.json');
+      return config;
+    }
+  } catch (error) {
+    console.warn('⚠️ Could not load config.json:', error.message);
+  }
+  
+  // Fallback to environment variables
+  const config = {
+    barId: process.env.TABEZA_BAR_ID || '',
+    apiUrl: process.env.TABEZA_API_URL || 'http://localhost:3003', // ✅ FIXED: localhost first
+    driverId: generateDriverId(),
+    watchFolder: path.join(process.env.USERPROFILE || process.env.HOME, 'TabezaPrints'),
+  };
+  
+  console.log('📋 Using configuration:', {
+    hasConfigFile: fs.existsSync(path.join(__dirname, 'config.json')),
+    barId: config.barId || 'NOT_SET',
+    source: config.barId ? 'config.json' : 'environment variables'
+  });
+  
+  return config;
+}
+
 // Configuration
 // ✅ FIX #1: Changed default to localhost for local development
-let config = {
-  barId: process.env.TABEZA_BAR_ID || '',
-  apiUrl: process.env.TABEZA_API_URL || 'http://localhost:3003', // ✅ FIXED: localhost first
-  driverId: generateDriverId(),
-  watchFolder: path.join(process.env.USERPROFILE || process.env.HOME, 'TabezaPrints'),
-};
+let config = loadConfig();
 
 // Ensure watch folder exists
 if (!fs.existsSync(config.watchFolder)) {
@@ -393,15 +420,40 @@ async function sendHeartbeat(attempt = 1) {
       },
     };
     
-    // Send POST request to /api/printer/heartbeat
-    const response = await fetch(`${config.apiUrl}/api/printer/heartbeat`, {
+    // Send to production app (primary)
+    const productionUrl = config.apiUrl;
+    console.log(`💓 Sending heartbeat to production: ${productionUrl}`);
+    
+    const productionResponse = await fetch(`${productionUrl}/api/printer/heartbeat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
     
-    if (!response.ok) {
-      throw new Error(`Heartbeat failed: ${response.status}`);
+    if (!productionResponse.ok) {
+      throw new Error(`Production heartbeat failed: ${productionResponse.status}`);
+    }
+    
+    // Also send to local staff app for development (if different from production)
+    const localUrl = 'http://localhost:3003';
+    if (productionUrl !== localUrl) {
+      console.log(`💓 Also sending heartbeat to local: ${localUrl}`);
+      
+      try {
+        const localResponse = await fetch(`${localUrl}/api/printer/heartbeat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        
+        if (!localResponse.ok) {
+          console.warn(`⚠️ Local heartbeat failed: ${localResponse.status}`);
+        } else {
+          console.log(`✅ Local heartbeat sent successfully`);
+        }
+      } catch (localError) {
+        console.warn(`⚠️ Local heartbeat error: ${localError.message}`);
+      }
     }
     
     // Reset failure count on success

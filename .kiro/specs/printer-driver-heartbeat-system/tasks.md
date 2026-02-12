@@ -89,13 +89,13 @@
 
 - [x] 7.1 Deploy database migration to production
 - [x] 7.2 Deploy API endpoints to Vercel
-- [~] 7.3 Release printer service update
-- [~] 7.4 Monitor deployment and error logs
-- [~] 7.5 Verify heartbeat success rate
+- [ ] 7.3 Release printer service update
+- [ ] 7.4 Monitor deployment and error logs
+- [ ] 7.5 Verify heartbeat success rate
 
 ## 8. Post-Deployment
 
-- [~] 8.1 Send notification to venue owners about new feature
-- [~] 8.2 Set up alerts for heartbeat failures
-- [~] 8.3 Monitor database query performance
-- [~] 8.4 Collect user feedback
+- [ ] 8.1 Send notification to venue owners about new feature
+- [ ] 8.2 Set up alerts for heartbeat failures
+- [ ] 8.3 Monitor database query performance
+- [ ] 8.4 Collect user feedback
