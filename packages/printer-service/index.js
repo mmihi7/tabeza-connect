@@ -33,10 +33,26 @@ const HEARTBEAT_RETRY_DELAY = 5000; // 5 seconds
 let heartbeatInterval = null;
 let heartbeatFailures = 0;
 
-// Load configuration from file first, then environment variables
+// Load configuration - prioritize environment variables over config file
 function loadConfig() {
+  // Check environment variables first (highest priority)
+  const envBarId = process.env.TABEZA_BAR_ID;
+  const envApiUrl = process.env.TABEZA_API_URL;
+  const envVercelBypassToken = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || process.env.VERCEL_BYPASS_TOKEN;
+  
+  if (envBarId && envApiUrl) {
+    console.log('✅ Using configuration from environment variables');
+    return {
+      barId: envBarId,
+      apiUrl: envApiUrl,
+      vercelBypassToken: envVercelBypassToken || '',
+      driverId: generateDriverId(),
+      watchFolder: path.join(process.env.USERPROFILE || process.env.HOME, 'TabezaPrints'),
+    };
+  }
+  
+  // Try to load from config file as fallback
   try {
-    // Try to load from config file first
     const configPath = path.join(__dirname, 'config.json');
     if (fs.existsSync(configPath)) {
       const configData = fs.readFileSync(configPath, 'utf8');
@@ -48,21 +64,15 @@ function loadConfig() {
     console.warn('⚠️ Could not load config.json:', error.message);
   }
   
-  // Fallback to environment variables
-  const config = {
-    barId: process.env.TABEZA_BAR_ID || '',
-    apiUrl: process.env.TABEZA_API_URL || 'http://localhost:3003', // ✅ FIXED: localhost first
+  // No config found - return empty config
+  console.log('⚠️ No configuration found - service needs to be configured');
+  return {
+    barId: '',
+    apiUrl: 'http://localhost:3003',
+    vercelBypassToken: envVercelBypassToken || '',
     driverId: generateDriverId(),
     watchFolder: path.join(process.env.USERPROFILE || process.env.HOME, 'TabezaPrints'),
   };
-  
-  console.log('📋 Using configuration:', {
-    hasConfigFile: fs.existsSync(path.join(__dirname, 'config.json')),
-    barId: config.barId || 'NOT_SET',
-    source: config.barId ? 'config.json' : 'environment variables'
-  });
-  
-  return config;
 }
 
 // Configuration
@@ -245,10 +255,19 @@ function startCloudPolling() {
   
   console.log('🔄 Starting cloud polling for print jobs...');
   
+  // Build headers with Vercel bypass token if configured
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  
+  if (config.vercelBypassToken) {
+    headers['x-vercel-protection-bypass'] = config.vercelBypassToken;
+  }
+  
   // Poll every 5 seconds
   pollInterval = setInterval(async () => {
     try {
-      const response = await fetch(`${config.apiUrl}/api/printer/pending-prints?barId=${config.barId}&driverId=${config.driverId}`);
+      const response = await fetch(`${config.apiUrl}/api/printer/pending-prints?barId=${config.barId}&driverId=${config.driverId}`, { headers });
       
       if (!response.ok) {
         // Silently fail - don't spam logs
@@ -277,7 +296,7 @@ function startCloudPolling() {
             // Acknowledge receipt
             await fetch(`${config.apiUrl}/api/printer/acknowledge-print`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers,
               body: JSON.stringify({
                 printId: print.id,
                 driverId: config.driverId,
@@ -382,11 +401,18 @@ async function sendToCloud(payload) {
   
   console.log(`📤 Sending to cloud: ${url}`);
   
+  // Build headers with Vercel bypass token if configured
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  
+  if (config.vercelBypassToken) {
+    headers['x-vercel-protection-bypass'] = config.vercelBypassToken;
+  }
+  
   const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify(payload),
   });
   
@@ -420,13 +446,22 @@ async function sendHeartbeat(attempt = 1) {
       },
     };
     
+    // Build headers with Vercel bypass token if configured
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (config.vercelBypassToken) {
+      headers['x-vercel-protection-bypass'] = config.vercelBypassToken;
+    }
+    
     // Send to production app (primary)
     const productionUrl = config.apiUrl;
     console.log(`💓 Sending heartbeat to production: ${productionUrl}`);
     
     const productionResponse = await fetch(`${productionUrl}/api/printer/heartbeat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(payload),
     });
     
@@ -442,7 +477,7 @@ async function sendHeartbeat(attempt = 1) {
       try {
         const localResponse = await fetch(`${localUrl}/api/printer/heartbeat`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify(payload),
         });
         
@@ -640,18 +675,28 @@ async function start() {
     process.exit(1);
   }
   
-  // Load saved config
-  const savedConfig = loadConfig();
-  if (savedConfig) {
-    config = { ...config, ...savedConfig };
-    
-    // Reuse existing driver_id if exists
-    if (savedConfig.driverId) {
-      config.driverId = savedConfig.driverId;
+  // Load configuration (environment variables take priority)
+  config = loadConfig();
+  
+  // Try to load saved driver_id from config file if it exists
+  try {
+    const configPath = path.join(__dirname, 'config.json');
+    if (fs.existsSync(configPath)) {
+      const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      if (savedConfig.driverId) {
+        config.driverId = savedConfig.driverId;
+        console.log('✅ Reusing existing driver ID from config file');
+      }
     }
-  } else {
-    // Generate and save new driver_id if not exists
+  } catch (error) {
+    // Ignore errors - will generate new driver_id
+  }
+  
+  // Save config to persist driver_id
+  try {
     saveConfig(config);
+  } catch (error) {
+    console.warn('⚠️ Could not save config file:', error.message);
   }
   
   // Start file watcher
@@ -680,7 +725,9 @@ async function start() {
    • Port: ${PORT}
    • Driver ID: ${config.driverId.substring(0, 30)}...
    • Bar ID: ${config.barId || '⚠️  NOT CONFIGURED'}
+   • API URL: ${config.apiUrl}
    • Watch Folder: ${config.watchFolder}
+   • Config Source: ${process.env.TABEZA_BAR_ID ? 'Environment Variables' : 'Config File'}
 
 ${config.barId ? `
 ✅ Configuration Complete!
@@ -700,7 +747,7 @@ Your printer service is monitoring for print jobs.
 
 🔗 Quick Links:
    • Service Status: http://localhost:${PORT}/api/status
-   • Tabeza Settings: http://localhost:3003/settings
+   • Tabeza Settings: ${config.apiUrl}/settings
 
 💡 IMPORTANT: Keep this window open - service must run continuously!
    Closing this window will stop the printer service.
@@ -710,12 +757,10 @@ Your printer service is monitoring for print jobs.
 To connect this service to your Tabeza account:
 
 📋 Easy Setup (Recommended):
-   1. Keep this window open (service is running)
-   2. Open Tabeza Settings in your browser
-   3. Go to: https://staff.tabeza.co.ke/settings
-   4. Navigate to "Venue Configuration" tab
-   5. Click "Auto-Configure Printer Service" button
-   6. Done! ✅
+   1. Close this window
+   2. Double-click: START-PRINTER-WITH-BARID.bat
+   3. Enter your Bar ID when prompted
+   4. Done! ✅
 
    OR use the web configuration page:
    1. Go to: http://localhost:${PORT}/configure.html
@@ -724,7 +769,7 @@ To connect this service to your Tabeza account:
 
 🔗 Quick Links:
    • Configuration Page: http://localhost:${PORT}/configure.html
-   • Tabeza Settings: https://staff.tabeza.co.ke/settings
+   • Tabeza Settings: ${config.apiUrl}/settings
    • Service Status: http://localhost:${PORT}/api/status
 
 💡 IMPORTANT: Keep this window open - service must run continuously!
