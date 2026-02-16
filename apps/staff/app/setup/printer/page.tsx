@@ -72,7 +72,7 @@ export default function PrinterSetupPage() {
                   className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm mt-1 hover:underline"
                 >
                   <Download size={16} />
-                  <span>tabeza-printer-service.exe</span>
+                  <span>TabezaConnect-Setup-v1.0.0.zip</span>
                 </a>
               </div>
             </div>

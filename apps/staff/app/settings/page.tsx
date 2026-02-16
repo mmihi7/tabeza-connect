@@ -166,11 +166,6 @@ export default function SettingsPage() {
     checkPrinterServiceStatus();
   }, []);
 
-  // Debug: Log activeTab changes
-  useEffect(() => {
-    console.log('Active tab changed to:', activeTab);
-  }, [activeTab]);
-
   // Force venue mode onboarding for venues that haven't completed onboarding
   useEffect(() => {
     if (!loading && !onboardingCompleted) {
@@ -1639,18 +1634,6 @@ export default function SettingsPage() {
 
         {/* Settings Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {/* Debug Info - Remove after fixing */}
-          {!isNewUser && (
-            <div className="col-span-full bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
-              <p className="text-sm text-yellow-800">
-                <strong>Debug:</strong> Active Tab = "{activeTab}" | isNewUser = {isNewUser.toString()}
-              </p>
-              <p className="text-xs text-yellow-700 mt-1">
-                M-Pesa State: enabled={mpesaSettings.mpesa_enabled.toString()}, env={mpesaSettings.mpesa_environment}, setup={mpesaSettings.mpesa_setup_completed.toString()}
-              </p>
-            </div>
-          )}
-
           {/* General Tab Content */}
           {(isNewUser || activeTab === 'general') && (
             <>
@@ -1933,52 +1916,7 @@ export default function SettingsPage() {
                     />
                     
                     {/* Configuration Instructions - Show different content based on status */}
-                    {printerServiceStatus === 'offline' ? (
-                      <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 mt-4">
-                        <div className="flex items-start gap-3">
-                          <AlertTriangle size={20} className="text-amber-600 mt-0.5 flex-shrink-0" />
-                          <div className="flex-1">
-                            <h4 className="text-sm font-semibold text-amber-900 mb-2">
-                              Printer Service Not Running
-                            </h4>
-                            <p className="text-xs text-amber-800 mb-3">
-                              The Tabeza Printer Service needs to be <strong>running</strong> on this computer. 
-                              Installing it is not enough - you must start it.
-                            </p>
-                            
-                            <div className="bg-white rounded-lg p-3 mb-3 border border-amber-200">
-                              <p className="text-xs font-semibold text-gray-800 mb-2">📋 How to Start the Service:</p>
-                              <ol className="text-xs text-gray-700 space-y-1.5 ml-4 list-decimal">
-                                <li>Open your <strong>Downloads</strong> folder</li>
-                                <li>Find <code className="bg-gray-100 px-1 rounded">tabeza-printer-service.exe</code></li>
-                                <li>Double-click it to run</li>
-                                <li>A terminal window will open - <strong>keep it open!</strong></li>
-                                <li>You should see "✅ Tabeza Printer Service - Running"</li>
-                                <li>Come back here and click "Auto-Configure" below</li>
-                              </ol>
-                            </div>
-
-                            <div className="flex gap-2">
-                              <a
-                                href="https://github.com/billoapp/TabezaConnect/releases/latest/download/TabezaConnect-Setup-v1.0.0.zip"
-                                download
-                                className="flex-1 px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-xs font-medium text-center flex items-center justify-center gap-2"
-                              >
-                                <Download size={14} />
-                                Download Service (if not installed)
-                              </a>
-                              <button
-                                onClick={checkPrinterServiceStatus}
-                                className="px-3 py-2 bg-white border border-amber-300 text-amber-800 rounded-lg hover:bg-amber-50 transition text-xs font-medium flex items-center gap-2"
-                              >
-                                <RefreshCw size={14} />
-                                Check Again
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ) : printerServiceStatus === 'online' ? (
+                    {printerServiceStatus === 'online' ? (
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
                         <div className="flex items-start gap-2 mb-3">
                           <CheckCircle size={16} className="text-blue-600 mt-0.5" />
@@ -2073,10 +2011,6 @@ export default function SettingsPage() {
           {/* Payments Tab Content */}
           {!isNewUser && activeTab === 'payments' && (
             <>
-              {/* Debug indicator */}
-              <div className="col-span-full bg-purple-50 border border-purple-200 rounded-lg p-2 mb-4">
-                <p className="text-xs text-purple-800">DEBUG: Payments tab is rendering</p>
-              </div>
 
               {/* Payment Settings Section */}
               <div className="bg-white rounded-xl shadow-sm p-4">
@@ -2532,10 +2466,6 @@ export default function SettingsPage() {
           {/* Notifications Tab Content */}
           {!isNewUser && activeTab === 'notifications' && (
             <>
-              {/* Debug indicator */}
-              <div className="col-span-full bg-blue-50 border border-blue-200 rounded-lg p-2 mb-4">
-                <p className="text-xs text-blue-800">DEBUG: Notifications tab is rendering</p>
-              </div>
 
               {/* Notifications Section */}
               <div className="bg-white rounded-xl shadow-sm p-4">
@@ -2772,10 +2702,6 @@ export default function SettingsPage() {
           {/* Operations Tab Content */}
           {!isNewUser && activeTab === 'operations' && (
             <>
-              {/* Debug indicator */}
-              <div className="col-span-full bg-green-50 border border-green-200 rounded-lg p-2 mb-4">
-                <p className="text-xs text-green-800">DEBUG: Operations tab is rendering</p>
-              </div>
 
               {/* Venue Mode Configuration Section */}
               <div className="bg-white rounded-xl shadow-sm p-4">
