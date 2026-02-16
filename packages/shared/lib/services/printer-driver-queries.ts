@@ -15,7 +15,10 @@ import { createClient } from '@supabase/supabase-js';
 // Constants
 // ============================================================================
 
-const ACTIVE_THRESHOLD_MINUTES = 5;
+// No active threshold - if a driver record exists, consider it active
+// The stale driver cleanup job (runs daily) will remove truly dead drivers
+// This prevents false "disconnected" alerts from temporary network issues
+const ACTIVE_THRESHOLD_MINUTES = null; // Disabled - always show as active if record exists
 
 // ============================================================================
 // Types
@@ -44,7 +47,9 @@ export interface DriverQueryResult {
 // ============================================================================
 
 /**
- * Get active drivers for a bar (heartbeat within last 5 minutes)
+ * Get active drivers for a bar
+ * Returns all drivers with records - if a record exists, the driver is considered active
+ * Stale drivers are cleaned up by the daily cleanup job
  * 
  * @param barId - The bar ID to query drivers for
  * @returns Promise with active drivers data or error
@@ -55,15 +60,12 @@ export async function getActiveDrivers(barId: string): Promise<DriverQueryResult
     process.env.SUPABASE_SECRET_KEY!
   );
   
-  const thresholdTime = new Date(
-    Date.now() - ACTIVE_THRESHOLD_MINUTES * 60 * 1000
-  ).toISOString();
-  
+  // No time filtering - if a driver record exists, it's considered active
+  // The stale driver cleanup job will remove truly dead drivers
   const { data, error } = await supabase
     .from('printer_drivers')
     .select('*')
     .eq('bar_id', barId)
-    .gte('last_heartbeat', thresholdTime)
     .order('last_heartbeat', { ascending: false });
   
   return { data, error };
@@ -92,17 +94,16 @@ export async function getAllDrivers(barId: string): Promise<DriverQueryResult> {
 }
 
 /**
- * Check if a driver is currently active based on last heartbeat
+ * Check if a driver is currently active
+ * Always returns true if called - if a driver record exists, it's active
  * 
- * @param lastHeartbeat - ISO timestamp of last heartbeat
- * @returns true if driver is active (heartbeat within threshold)
+ * @param lastHeartbeat - ISO timestamp of last heartbeat (unused, kept for API compatibility)
+ * @returns true (always - driver record existence means it's active)
  */
 export function isDriverActive(lastHeartbeat: string): boolean {
-  const heartbeatTime = new Date(lastHeartbeat).getTime();
-  const now = Date.now();
-  const diffMinutes = (now - heartbeatTime) / (60 * 1000);
-  
-  return diffMinutes <= ACTIVE_THRESHOLD_MINUTES;
+  // If a driver record exists, consider it active
+  // Stale drivers are cleaned up by the daily cleanup job
+  return true;
 }
 
 /**
