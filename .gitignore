@@ -51,7 +51,6 @@ next-env.d.ts
 Thumbs.db
 
 # Development Tools (keep structure but ignore content)
-
 dev-tools/tests/*
 !dev-tools/tests/.gitkeep
 dev-tools/docs/*
@@ -66,3 +65,54 @@ dev-tools/config/*
 # Additional development directories to ignore
 supabase/
 scripts/
+
+# Development markdown files (keep in local only)
+*-COMPLETE.md
+*-SUCCESS.md
+*-FIXED.md
+*-FIX.md
+*-SUMMARY.md
+*-STATUS.md
+*-IMPLEMENTATION*.md
+*-GUIDE.md
+*-CHECKLIST.md
+*-INSTRUCTIONS.md
+*-DIAGNOSIS.md
+*-TROUBLESHOOTING.md
+*-ISSUE.md
+*-SOLUTION.md
+*-READY.md
+*-NOW.md
+*-PLAN.md
+*-REPORT.md
+APPLY-*.md
+DO-THIS-*.md
+RUN-*.md
+TEST-*.md
+SETUP-*.md
+FIX-*.md
+QUICK-*.md
+URGENT-*.md
+CURRENT-*.md
+TASK-*.md
+CAPTAINS-*.md
+CAPTAIN'S*.txt
+
+# Development batch files
+*.bat
+!BUILD-TABEZACONNECT.bat
+
+# Test files in root
+test-*.js
+check-*.js
+cleanup-*.js
+identify-*.ps1
+check-*.ps1
+
+# Temporary markdown files
+SESSION-*.md
+MERGE-*.md
+NEXT-STEPS-*.md
+WHERE-*.md
+HOW-*.md
+WHAT-*.md
