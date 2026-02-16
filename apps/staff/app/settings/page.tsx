@@ -1960,7 +1960,7 @@ export default function SettingsPage() {
 
                             <div className="flex gap-2">
                               <a
-                                href="https://github.com/billoapp/tabeza-printer-service/releases/latest/download/tabeza-printer-service.exe"
+                                href="https://github.com/billoapp/TabezaConnect/releases/latest/download/TabezaConnect-Setup-v1.0.0.zip"
                                 download
                                 className="flex-1 px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-xs font-medium text-center flex items-center justify-center gap-2"
                               >

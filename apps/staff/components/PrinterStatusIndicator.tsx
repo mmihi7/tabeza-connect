@@ -295,7 +295,7 @@ export default function PrinterStatusIndicator({
             {(status.status === 'not_configured' || status.status === 'offline') && (
               <div className="mt-3">
                 <a
-                  href="https://github.com/billoapp/tabeza-printer-service/releases/latest/download/tabeza-printer-service.exe"
+                  href="https://github.com/billoapp/TabezaConnect/releases/latest/download/TabezaConnect-Setup-v1.0.0.zip"
                   download
                   className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-lg hover:bg-opacity-90 transition text-sm font-medium"
                 >

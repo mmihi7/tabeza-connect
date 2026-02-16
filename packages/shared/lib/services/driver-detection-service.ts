@@ -113,16 +113,17 @@ export function generateInstallationGuidance(platform: Platform): InstallationGu
     throw new UnsupportedPlatformError(platform);
   }
   
-  const baseUrl = 'https://github.com/billoapp/tabeza-printer-service/releases/latest/download';
+  const baseUrl = 'https://github.com/billoapp/TabezaConnect/releases/latest/download';
   
   switch (platform.os) {
     case 'windows':
       return {
-        downloadUrl: `${baseUrl}/tabeza-printer-service.exe`,
+        downloadUrl: `${baseUrl}/TabezaConnect-Setup-v1.0.0.zip`,
         instructions: [
-          'Download the Tabeza Printer Service executable',
-          'Right-click tabeza-printer-service.exe and select "Run as administrator"',
-          'Enter your Bar ID when prompted',
+          'Download TabezaConnect-Setup-v1.0.0.zip',
+          'Extract the ZIP file to a temporary location',
+          'Right-click install.bat and select "Run as administrator"',
+          'Follow the installation wizard',
           'Service will start automatically on port 8765',
           'Verify service is running: http://localhost:8765/api/status',
         ],
