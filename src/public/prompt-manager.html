@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Receipt Parser Prompt Manager</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      margin-bottom: 20px;
+    }
+
+    .header h1 {
+      color: #1a202c;
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      color: #718096;
+      font-size: 16px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 1024px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      padding: 30px;
+    }
+
+    .card h2 {
+      color: #1a202c;
+      font-size: 24px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card h3 {
+      color: #2d3748;
+      font-size: 18px;
+      margin-bottom: 15px;
+    }
+
+    textarea {
+      width: 100%;
+      padding: 15px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      resize: vertical;
+      transition: border-color 0.2s;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .prompt-textarea {
+      min-height: 400px;
+    }
+
+    .receipt-textarea {
+      min-height: 300px;
+    }
+
+    button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #5568d3;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+      background: #48bb78;
+      color: white;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: #38a169;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(72, 187, 120, 0.4);
+    }
+
+    .btn-reset {
+      background: #f56565;
+      color: white;
+      padding: 8px 16px;
+      font-size: 14px;
+    }
+
+    .btn-reset:hover:not(:disabled) {
+      background: #e53e3e;
+    }
+
+    .settings-group {
+      margin-bottom: 20px;
+    }
+
+    .settings-group label {
+      display: block;
+      color: #4a5568;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .settings-group input[type="range"] {
+      width: 100%;
+      margin-bottom: 5px;
+    }
+
+    .settings-group input[type="number"] {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    .settings-group input[type="number"]:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .value-display {
+      color: #667eea;
+      font-weight: 600;
+    }
+
+    .hint {
+      color: #a0aec0;
+      font-size: 12px;
+      margin-top: 5px;
+    }
+
+    .result-box {
+      margin-top: 20px;
+      padding: 20px;
+      border-radius: 8px;
+      border: 2px solid #e2e8f0;
+    }
+
+    .result-success {
+      background: #f0fff4;
+      border-color: #48bb78;
+    }
+
+    .result-error {
+      background: #fff5f5;
+      border-color: #f56565;
+    }
+
+    .result-header {
+      font-weight: 600;
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+
+    .result-success .result-header {
+      color: #22543d;
+    }
+
+    .result-error .result-header {
+      color: #742a2a;
+    }
+
+    .result-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .result-meta-item {
+      font-size: 14px;
+    }
+
+    .result-meta-label {
+      color: #718096;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .result-meta-value {
+      color: #1a202c;
+      font-weight: 600;
+      font-size: 16px;
+    }
+
+    .items-list {
+      margin-top: 15px;
+    }
+
+    .item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: #f7fafc;
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+
+    .item-name {
+      color: #2d3748;
+      font-size: 14px;
+    }
+
+    .item-price {
+      color: #1a202c;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .no-items {
+      color: #a0aec0;
+      font-style: italic;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .error-message {
+      color: #742a2a;
+      background: #fed7d7;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-size: 14px;
+    }
+
+    .tips-box {
+      background: #ebf8ff;
+      border: 2px solid #90cdf4;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+
+    .tips-box h3 {
+      color: #2c5282;
+      margin-bottom: 15px;
+    }
+
+    .tips-box ul {
+      list-style: none;
+      color: #2c5282;
+    }
+
+    .tips-box li {
+      padding: 8px 0;
+      padding-left: 20px;
+      position: relative;
+    }
+
+    .tips-box li:before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      font-weight: bold;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .button-group button {
+      flex: 1;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-saved {
+      background: #c6f6d5;
+      color: #22543d;
+    }
+
+    .status-unsaved {
+      background: #fed7d7;
+      color: #742a2a;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>🤖 Receipt Parser Prompt Manager</h1>
+      <p>Configure DeepSeek AI prompts for receipt parsing • System-wide configuration</p>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="grid">
+      <!-- Left Column: Configuration -->
+      <div>
+        <div class="card">
+          <h2>
+            System Prompt
+            <button class="btn-reset" onclick="resetToDefault()">Reset to Default</button>
+          </h2>
+          <textarea 
+            id="systemPrompt" 
+            class="prompt-textarea"
+            placeholder="Enter system prompt for DeepSeek AI..."
+          ></textarea>
+          <p class="hint">This prompt instructs the AI how to parse receipts. Be specific about the format you expect.</p>
+        </div>
+
+        <div class="card" style="margin-top: 20px;">
+          <h2>Advanced Settings</h2>
+          
+          <div class="settings-group">
+            <label>
+              Temperature: <span class="value-display" id="tempValue">0.1</span>
+            </label>
+            <input 
+              type="range" 
+              id="temperature" 
+              min="0" 
+              max="1" 
+              step="0.1" 
+              value="0.1"
+              oninput="updateTempValue(this.value)"
+            >
+            <p class="hint">Lower = more consistent, Higher = more creative</p>
+          </div>
+
+          <div class="settings-group">
+            <label>Max Tokens</label>
+            <input 
+              type="number" 
+              id="maxTokens" 
+              min="500" 
+              max="4000" 
+              step="100" 
+              value="2000"
+            >
+            <p class="hint">Maximum response length (higher = more cost)</p>
+          </div>
+
+          <button class="btn-primary" style="width: 100%; margin-top: 20px;" onclick="saveConfig()">
+            💾 Save Configuration
+          </button>
+        </div>
+      </div>
+
+      <!-- Right Column: Testing -->
+      <div>
+        <div class="card">
+          <h2>Test with Sample Receipt</h2>
+          <textarea 
+            id="sampleReceipt" 
+            class="receipt-textarea"
+            placeholder="Paste a sample receipt here to test parsing..."
+          ></textarea>
+          <button class="btn-secondary" style="width: 100%; margin-top: 15px;" onclick="testPrompt()">
+            🧪 Test Prompt
+          </button>
+
+          <div id="testResult"></div>
+        </div>
+
+        <div class="tips-box">
+          <h3>💡 Tips for Better Prompts</h3>
+          <ul>
+            <li>Be specific about the receipt format you expect</li>
+            <li>Include examples of the exact JSON structure</li>
+            <li>Mention how to handle edge cases (missing data, etc.)</li>
+            <li>Test with real receipts from your POS system</li>
+            <li>Lower temperature (0.1-0.3) for consistent parsing</li>
+            <li>For Notepad prints, specify the spacing pattern</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const DEFAULT_PROMPT = `You are a receipt parser. Extract structured data from receipts and return valid JSON.
+
+Extract:
+- items: Array of {name: string, price: number}
+- total: number (total amount)
+- receiptNumber: string (if present)
+
+Rules:
+- Return ONLY valid JSON
+- Use exact field names
+- Convert all prices to numbers
+- Handle missing data gracefully
+- Ignore non-item lines (headers, footers, etc.)
+- For items, extract the TOTAL price for that line (qty × unit price)
+
+Example output:
+{
+  "items": [
+    {"name": "2x Tusker Lager 500ml", "price": 500.00},
+    {"name": "1x Nyama Choma", "price": 800.00}
+  ],
+  "total": 1300.00,
+  "receiptNumber": "RCP-123456"
+}`;
+
+    // Load config on page load
+    window.addEventListener('DOMContentLoaded', loadConfig);
+
+    function updateTempValue(value) {
+      document.getElementById('tempValue').textContent = value;
+    }
+
+    function loadConfig() {
+      const saved = localStorage.getItem('receiptParserConfig');
+      if (saved) {
+        const config = JSON.parse(saved);
+        document.getElementById('systemPrompt').value = config.systemPrompt || DEFAULT_PROMPT;
+        document.getElementById('temperature').value = config.temperature || 0.1;
+        document.getElementById('maxTokens').value = config.maxTokens || 2000;
+        updateTempValue(config.temperature || 0.1);
+      } else {
+        document.getElementById('systemPrompt').value = DEFAULT_PROMPT;
+      }
+    }
+
+    function saveConfig() {
+      const config = {
+        systemPrompt: document.getElementById('systemPrompt').value,
+        temperature: parseFloat(document.getElementById('temperature').value),
+        maxTokens: parseInt(document.getElementById('maxTokens').value),
+      };
+
+      localStorage.setItem('receiptParserConfig', JSON.stringify(config));
+      
+      // Also save to file for the actual parser to use
+      saveToFile(config);
+      
+      alert('✅ Configuration saved successfully!\n\nThe prompt has been saved to:\npackages/printer-service/prompt-config.json');
+    }
+
+    function saveToFile(config) {
+      // Create a downloadable file
+      const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'prompt-config.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function resetToDefault() {
+      if (confirm('Reset to default prompt? This will discard your changes.')) {
+        document.getElementById('systemPrompt').value = DEFAULT_PROMPT;
+        document.getElementById('temperature').value = 0.1;
+        document.getElementById('maxTokens').value = 2000;
+        updateTempValue(0.1);
+      }
+    }
+
+    async function testPrompt() {
+      const receiptText = document.getElementById('sampleReceipt').value.trim();
+      if (!receiptText) {
+        alert('Please enter a sample receipt to test');
+        return;
+      }
+
+      const config = {
+        systemPrompt: document.getElementById('systemPrompt').value,
+        temperature: parseFloat(document.getElementById('temperature').value),
+        maxTokens: parseInt(document.getElementById('maxTokens').value),
+      };
+
+      const resultDiv = document.getElementById('testResult');
+      resultDiv.innerHTML = '<p style="text-align: center; padding: 20px; color: #718096;">Testing...</p>';
+
+      try {
+        const startTime = Date.now();
+        
+        // Call the test API
+        const response = await fetch('http://localhost:3003/api/test-receipt-parser', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            receiptText,
+            config,
+          }),
+        });
+
+        const parseTime = Date.now() - startTime;
+
+        if (!response.ok) {
+          const error = await response.json();
+          showError(error.error || 'Test failed', parseTime);
+          return;
+        }
+
+        const result = await response.json();
+        showSuccess(result, parseTime);
+      } catch (error) {
+        showError(error.message || 'Test failed');
+      }
+    }
+
+    function showSuccess(result, parseTime) {
+      const html = `
+        <div class="result-box result-success">
+          <div class="result-header">✅ Test Results</div>
+          
+          <div class="result-meta">
+            <div class="result-meta-item">
+              <span class="result-meta-label">Parse Time</span>
+              <span class="result-meta-value">${parseTime}ms</span>
+            </div>
+            ${result.tokensUsed ? `
+              <div class="result-meta-item">
+                <span class="result-meta-label">Tokens Used</span>
+                <span class="result-meta-value">${result.tokensUsed}</span>
+              </div>
+            ` : ''}
+            <div class="result-meta-item">
+              <span class="result-meta-label">Total Amount</span>
+              <span class="result-meta-value">KES ${result.total.toFixed(2)}</span>
+            </div>
+            ${result.receiptNumber ? `
+              <div class="result-meta-item">
+                <span class="result-meta-label">Receipt #</span>
+                <span class="result-meta-value">${result.receiptNumber}</span>
+              </div>
+            ` : ''}
+          </div>
+
+          <h3>Items Extracted (${result.items.length})</h3>
+          <div class="items-list">
+            ${result.items.length === 0 ? 
+              '<div class="no-items">No items extracted</div>' :
+              result.items.map(item => `
+                <div class="item">
+                  <span class="item-name">${item.name}</span>
+                  <span class="item-price">KES ${item.price.toFixed(2)}</span>
+                </div>
+              `).join('')
+            }
+          </div>
+        </div>
+      `;
+      document.getElementById('testResult').innerHTML = html;
+    }
+
+    function showError(errorMessage, parseTime) {
+      const html = `
+        <div class="result-box result-error">
+          <div class="result-header">❌ Test Failed</div>
+          ${parseTime ? `
+            <div class="result-meta">
+              <div class="result-meta-item">
+                <span class="result-meta-label">Parse Time</span>
+                <span class="result-meta-value">${parseTime}ms</span>
+              </div>
+            </div>
+          ` : ''}
+          <div class="error-message">
+            <strong>Error:</strong> ${errorMessage}
+          </div>
+        </div>
+      `;
+      document.getElementById('testResult').innerHTML = html;
+    }
+  </script>
+</body>
+</html>

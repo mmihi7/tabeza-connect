@@ -1,0 +1,33 @@
+{
+  "name": "tabeza-connect",
+  "version": "1.0.0",
+  "description": "Tabeza Connect - Windows installer for POS integration",
+  "scripts": {
+    "download:nodejs": "node src/installer/download-nodejs.js",
+    "build:installer": "node src/installer/build-installer.js",
+    "build": "npm run download:nodejs && npm run build:installer",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "devDependencies": {
+    "adm-zip": "^0.5.10"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/billoapp/TabezaConnect.git"
+  },
+  "keywords": [
+    "tabeza",
+    "connect",
+    "printer",
+    "pos",
+    "receipt",
+    "windows",
+    "installer"
+  ],
+  "author": "Tabeza",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/billoapp/TabezaConnect/issues"
+  },
+  "homepage": "https://github.com/billoapp/TabezaConnect#readme"
+}

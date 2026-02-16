@@ -1,0 +1,90 @@
+{
+  "name": "@tabeza/connect",
+  "version": "1.0.0",
+  "description": "Tabeza Connect - Bridges your POS system with Tabeza cloud for digital receipts",
+  "main": "index.js",
+  "bin": {
+    "tabeza-connect": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "start:electron": "electron electron-main.js",
+    "install-service": "node install-service.js",
+    "uninstall-service": "node uninstall-service.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "create-package": "node create-package.js",
+    "build-exe": "pkg . --targets node18-win-x64 --output dist/tabeza-printer-service.exe",
+    "build-installer": "node build-installer.js",
+    "build:electron": "electron-builder",
+    "build:all": "npm run build:electron",
+    "build:installer:new": "node installer/build-installer.js",
+    "download:nodejs": "node installer/download-nodejs.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "chokidar": "^3.5.3",
+    "node-windows": "^1.0.0-beta.8",
+    "electron": "^28.0.0"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1",
+    "jest": "^29.7.0",
+    "fast-check": "^3.15.0",
+    "electron-builder": "^24.9.1"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/__tests__/**/*.test.js"
+    ],
+    "collectCoverageFrom": [
+      "index.js"
+    ]
+  },
+  "pkg": {
+    "assets": [
+      "node_modules/**/*"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "dist"
+  },
+  "build": {
+    "appId": "com.tabeza.connect",
+    "productName": "Tabeza Connect",
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico"
+    },
+    "files": [
+      "**/*",
+      "!**/*.md",
+      "!__tests__",
+      "!test-receipts",
+      "!received-prints"
+    ]
+  },
+  "keywords": [
+    "tabeza",
+    "connect",
+    "printer",
+    "pos",
+    "receipt",
+    "bridge"
+  ],
+  "author": "Tabeza",
+  "license": "MIT"
+}

@@ -1,0 +1,83 @@
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+*.zip
+*.exe
+
+# Installer artifacts
+src/installer/nodejs-bundle/
+
+# Environment files
+.env
+.env.local
+config.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# Development and testing scripts (keep in local only)
+**/BUILD-*.bat
+**/TEST-*.bat
+**/CHECK-*.bat
+**/FIX-*.bat
+**/DIAGNOSE-*.bat
+**/VERIFY-*.bat
+**/REBUILD-*.bat
+**/REGISTER-*.bat
+**/ENABLE-*.bat
+**/COPY-*.bat
+**/ADD-*.bat
+**/*-NOW.bat
+**/*-EASY.bat
+
+# Development markdown files (keep in local only)
+**/*-SOLUTION.md
+**/*-SOLUTION.txt
+**/*-GUIDE.md
+**/*-ISSUE*.md
+**/*-FIXED.md
+**/*-COMPLETE.md
+**/*-SUCCESS.md
+**/*-DIAGNOSIS.md
+**/*-TROUBLESHOOTING.md
+**/*-REPORT.md
+**/*-READY.md
+**/*-CHECKLIST.md
+**/*-SUMMARY.md
+**/*-SUMMARY.txt
+**/*-FIX.txt
+**/*-VERIFICATION.md
+QUICK-*.md
+QUICK-*.txt
+
+# Test and sandbox files
+*.wsb
+test-*.js
+run-with-error.js
+
+# Plan and Fix directories (development only)
+Plan/
+Fix/
+
+# Duplicate license files (keep only LICENSE)
+LICENSE.txt

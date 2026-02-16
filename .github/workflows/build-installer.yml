@@ -1,0 +1,39 @@
+name: Build Installer
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+    
+    - name: Install dependencies
+      run: |
+        npm install
+        cd src/service
+        npm install
+    
+    - name: Download Node.js runtime
+      run: npm run download:nodejs
+    
+    - name: Build installer
+      run: npm run build:installer
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: tabeza-connect-installer
+        path: dist/*.zip
+        retention-days: 30
