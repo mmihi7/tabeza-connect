@@ -32,7 +32,7 @@ import {
   Settings as SettingsIcon
 } from 'lucide-react';
 import PrinterDriversList from '@/components/printer/PrinterDriversList';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/lib/useAuth';
 
 interface ServiceStatus {
   status: 'running' | 'stopped' | 'unknown';
