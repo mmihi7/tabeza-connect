@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase-server';
+import { createClient } from '@supabase/supabase-js';
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) {
+  throw new Error('Missing Supabase environment variables');
+}
 
 /**
  * GET /api/settings/receipt-parser
@@ -7,7 +14,7 @@ import { createClient } from '@/lib/supabase-server';
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY);
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -66,7 +73,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY);
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
