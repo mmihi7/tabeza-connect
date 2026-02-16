@@ -17,3 +17,5 @@ export type { DeliveryResult, DeliveryConfirmationModalProps } from './DeliveryC
 
 export { VirtualPrinterIntegration } from './VirtualPrinterIntegration';
 export type { VirtualPrinterIntegrationProps } from './VirtualPrinterIntegration';
+
+export { default as PrinterDriversList } from './PrinterDriversList';

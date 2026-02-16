@@ -18,7 +18,9 @@
     "build-exe": "pkg . --targets node18-win-x64 --output dist/tabeza-printer-service.exe",
     "build-installer": "node build-installer.js",
     "build:electron": "electron-builder",
-    "build:all": "npm run build:electron"
+    "build:all": "npm run build:electron",
+    "build:installer:new": "node installer/build-installer.js",
+    "download:nodejs": "node installer/download-nodejs.js"
   },
   "dependencies": {
     "express": "^4.18.2",

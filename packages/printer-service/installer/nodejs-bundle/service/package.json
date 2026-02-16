@@ -1,0 +1,13 @@
+{
+  "name": "@tabeza/connect",
+  "version": "1.0.0",
+  "description": "Tabeza Connect - Bridges your POS system with Tabeza cloud for digital receipts",
+  "main": "index.js",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "chokidar": "^3.5.3",
+    "node-windows": "^1.0.0-beta.8",
+    "electron": "^28.0.0"
+  }
+}

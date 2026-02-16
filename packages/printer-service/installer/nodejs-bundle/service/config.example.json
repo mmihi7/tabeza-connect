@@ -1,0 +1,6 @@
+{
+  "barId": "YOUR_BAR_ID_HERE",
+  "apiUrl": "https://tabz-kikao.vercel.app",
+  "driverId": "driver-GENERATED-AUTOMATICALLY",
+  "watchFolder": "C:\\Users\\YourUsername\\TabezaPrints"
+}

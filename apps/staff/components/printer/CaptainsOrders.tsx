@@ -305,14 +305,11 @@ export default function CaptainsOrders({ barId }: CaptainsOrdersProps) {
                   Total: KES {selectedOrder.parsed_data.total.toFixed(2)}
                 </div>
                 
-                {/* Display extracted items */}
+                {/* Display extracted items with prices */}
                 <div className="text-sm space-y-2">
                   <div className="font-medium text-gray-700 mb-2">Order Items:</div>
                   {(() => {
-                    // Extract items using the same logic as the card display
-                    let itemsList: string[] = [];
-                    
-                    // First, try to use parsed items if they exist and are valid
+                    // Extract items with prices from parsed data
                     if (selectedOrder.parsed_data?.items && Array.isArray(selectedOrder.parsed_data.items)) {
                       const validItems = selectedOrder.parsed_data.items.filter(item => 
                         item.name && 
@@ -323,19 +320,40 @@ export default function CaptainsOrders({ barId }: CaptainsOrdersProps) {
                       );
                       
                       if (validItems.length > 0) {
-                        itemsList = validItems.map(item => {
-                          if (item.name.match(/^\d+x?\s/)) {
-                            return item.name;
-                          }
-                          return `1x ${item.name}`;
+                        return validItems.map((item, i) => {
+                          // Extract quantity from name if present
+                          const qtyMatch = item.name.match(/^(\d+)x?\s+(.+)$/);
+                          const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
+                          const itemName = qtyMatch ? qtyMatch[2] : item.name;
+                          const price = item.price || 0;
+                          const totalPrice = qty * price;
+                          
+                          return (
+                            <div key={i} className="flex justify-between items-center py-2 border-b border-gray-200 last:border-0">
+                              <div className="flex-1">
+                                <span className="text-gray-700">• {qty}x {itemName}</span>
+                              </div>
+                              <div className="text-right ml-4">
+                                <div className="text-gray-900 font-medium">
+                                  KES {totalPrice.toFixed(2)}
+                                </div>
+                                {qty > 1 && (
+                                  <div className="text-xs text-gray-500">
+                                    @ {price.toFixed(2)} each
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
                         });
                       }
                     }
                     
-                    // If no valid parsed items, try extracting from rawText
-                    if (itemsList.length === 0 && selectedOrder.parsed_data?.rawText) {
+                    // Fallback: try extracting from rawText
+                    if (selectedOrder.parsed_data?.rawText) {
                       const lines = selectedOrder.parsed_data.rawText.split('\n');
                       let inItemsSection = false;
+                      const items: Array<{ qty: number; name: string; price: number }> = [];
                       
                       for (const line of lines) {
                         const trimmed = line.trim();
@@ -345,33 +363,50 @@ export default function CaptainsOrders({ barId }: CaptainsOrdersProps) {
                           continue;
                         }
                         
-                        if (inItemsSection && (trimmed.startsWith('---') || trimmed.includes('Special Instructions'))) {
+                        if (inItemsSection && (trimmed.startsWith('---') || trimmed.includes('Special Instructions') || trimmed.includes('Subtotal'))) {
                           break;
                         }
                         
                         if (inItemsSection && trimmed.length > 0 && !trimmed.startsWith('-')) {
-                          const match = trimmed.match(/^(\d+)\s+(.+)$/);
+                          // Try to parse: "2    Tusker Lager 500ml    500.00"
+                          const match = trimmed.match(/^(\d+)\s+(.+?)\s+(\d+\.?\d*)$/);
                           if (match) {
-                            itemsList.push(`${match[1]}x ${match[2]}`);
+                            items.push({
+                              qty: parseInt(match[1]),
+                              name: match[2].trim(),
+                              price: parseFloat(match[3])
+                            });
                           }
                         }
                       }
+                      
+                      if (items.length > 0) {
+                        return items.map((item, i) => (
+                          <div key={i} className="flex justify-between items-center py-2 border-b border-gray-200 last:border-0">
+                            <div className="flex-1">
+                              <span className="text-gray-700">• {item.qty}x {item.name}</span>
+                            </div>
+                            <div className="text-right ml-4">
+                              <div className="text-gray-900 font-medium">
+                                KES {item.price.toFixed(2)}
+                              </div>
+                              {item.qty > 1 && (
+                                <div className="text-xs text-gray-500">
+                                  @ {(item.price / item.qty).toFixed(2)} each
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ));
+                      }
                     }
                     
-                    // Display items
-                    if (itemsList.length > 0) {
-                      return itemsList.map((item, i) => (
-                        <div key={i} className="text-gray-700 py-1 border-b border-gray-200 last:border-0">
-                          • {item}
-                        </div>
-                      ));
-                    } else {
-                      return (
-                        <div className="text-gray-500 italic">
-                          Order from POS (items not parsed)
-                        </div>
-                      );
-                    }
+                    // No items found
+                    return (
+                      <div className="text-gray-500 italic">
+                        Order from POS (items not parsed)
+                      </div>
+                    );
                   })()}
                 </div>
               </div>

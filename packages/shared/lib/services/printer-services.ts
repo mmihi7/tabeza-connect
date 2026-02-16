@@ -31,6 +31,17 @@ export {
   type PrinterServiceManager
 } from './printer-service-manager';
 
+// Export printer driver queries
+export {
+  getActiveDrivers,
+  getAllDrivers,
+  isDriverActive,
+  getTimeSinceHeartbeat,
+  getDriverStatus,
+  type PrinterDriver,
+  type DriverQueryResult
+} from './printer-driver-queries';
+
 // Re-export venue configuration types for convenience
 export type {
   VenueMode,

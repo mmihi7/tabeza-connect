@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tabeza Printer Service - Configuration</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 600px;
+      width: 100%;
+      padding: 40px;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .logo {
+      font-size: 48px;
+      margin-bottom: 10px;
+    }
+    
+    h1 {
+      color: #333;
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    
+    .subtitle {
+      color: #666;
+      font-size: 16px;
+    }
+    
+    .status-card {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .status-item:last-child {
+      border-bottom: none;
+    }
+    
+    .status-label {
+      color: #666;
+      font-weight: 500;
+    }
+    
+    .status-value {
+      color: #333;
+      font-weight: 600;
+    }
+    
+    .status-value.configured {
+      color: #10b981;
+    }
+    
+    .status-value.not-configured {
+      color: #ef4444;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    label {
+      display: block;
+      color: #333;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    
+    input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: border-color 0.3s;
+    }
+    
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .help-text {
+      color: #666;
+      font-size: 14px;
+      margin-top: 6px;
+    }
+    
+    .help-text a {
+      color: #667eea;
+      text-decoration: none;
+    }
+    
+    .help-text a:hover {
+      text-decoration: underline;
+    }
+    
+    button {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .alert {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    
+    .alert.success {
+      background: #d1fae5;
+      color: #065f46;
+      border: 1px solid #10b981;
+    }
+    
+    .alert.error {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #ef4444;
+    }
+    
+    .alert.show {
+      display: block;
+    }
+    
+    .instructions {
+      background: #fffbeb;
+      border: 1px solid #fbbf24;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 20px;
+    }
+    
+    .instructions h3 {
+      color: #92400e;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+    
+    .instructions ol {
+      color: #78350f;
+      padding-left: 20px;
+    }
+    
+    .instructions li {
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">🖨️</div>
+      <h1>Tabeza Printer Service</h1>
+      <p class="subtitle">Configure your printer connection</p>
+    </div>
+    
+    <div class="status-card">
+      <div class="status-item">
+        <span class="status-label">Service Status</span>
+        <span class="status-value" id="serviceStatus">Checking...</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Bar ID</span>
+        <span class="status-value" id="currentBarId">Not configured</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Configuration</span>
+        <span class="status-value not-configured" id="configStatus">Not configured</span>
+      </div>
+    </div>
+    
+    <div class="alert" id="alert"></div>
+    
+    <form id="configForm">
+      <div class="form-group">
+        <label for="barId">Your Bar ID</label>
+        <input 
+          type="text" 
+          id="barId" 
+          placeholder="e.g., 438c80c1-fe11-4ac5-8a48-2fc45104ba31"
+          required
+        />
+        <p class="help-text">
+          Find your Bar ID in the <a href="https://staff.tabeza.co.ke/settings" target="_blank">Tabeza Settings page</a>
+        </p>
+      </div>
+      
+      <button type="submit" id="submitBtn">
+        Configure Printer Service
+      </button>
+    </form>
+    
+    <div class="instructions">
+      <h3>📋 How to find your Bar ID:</h3>
+      <ol>
+        <li>Open <a href="https://staff.tabeza.co.ke/settings" target="_blank">Tabeza Staff App Settings</a></li>
+        <li>Look for the "Printer Setup" section</li>
+        <li>Copy your Bar ID</li>
+        <li>Paste it in the field above</li>
+      </ol>
+    </div>
+  </div>
+  
+  <script>
+    const API_BASE = 'http://localhost:8765/api';
+    
+    // Load current status
+    async function loadStatus() {
+      try {
+        const response = await fetch(`${API_BASE}/status`);
+        const data = await response.json();
+        
+        document.getElementById('serviceStatus').textContent = 'Running';
+        document.getElementById('serviceStatus').className = 'status-value configured';
+        
+        if (data.barId) {
+          document.getElementById('currentBarId').textContent = data.barId;
+          document.getElementById('configStatus').textContent = 'Configured';
+          document.getElementById('configStatus').className = 'status-value configured';
+          document.getElementById('barId').value = data.barId;
+        }
+      } catch (error) {
+        document.getElementById('serviceStatus').textContent = 'Not running';
+        document.getElementById('serviceStatus').className = 'status-value not-configured';
+        showAlert('Cannot connect to printer service. Make sure it is running.', 'error');
+      }
+    }
+    
+    // Show alert message
+    function showAlert(message, type) {
+      const alert = document.getElementById('alert');
+      alert.textContent = message;
+      alert.className = `alert ${type} show`;
+      
+      setTimeout(() => {
+        alert.className = 'alert';
+      }, 5000);
+    }
+    
+    // Handle form submission
+    document.getElementById('configForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const barId = document.getElementById('barId').value.trim();
+      const submitBtn = document.getElementById('submitBtn');
+      
+      if (!barId) {
+        showAlert('Please enter your Bar ID', 'error');
+        return;
+      }
+      
+      // Validate UUID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(barId)) {
+        showAlert('Invalid Bar ID format. Please check and try again.', 'error');
+        return;
+      }
+      
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Configuring...';
+      
+      try {
+        const response = await fetch(`${API_BASE}/configure`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            barId: barId,
+            apiUrl: 'https://staff.tabeza.co.ke'
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error('Configuration failed');
+        }
+        
+        const data = await response.json();
+        
+        showAlert('✅ Configuration successful! Your printer service is now connected.', 'success');
+        loadStatus();
+        
+      } catch (error) {
+        showAlert('❌ Configuration failed. Please try again.', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Configure Printer Service';
+      }
+    });
+    
+    // Load status on page load
+    loadStatus();
+  </script>
+</body>
+</html>

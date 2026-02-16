@@ -45,6 +45,17 @@ export {
   type ValidationResult
 } from './lib/services/venue-configuration-validation';
 
+// Export printer services and driver queries
+export {
+  getActiveDrivers,
+  getAllDrivers,
+  isDriverActive,
+  getTimeSinceHeartbeat,
+  getDriverStatus,
+  type PrinterDriver,
+  type DriverQueryResult
+} from './lib/services/printer-services';
+
 // Export mode configuration service
 export * from './services/modeConfigService';
 

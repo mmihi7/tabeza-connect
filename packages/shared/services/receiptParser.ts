@@ -230,7 +230,8 @@ function parseWithRegex(receiptText: string): ParsedReceipt {
       }
       
       // Test Receipt Pattern 1: "2   Tusker Lager 500ml       500.00"
-      match = trimmed.match(/^(\d+)\s+(.+?)\s+([\d,]+\.?\d*)$/);
+      // More flexible - handles variable whitespace
+      match = trimmed.match(/^(\d+)\s+(.+?)\s{2,}([\d,]+\.?\d*)$/);
       if (match) {
         const qty = parseInt(match[1]);
         const name = match[2].trim();
@@ -238,6 +239,23 @@ function parseWithRegex(receiptText: string): ParsedReceipt {
         
         items.push({
           name: `${qty}x ${name}`,
+          price,
+        });
+        continue;
+      }
+      
+      // Test Receipt Pattern 1b: "2    Tusker Lager 500ml       500.00" (more spaces)
+      match = trimmed.match(/^(\d+)\s+(.+)\s+([\d,]+\.?\d+)$/);
+      if (match && match[2].includes('  ')) { // Ensure there's spacing between name and price
+        const qty = parseInt(match[1]);
+        const namePart = match[2].trim();
+        const price = parseFloat(match[3].replace(/,/g, ''));
+        
+        // Split name from any trailing numbers
+        const cleanName = namePart.replace(/\s+[\d,]+\.?\d*$/, '').trim();
+        
+        items.push({
+          name: `${qty}x ${cleanName}`,
           price,
         });
         continue;
