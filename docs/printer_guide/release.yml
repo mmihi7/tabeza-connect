@@ -1,0 +1,268 @@
+# .github/workflows/release.yml
+# Builds the TabezaConnect-Setup-v{version}.exe and publishes it as a
+# GitHub release asset. Satisfies TR-2, TR-3, US-3.
+#
+# Triggers:
+#   - Push of a version tag (v*.*.*) — full release
+#   - Manual dispatch — for testing the build without publishing
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g. 1.2.3)'
+        required: true
+        default: '0.0.0-dev'
+      publish:
+        description: 'Publish release to GitHub?'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # Needed to create releases and upload assets
+
+# ── Derive version from tag or manual input ───────────────────────────────────
+env:
+  APP_VERSION: ${{ github.event_name == 'push' && github.ref_name || format('v{0}', inputs.version) }}
+
+jobs:
+  # ============================================================================
+  # JOB 1: Build Node.js application bundle (runs on ubuntu for speed)
+  # ============================================================================
+  build-app:
+    name: Build App Bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Upload app bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-bundle
+          path: dist/app/
+          retention-days: 1
+
+  # ============================================================================
+  # JOB 2: Build Inno Setup .exe installer (must run on Windows, TR-3)
+  # ============================================================================
+  build-installer:
+    name: Build Inno Setup Installer
+    runs-on: windows-latest
+    needs: build-app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Download app bundle from Job 1 ──────────────────────────────────────
+      - name: Download app bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: app-bundle
+          path: dist/app
+
+      # ── Strip leading 'v' for Inno Setup version string ─────────────────────
+      - name: Derive semver from tag/input
+        id: version
+        shell: pwsh
+        run: |
+          $raw = "${{ env.APP_VERSION }}"
+          $semver = $raw.TrimStart('v')
+          echo "SEMVER=$semver" >> $env:GITHUB_OUTPUT
+          echo "Building version: $semver"
+
+      # ── Install Inno Setup 6 (TR-3) ─────────────────────────────────────────
+      - name: Install Inno Setup 6
+        shell: pwsh
+        run: |
+          $url = "https://jrsoftware.org/download.php/is.exe"
+          $out = "$env:TEMP\innosetup.exe"
+          Invoke-WebRequest -Uri $url -OutFile $out -UseBasicParsing
+          Start-Process -FilePath $out -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" -Wait
+          # Verify installation
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            Write-Error "Inno Setup not found at expected path after install"
+            exit 1
+          }
+          echo "ISCC_PATH=$iscc" >> $env:GITHUB_ENV
+          echo "Inno Setup installed at: $iscc"
+
+      # ── Bundle Node.js runtime (TR-1) ────────────────────────────────────────
+      - name: Bundle Node.js runtime (x64)
+        shell: pwsh
+        run: |
+          $nodeVersion = "20.19.0"
+          $url = "https://nodejs.org/dist/v$nodeVersion/node-v$nodeVersion-win-x64.zip"
+          $out = "$env:TEMP\node-x64.zip"
+          $dest = "src\installer\nodejs-bundle"
+          Write-Host "Downloading Node.js $nodeVersion (x64)..."
+          Invoke-WebRequest -Uri $url -OutFile $out -UseBasicParsing
+          Expand-Archive -Path $out -DestinationPath "$env:TEMP\node-x64" -Force
+          New-Item -ItemType Directory -Path $dest -Force | Out-Null
+          # Flatten — copy contents of the versioned subdirectory
+          $extracted = Get-ChildItem "$env:TEMP\node-x64" -Directory | Select-Object -First 1
+          Copy-Item "$($extracted.FullName)\*" -Destination $dest -Recurse -Force
+          Write-Host "Node.js runtime bundled to $dest"
+
+      - name: Bundle Node.js runtime (x86)
+        shell: pwsh
+        run: |
+          $nodeVersion = "20.19.0"
+          $url = "https://nodejs.org/dist/v$nodeVersion/node-v$nodeVersion-win-x86.zip"
+          $out = "$env:TEMP\node-x86.zip"
+          $dest = "src\installer\nodejs-bundle-x86"
+          Write-Host "Downloading Node.js $nodeVersion (x86)..."
+          Invoke-WebRequest -Uri $url -OutFile $out -UseBasicParsing
+          Expand-Archive -Path $out -DestinationPath "$env:TEMP\node-x86" -Force
+          New-Item -ItemType Directory -Path $dest -Force | Out-Null
+          $extracted = Get-ChildItem "$env:TEMP\node-x86" -Directory | Select-Object -First 1
+          Copy-Item "$($extracted.FullName)\*" -Destination $dest -Recurse -Force
+          Write-Host "Node.js x86 runtime bundled to $dest"
+
+      # ── Compile Inno Setup installer (TR-2) ──────────────────────────────────
+      - name: Compile Inno Setup installer
+        shell: pwsh
+        run: |
+          $iscc    = $env:ISCC_PATH
+          $script  = "src\installer\TabezaConnect.iss"
+          $version = "${{ steps.version.outputs.SEMVER }}"
+
+          Write-Host "Compiling installer v$version..."
+          & $iscc $script "/DAppVersion=$version"
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "ISCC.exe exited with code $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }
+          Write-Host "Installer compiled successfully"
+
+      # ── Validate the .exe (TR-2, TR-3) ──────────────────────────────────────
+      - name: Validate installer artifact
+        id: validate
+        shell: pwsh
+        run: |
+          $version  = "${{ steps.version.outputs.SEMVER }}"
+          $expected = "dist\TabezaConnect-Setup-v$version.exe"
+
+          if (-not (Test-Path $expected)) {
+            Write-Error "Expected installer not found: $expected"
+            exit 1
+          }
+
+          $size = (Get-Item $expected).Length
+          Write-Host "Installer found: $expected ($([math]::Round($size/1MB, 2)) MB)"
+
+          if ($size -lt 1MB) {
+            Write-Error "Installer is suspiciously small ($size bytes) — build may have failed"
+            exit 1
+          }
+
+          # Verify it is a valid PE (MZ header)
+          $bytes = [System.IO.File]::ReadAllBytes($expected)
+          if ($bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) {
+            Write-Error "File does not have a valid PE header (expected MZ)"
+            exit 1
+          }
+
+          echo "INSTALLER_PATH=$expected" >> $env:GITHUB_OUTPUT
+          echo "INSTALLER_SIZE_MB=$([math]::Round($size/1MB, 2))" >> $env:GITHUB_OUTPUT
+          Write-Host "Validation passed"
+
+      # ── Upload installer artifact ────────────────────────────────────────────
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TabezaConnect-Setup-v${{ steps.version.outputs.SEMVER }}
+          path: dist/TabezaConnect-Setup-v${{ steps.version.outputs.SEMVER }}.exe
+          retention-days: 30
+
+  # ============================================================================
+  # JOB 3: Create GitHub release and attach .exe (US-3, TR-3)
+  # Runs only on tag push, OR when manually triggered with publish=true
+  # ============================================================================
+  publish-release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: build-installer
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish == true)
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # Full history for changelog generation
+
+      - name: Derive semver
+        id: version
+        run: |
+          RAW="${{ env.APP_VERSION }}"
+          SEMVER="${RAW#v}"
+          echo "SEMVER=$SEMVER" >> $GITHUB_OUTPUT
+
+      - name: Download installer artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: TabezaConnect-Setup-v${{ steps.version.outputs.SEMVER }}
+          path: release-assets/
+
+      # ── Auto-generate changelog from commits since last tag ──────────────────
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            CHANGES=$(git log "$PREV_TAG..HEAD" --pretty=format:"- %s (%an)" --no-merges)
+          else
+            CHANGES=$(git log --pretty=format:"- %s (%an)" --no-merges -20)
+          fi
+          # Write to file (multiline safe)
+          cat > /tmp/changelog.md <<EOF
+          ## What's Changed
+
+          $CHANGES
+
+          ## Installation
+
+          1. Download \`TabezaConnect-Setup-v${{ steps.version.outputs.SEMVER }}.exe\`
+          2. Run the installer — it will request administrator permissions automatically
+          3. Follow the wizard and enter your Bar ID when prompted
+          4. TabezaConnect will be installed, configured, and started automatically
+
+          **Download URL (always latest):**
+          \`https://github.com/${{ github.repository }}/releases/latest/download/TabezaConnect-Setup-v${{ steps.version.outputs.SEMVER }}.exe\`
+          EOF
+          echo "CHANGELOG_PATH=/tmp/changelog.md" >> $GITHUB_OUTPUT
+
+      # ── Create GitHub release with .exe asset (TR-3) ─────────────────────────
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.APP_VERSION }}
+          name: TabezaConnect v${{ steps.version.outputs.SEMVER }}
+          body_path: ${{ steps.changelog.outputs.CHANGELOG_PATH }}
+          draft: false
+          prerelease: ${{ contains(env.APP_VERSION, '-') }}
+          files: |
+            release-assets/TabezaConnect-Setup-v${{ steps.version.outputs.SEMVER }}.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
