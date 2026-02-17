@@ -82,7 +82,6 @@ export default function PrinterSettingsPage() {
   const [diagnostics, setDiagnostics] = useState<DiagnosticsResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [testing, setTesting] = useState(false);
-  const [configuring, setConfiguring] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'diagnostics' | 'drivers' | 'setup-guide'>('overview');
   const [watchFolder, setWatchFolder] = useState('C:\\ProgramData\\Tabeza\\TabezaPrints');
   const [copiedFolder, setCopiedFolder] = useState(false);
@@ -126,33 +125,6 @@ export default function PrinterSettingsPage() {
       console.error('Diagnostics failed:', error);
     } finally {
       setTesting(false);
-    }
-  };
-
-  const autoConfigureService = async () => {
-    if (!bar?.id) return;
-    
-    setConfiguring(true);
-    try {
-      const response = await fetch('http://localhost:8765/api/configure', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          barId: bar.id,
-          apiUrl: window.location.origin,
-        }),
-      });
-
-      if (response.ok) {
-        await checkServiceStatus();
-        alert('✅ Printer service configured successfully!');
-      } else {
-        alert('❌ Configuration failed. Please try again.');
-      }
-    } catch (error) {
-      alert('❌ Could not connect to printer service. Make sure it\'s running.');
-    } finally {
-      setConfiguring(false);
     }
   };
 
@@ -318,26 +290,6 @@ export default function PrinterSettingsPage() {
               )}
             </div>
           </div>
-
-          {isServiceRunning && !isConfigured && (
-            <button
-              onClick={autoConfigureService}
-              disabled={configuring}
-              className="flex items-center gap-2 px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition disabled:opacity-50"
-            >
-              {configuring ? (
-                <>
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                  Configuring...
-                </>
-              ) : (
-                <>
-                  <Zap className="w-5 h-5" />
-                  Auto-Configure Now
-                </>
-              )}
-            </button>
-          )}
         </div>
       </div>
 

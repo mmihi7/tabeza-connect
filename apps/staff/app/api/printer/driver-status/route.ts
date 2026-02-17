@@ -3,6 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
+// CORE TRUTH: Manual service always exists. 
+// Digital authority is singular. 
+// Tabeza adapts to the venue — never the reverse.
+
 // Initialize Supabase client with service role key
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY;
@@ -40,15 +44,13 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Query for active drivers (heartbeat within last 2 minutes)
-    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
-    
+    // Query for all drivers for this bar (not just recent ones)
     const { data: drivers, error } = await supabase
       .from('printer_drivers')
       .select('*')
       .eq('bar_id', barId)
-      .gte('last_heartbeat', twoMinutesAgo)
-      .order('last_heartbeat', { ascending: false });
+      .order('last_heartbeat', { ascending: false })
+      .limit(1);
     
     if (error) {
       console.error('Error querying printer drivers:', error);
@@ -61,7 +63,7 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Determine status based on query results
+    // No driver found at all
     if (!drivers || drivers.length === 0) {
       return NextResponse.json({
         connected: false,
@@ -70,25 +72,46 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    // Active driver found
-    const activeDriver = drivers[0];
+    // Driver exists - calculate status based on last heartbeat
+    const driver = drivers[0];
     const lastSeenMinutes = Math.floor(
-      (Date.now() - new Date(activeDriver.last_heartbeat).getTime()) / 60000
+      (Date.now() - new Date(driver.last_heartbeat).getTime()) / 60000
     );
     
-    return NextResponse.json({
-      connected: true,
-      status: 'online',
-      driver: {
-        id: activeDriver.driver_id,
-        version: activeDriver.version,
-        lastSeen: activeDriver.last_heartbeat,
-        firstSeen: activeDriver.first_seen,
-        lastSeenMinutes,
-        metadata: activeDriver.metadata,
-      },
-      message: `Printer connected (last seen ${lastSeenMinutes}m ago)`,
-    });
+    // Determine status based on last heartbeat time
+    // < 2 minutes: online
+    // 2-5 minutes: offline (connecting)
+    // > 5 minutes: offline
+    if (lastSeenMinutes < 2) {
+      return NextResponse.json({
+        connected: true,
+        status: 'online',
+        driver: {
+          id: driver.driver_id,
+          version: driver.version,
+          lastSeen: driver.last_heartbeat,
+          firstSeen: driver.first_seen,
+          lastSeenMinutes,
+          metadata: driver.metadata,
+        },
+        message: `Printer connected (last seen ${lastSeenMinutes}m ago)`,
+      });
+    } else {
+      // Offline - but driver exists
+      return NextResponse.json({
+        connected: false,
+        status: 'offline',
+        driver: {
+          id: driver.driver_id,
+          version: driver.version,
+          lastSeen: driver.last_heartbeat,
+          firstSeen: driver.first_seen,
+          lastSeenMinutes,
+          metadata: driver.metadata,
+        },
+        message: `Printer offline (last seen ${lastSeenMinutes}m ago)`,
+      });
+    }
     
   } catch (error) {
     console.error('Error checking driver status:', error);

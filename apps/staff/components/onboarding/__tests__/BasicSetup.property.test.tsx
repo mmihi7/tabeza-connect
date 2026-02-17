@@ -21,7 +21,7 @@ describe('BasicSetup Property Tests', () => {
     fc.assert(
       fc.property(
         fc.record({
-          testScenario: fc.constantFrom('venue-info', 'mpesa-config', 'printer-setup', 'summary'),
+          testScenario: fc.constantFrom('venue-info', 'mpesa-config', 'summary'),
           renderCount: fc.integer({ min: 1, max: 3 })
         }),
         async (testData) => {
@@ -165,9 +165,9 @@ describe('BasicSetup Property Tests', () => {
 
   /**
    * Property 3.2: Step Progression Restriction
-   * Basic setup should follow a strict 4-step progression without optional steps
+   * Basic setup should follow a strict 3-step progression without optional steps
    */
-  it('Property 3.2: Step Progression Restriction - should follow strict 4-step progression', () => {
+  it('Property 3.2: Step Progression Restriction - should follow strict 3-step progression', () => {
     fc.assert(
       fc.property(
         fc.record({
@@ -186,23 +186,21 @@ describe('BasicSetup Property Tests', () => {
             />
           );
 
-          // Assert: Progress indicator should show exactly 4 steps
-          const progressSteps = screen.getAllByText(/^[1-4]$/);
-          expect(progressSteps).toHaveLength(4);
+          // Assert: Progress indicator should show exactly 3 steps
+          const progressSteps = screen.getAllByText(/^[1-3]$/);
+          expect(progressSteps).toHaveLength(3);
 
           // Assert: Step 1 should be active initially
           const step1 = progressSteps[0];
           expect(step1).toHaveClass('bg-blue-500');
           expect(step1).toHaveClass('text-white');
 
-          // Assert: Steps 2, 3, 4 should be inactive initially
+          // Assert: Steps 2, 3 should be inactive initially
           const step2 = progressSteps[1];
           const step3 = progressSteps[2];
-          const step4 = progressSteps[3];
           
           expect(step2).toHaveClass('bg-gray-200');
           expect(step3).toHaveClass('bg-gray-200');
-          expect(step4).toHaveClass('bg-gray-200');
 
           // Assert: Should start with venue info step
           expect(screen.getByText('Venue Information')).toBeInTheDocument();
@@ -224,8 +222,9 @@ describe('BasicSetup Property Tests', () => {
   /**
    * Property 3.3: Auto-Configuration Enforcement
    * Basic setup should automatically configure venue_mode='basic' and authority_mode='pos'
+   * Printer will connect automatically after TabezaConnect installation
    */
-  it('Property 3.3: Auto-Configuration Enforcement - should auto-configure Basic mode settings', () => {
+  it('Property 3.3: Auto-Configuration Enforcement - should auto-configure Basic mode settings with automatic printer connection', () => {
     fc.assert(
       fc.property(
         fc.record({
@@ -257,20 +256,18 @@ describe('BasicSetup Property Tests', () => {
           await user.type(screen.getByLabelText(/Passkey/), 'test-passkey');
           await user.click(screen.getByText('Continue'));
 
-          // Fill printer config
-          await user.type(screen.getByLabelText(/Printer Name/), 'Test Printer');
-          await user.click(screen.getByText('Test Printer'));
-          
-          // Wait for test to complete and continue
-          await new Promise(resolve => setTimeout(resolve, 100));
-          await user.click(screen.getByText('Continue'));
-
           // Assert: Summary should show auto-configured Basic mode settings
           expect(screen.getByText('Tabeza Basic Configuration')).toBeInTheDocument();
           expect(screen.getByText('Basic (POS Integration)')).toBeInTheDocument();
           expect(screen.getByText('POS System')).toBeInTheDocument();
           expect(screen.getByText('Disabled')).toBeInTheDocument(); // Customer Ordering
           expect(screen.getByText('Yes')).toBeInTheDocument(); // Printer Required
+
+          // Assert: Should show automatic printer connection message
+          expect(screen.getByText('Printer Setup - Automatic Connection')).toBeInTheDocument();
+          expect(screen.getByText(/printer will connect automatically/i)).toBeInTheDocument();
+          expect(screen.getByText(/Download TabezaConnect from tabeza.co.ke/i)).toBeInTheDocument();
+          expect(screen.getByText(/Printer will appear online automatically within 30 seconds/i)).toBeInTheDocument();
 
           // Assert: No user choice for mode or authority should be present
           expect(screen.queryByLabelText(/Venue Mode/)).not.toBeInTheDocument();
@@ -296,14 +293,13 @@ describe('BasicSetup Property Tests', () => {
   });
 
   /**
-   * Property 3.4: Printer Requirement Enforcement
-   * Basic setup should require printer configuration and testing
+   * Property 3.4: Automatic Printer Connection
+   * Basic setup should show automatic printer connection message instead of manual configuration
    */
-  it('Property 3.4: Printer Requirement Enforcement - should require printer setup and testing', () => {
+  it('Property 3.4: Automatic Printer Connection - should show automatic connection message without manual setup', () => {
     fc.assert(
       fc.property(
         fc.record({
-          printerTested: fc.boolean(),
           testRun: fc.integer({ min: 1, max: 2 })
         }),
         async (testData) => {
@@ -312,7 +308,7 @@ describe('BasicSetup Property Tests', () => {
           const mockOnBack = jest.fn();
           const user = userEvent.setup();
 
-          // Act: Navigate to printer setup step
+          // Act: Navigate to summary step
           render(
             <BasicSetup
               onComplete={mockOnComplete}
@@ -332,34 +328,18 @@ describe('BasicSetup Property Tests', () => {
           await user.type(screen.getByLabelText(/Passkey/), 'test-passkey');
           await user.click(screen.getByText('Continue'));
 
-          // Assert: Printer setup step should be present and required
-          expect(screen.getByText('Printer Setup')).toBeInTheDocument();
-          expect(screen.getByText('Configure your thermal printer for receipt printing')).toBeInTheDocument();
-          
-          // Assert: Printer fields should be required
-          expect(screen.getByLabelText(/Printer Name/)).toBeInTheDocument();
-          expect(screen.getByText('Connection Type')).toBeInTheDocument();
-          expect(screen.getByText('Test Printer Connection')).toBeInTheDocument();
+          // Assert: Should NOT have manual printer setup step
+          expect(screen.queryByText('Printer Setup')).not.toBeInTheDocument();
+          expect(screen.queryByText('Configure your thermal printer')).not.toBeInTheDocument();
+          expect(screen.queryByLabelText(/Printer Name/)).not.toBeInTheDocument();
+          expect(screen.queryByText('Connection Type')).not.toBeInTheDocument();
+          expect(screen.queryByText('Test Printer Connection')).not.toBeInTheDocument();
 
-          // Fill printer name
-          await user.type(screen.getByLabelText(/Printer Name/), 'Test Printer');
-
-          if (testData.printerTested) {
-            // Test printer
-            await user.click(screen.getByText('Test Printer'));
-            await new Promise(resolve => setTimeout(resolve, 100));
-          }
-
-          // Try to continue
-          await user.click(screen.getByText('Continue'));
-
-          // Assert: Should only proceed if printer is tested
-          if (testData.printerTested) {
-            expect(screen.getByText('Setup Summary')).toBeInTheDocument();
-          } else {
-            expect(screen.getByText('Please test the printer connection before continuing')).toBeInTheDocument();
-            expect(screen.getByText('Printer Setup')).toBeInTheDocument(); // Still on printer step
-          }
+          // Assert: Should show automatic connection message in summary
+          expect(screen.getByText('Setup Summary')).toBeInTheDocument();
+          expect(screen.getByText('Printer Setup - Automatic Connection')).toBeInTheDocument();
+          expect(screen.getByText(/printer will connect automatically/i)).toBeInTheDocument();
+          expect(screen.getByText(/No manual configuration needed/i)).toBeInTheDocument();
         }
       ),
       { numRuns: 2 }

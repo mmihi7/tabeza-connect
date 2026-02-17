@@ -234,16 +234,9 @@ export default function SignupPage() {
       // Small delay to ensure database transaction is fully committed
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Navigate based on printer requirement
-      if (printerRequired) {
-        // Redirect to printer setup page for Basic or Venue+POS
-        console.log('🖨️ Redirecting to printer setup...');
-        router.push('/setup/printer');
-      } else {
-        // Navigate directly to dashboard for Venue+Tabeza
-        console.log('📊 Redirecting to dashboard...');
-        router.push('/dashboard');
-      }
+      // Navigate to dashboard - printer status now shown in Settings
+      console.log('📊 Redirecting to dashboard...');
+      router.push('/dashboard');
 
       // Show success message if this was a recovery scenario
       if (isExistingUser) {

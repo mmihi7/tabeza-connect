@@ -35,41 +35,20 @@ const newUrl = `https://github.com/${githubUsername}/tabeza-printer-service/rele
 
 console.log(`New URL: ${newUrl}\n`);
 
-// File 1: apps/staff/app/setup/printer/page.tsx
-const file1Path = path.join(__dirname, '../../apps/staff/app/setup/printer/page.tsx');
-console.log('Updating File 1: apps/staff/app/setup/printer/page.tsx');
+// File 1: packages/shared/lib/services/driver-detection-service.ts
+const file1Path = path.join(__dirname, '../shared/lib/services/driver-detection-service.ts');
+console.log('Updating File 1: packages/shared/lib/services/driver-detection-service.ts');
 
 try {
   let content1 = fs.readFileSync(file1Path, 'utf8');
   
-  // Replace the old URL
-  const oldPattern1 = /href="https:\/\/github\.com\/[^\/]+\/tabeza-printer-service\/releases\/latest\/download\/tabeza-printer-service\.exe"/;
-  
-  if (oldPattern1.test(content1)) {
-    content1 = content1.replace(oldPattern1, `href="${newUrl}"`);
-    fs.writeFileSync(file1Path, content1, 'utf8');
-    console.log('  ✅ Updated successfully\n');
-  } else {
-    console.log('  ⚠️  Pattern not found - file may have been modified\n');
-  }
-} catch (error) {
-  console.error(`  ❌ Error: ${error.message}\n`);
-}
-
-// File 2: packages/shared/lib/services/driver-detection-service.ts
-const file2Path = path.join(__dirname, '../shared/lib/services/driver-detection-service.ts');
-console.log('Updating File 2: packages/shared/lib/services/driver-detection-service.ts');
-
-try {
-  let content2 = fs.readFileSync(file2Path, 'utf8');
-  
   // Replace the base URL
-  const oldPattern2 = /const baseUrl = 'https:\/\/github\.com\/[^\/]+\/tabeza-printer-service\/releases\/latest\/download'/;
+  const oldPattern1 = /const baseUrl = 'https:\/\/github\.com\/[^\/]+\/tabeza-printer-service\/releases\/latest\/download'/;
   const newBaseUrl = `https://github.com/${githubUsername}/tabeza-printer-service/releases/latest/download`;
   
-  if (oldPattern2.test(content2)) {
-    content2 = content2.replace(oldPattern2, `const baseUrl = '${newBaseUrl}'`);
-    fs.writeFileSync(file2Path, content2, 'utf8');
+  if (oldPattern1.test(content1)) {
+    content1 = content1.replace(oldPattern1, `const baseUrl = '${newBaseUrl}'`);
+    fs.writeFileSync(file1Path, content1, 'utf8');
     console.log('  ✅ Updated successfully\n');
   } else {
     console.log('  ⚠️  Pattern not found - file may have been modified\n');

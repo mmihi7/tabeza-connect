@@ -3,7 +3,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowRight, ArrowLeft, Printer, Phone, MapPin, Store, Check, AlertCircle, Wifi, WifiOff } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Printer, MapPin, Store, Check, AlertCircle } from 'lucide-react';
 
 interface BasicSetupProps {
   onComplete: (config: BasicSetupConfig) => void;
@@ -14,7 +14,6 @@ interface BasicSetupConfig {
   venueName: string;
   location: string;
   mpesaConfig: MpesaConfig;
-  printerConfig: PrinterConfig;
   venue_mode: 'basic';
   authority_mode: 'pos';
 }
@@ -27,15 +26,7 @@ interface MpesaConfig {
   environment: 'sandbox' | 'production';
 }
 
-interface PrinterConfig {
-  printerName: string;
-  connectionType: 'usb' | 'network' | 'bluetooth';
-  ipAddress?: string;
-  port?: number;
-  tested: boolean;
-}
-
-type SetupStep = 'venue-info' | 'mpesa-config' | 'printer-setup' | 'summary';
+type SetupStep = 'venue-info' | 'mpesa-config' | 'summary';
 
 const BasicSetup: React.FC<BasicSetupProps> = ({ onComplete, onBack }) => {
   const [currentStep, setCurrentStep] = useState<SetupStep>('venue-info');
@@ -49,11 +40,6 @@ const BasicSetup: React.FC<BasicSetupProps> = ({ onComplete, onBack }) => {
     consumerSecret: '',
     passkey: '',
     environment: 'sandbox' as const
-  });
-  const [printerConfig, setPrinterConfig] = useState<PrinterConfig>({
-    printerName: '',
-    connectionType: 'usb',
-    tested: false
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
@@ -96,30 +82,6 @@ const BasicSetup: React.FC<BasicSetupProps> = ({ onComplete, onBack }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const validatePrinterConfig = () => {
-    const newErrors: Record<string, string> = {};
-    
-    if (!printerConfig.printerName.trim()) {
-      newErrors.printerName = 'Printer name is required';
-    }
-    
-    if (printerConfig.connectionType === 'network') {
-      if (!printerConfig.ipAddress?.trim()) {
-        newErrors.ipAddress = 'IP address is required for network printers';
-      }
-      if (!printerConfig.port) {
-        newErrors.port = 'Port is required for network printers';
-      }
-    }
-    
-    if (!printerConfig.tested) {
-      newErrors.tested = 'Please test the printer connection before continuing';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const handleNext = () => {
     let isValid = false;
     
@@ -130,10 +92,6 @@ const BasicSetup: React.FC<BasicSetupProps> = ({ onComplete, onBack }) => {
         break;
       case 'mpesa-config':
         isValid = validateMpesaConfig();
-        if (isValid) setCurrentStep('printer-setup');
-        break;
-      case 'printer-setup':
-        isValid = validatePrinterConfig();
         if (isValid) setCurrentStep('summary');
         break;
       case 'summary':
@@ -150,26 +108,9 @@ const BasicSetup: React.FC<BasicSetupProps> = ({ onComplete, onBack }) => {
       case 'mpesa-config':
         setCurrentStep('venue-info');
         break;
-      case 'printer-setup':
+      case 'summary':
         setCurrentStep('mpesa-config');
         break;
-      case 'summary':
-        setCurrentStep('printer-setup');
-        break;
-    }
-  };
-
-  const handleTestPrinter = async () => {
-    setIsProcessing(true);
-    try {
-      // Simulate printer test
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setPrinterConfig(prev => ({ ...prev, tested: true }));
-      setErrors(prev => ({ ...prev, tested: '' }));
-    } catch (error) {
-      setErrors(prev => ({ ...prev, tested: 'Printer test failed. Please check your connection.' }));
-    } finally {
-      setIsProcessing(false);
     }
   };
 
@@ -178,7 +119,6 @@ const BasicSetup: React.FC<BasicSetupProps> = ({ onComplete, onBack }) => {
       venueName: venueInfo.name,
       location: venueInfo.location,
       mpesaConfig,
-      printerConfig,
       venue_mode: 'basic',
       authority_mode: 'pos'
     };
@@ -190,8 +130,7 @@ const BasicSetup: React.FC<BasicSetupProps> = ({ onComplete, onBack }) => {
     switch (currentStep) {
       case 'venue-info': return 1;
       case 'mpesa-config': return 2;
-      case 'printer-setup': return 3;
-      case 'summary': return 4;
+      case 'summary': return 3;
       default: return 1;
     }
   };
@@ -199,7 +138,7 @@ const BasicSetup: React.FC<BasicSetupProps> = ({ onComplete, onBack }) => {
   const renderProgressIndicator = () => (
     <div className="flex items-center justify-center mb-8">
       <div className="flex items-center gap-2">
-        {[1, 2, 3, 4].map((step) => (
+        {[1, 2, 3].map((step) => (
           <React.Fragment key={step}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
               step <= getStepNumber() 
@@ -208,7 +147,7 @@ const BasicSetup: React.FC<BasicSetupProps> = ({ onComplete, onBack }) => {
             }`}>
               {step}
             </div>
-            {step < 4 && (
+            {step < 3 && (
               <div className={`w-16 h-1 rounded ${
                 step < getStepNumber() ? 'bg-blue-500' : 'bg-gray-200'
               }`} />
@@ -387,137 +326,6 @@ const BasicSetup: React.FC<BasicSetupProps> = ({ onComplete, onBack }) => {
     </div>
   );
 
-  const renderPrinterSetupStep = () => (
-    <div className="max-w-2xl mx-auto">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Printer Setup</h2>
-        <p className="text-gray-600">Configure your thermal printer for receipt printing</p>
-      </div>
-
-      <div className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            <Printer size={16} className="inline mr-2" />
-            Printer Name *
-          </label>
-          <input
-            type="text"
-            value={printerConfig.printerName}
-            onChange={(e) => setPrinterConfig(prev => ({ ...prev, printerName: e.target.value }))}
-            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-              errors.printerName ? 'border-red-500' : 'border-gray-300'
-            }`}
-            placeholder="Enter printer name"
-          />
-          {errors.printerName && (
-            <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-              <AlertCircle size={14} />
-              {errors.printerName}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Connection Type</label>
-          <div className="flex gap-4">
-            {(['usb', 'network', 'bluetooth'] as const).map((type) => (
-              <label key={type} className="flex items-center">
-                <input
-                  type="radio"
-                  value={type}
-                  checked={printerConfig.connectionType === type}
-                  onChange={(e) => setPrinterConfig(prev => ({ 
-                    ...prev, 
-                    connectionType: e.target.value as 'usb' | 'network' | 'bluetooth',
-                    tested: false // Reset test status when connection type changes
-                  }))}
-                  className="mr-2"
-                />
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {printerConfig.connectionType === 'network' && (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">IP Address *</label>
-              <input
-                type="text"
-                value={printerConfig.ipAddress || ''}
-                onChange={(e) => setPrinterConfig(prev => ({ ...prev, ipAddress: e.target.value }))}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                  errors.ipAddress ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="192.168.1.100"
-              />
-              {errors.ipAddress && (
-                <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                  <AlertCircle size={14} />
-                  {errors.ipAddress}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Port *</label>
-              <input
-                type="number"
-                value={printerConfig.port || ''}
-                onChange={(e) => setPrinterConfig(prev => ({ ...prev, port: parseInt(e.target.value) || undefined }))}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                  errors.port ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="9100"
-              />
-              {errors.port && (
-                <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                  <AlertCircle size={14} />
-                  {errors.port}
-                </p>
-              )}
-            </div>
-          </>
-        )}
-
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="font-medium text-blue-800">Test Printer Connection</h4>
-            {printerConfig.tested && (
-              <div className="flex items-center gap-1 text-green-600">
-                <Check size={16} />
-                <span className="text-sm">Tested Successfully</span>
-              </div>
-            )}
-          </div>
-          <p className="text-sm text-blue-700 mb-4">
-            Test your printer connection to ensure receipts will print correctly.
-          </p>
-          <button
-            onClick={handleTestPrinter}
-            disabled={isProcessing || !printerConfig.printerName}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-              isProcessing || !printerConfig.printerName
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : printerConfig.tested
-                  ? 'bg-green-600 text-white hover:bg-green-700'
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-            }`}
-          >
-            {isProcessing ? 'Testing...' : printerConfig.tested ? 'Test Again' : 'Test Printer'}
-          </button>
-          {errors.tested && (
-            <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-              <AlertCircle size={14} />
-              {errors.tested}
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
   const renderSummaryStep = () => (
     <div className="max-w-2xl mx-auto">
       <div className="text-center mb-8">
@@ -583,23 +391,32 @@ const BasicSetup: React.FC<BasicSetupProps> = ({ onComplete, onBack }) => {
           </div>
         </div>
 
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-          <h4 className="font-medium text-gray-800 mb-3">Printer Configuration</h4>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Printer Name:</span>
-              <span className="font-medium">{printerConfig.printerName}</span>
+        <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+          <h4 className="font-medium text-green-800 mb-3 flex items-center gap-2">
+            <Printer size={18} />
+            Printer Setup - Automatic Connection
+          </h4>
+          <p className="text-sm text-green-700 mb-3">
+            Your printer will connect automatically after you install the TabezaConnect service.
+          </p>
+          <div className="space-y-2 text-sm text-green-700">
+            <div className="flex items-start gap-2">
+              <Check size={16} className="flex-shrink-0 mt-0.5" />
+              <span>Download TabezaConnect from tabeza.co.ke</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Connection:</span>
-              <span className="font-medium capitalize">{printerConfig.connectionType}</span>
+            <div className="flex items-start gap-2">
+              <Check size={16} className="flex-shrink-0 mt-0.5" />
+              <span>Install and run the service</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Status:</span>
-              <span className={`font-medium ${printerConfig.tested ? 'text-green-600' : 'text-red-600'}`}>
-                {printerConfig.tested ? 'Tested Successfully' : 'Not Tested'}
-              </span>
+            <div className="flex items-start gap-2">
+              <Check size={16} className="flex-shrink-0 mt-0.5" />
+              <span>Printer will appear online automatically within 30 seconds</span>
             </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-green-200">
+            <p className="text-xs text-green-600">
+              No manual configuration needed - the service handles everything automatically!
+            </p>
           </div>
         </div>
       </div>
@@ -612,7 +429,6 @@ const BasicSetup: React.FC<BasicSetupProps> = ({ onComplete, onBack }) => {
       
       {currentStep === 'venue-info' && renderVenueInfoStep()}
       {currentStep === 'mpesa-config' && renderMpesaConfigStep()}
-      {currentStep === 'printer-setup' && renderPrinterSetupStep()}
       {currentStep === 'summary' && renderSummaryStep()}
 
       <div className="flex justify-between mt-8">

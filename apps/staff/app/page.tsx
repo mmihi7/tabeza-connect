@@ -12,7 +12,7 @@ import VenueModeOnboarding from '@/components/VenueModeOnboarding';
 import { type VenueConfiguration } from '@tabeza/shared';
 import CaptainsOrders from '@/components/printer/CaptainsOrders';
 import PlaceSwitcher from '@/components/PlaceSwitcher';
-import PrinterStatusIndicator from '@/components/PrinterStatusIndicator';
+import PrinterStatus from '@/components/PrinterStatus';
 
 const useRouter = useNextRouter;
 
@@ -1164,12 +1164,11 @@ export default function TabsPage() {
         {/* PRINTER STATUS - Show for venues that require printer integration */}
         {(venueMode === 'basic' || (venueMode === 'venue' && authorityMode === 'pos')) && (
           <div className="p-4 bg-white border-b border-gray-200">
-            <PrinterStatusIndicator 
-              barId={bar?.id}
-              autoRefresh={true}
-              refreshInterval={10000}
-              showDetails={true}
-              compact={false}
+            <PrinterStatus 
+              barId={bar?.id || ''}
+              venueMode={venueMode}
+              authorityMode={authorityMode}
+              compact={true}
             />
           </div>
         )}
