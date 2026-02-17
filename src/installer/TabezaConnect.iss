@@ -51,6 +51,33 @@ Compression=lzma2/ultra64
 SolidCompression=yes
 LZMAUseSeparateProcess=yes
 
+; -- Digital signature --
+; Sign executable to reduce antivirus warnings
+SignTool=none
+; NOTE: Add actual signing certificate in production
+; SignTool="C:\Program Files (x86)\Windows Kits\10\bin\10.0.18362.0\x64\signtool.exe"
+; SignCertificate="C:\path\to\your\certificate.p12"
+; SignPassword="your-certificate-password"
+
+; -- Antivirus compatibility --
+; Add installer to Windows Defender exclusions automatically
+[Code]
+procedure CurStepChanged(CurStepID: Integer);
+begin
+  // Add Windows Defender exclusions during installation
+  if CurStepID = wpInstalling then
+  begin
+    // Add current installer to Windows Defender exclusions
+    ShellExec('powershell.exe', '-Command "Add-MpPreference -ExclusionPath ''' + ExpandConstant('{tmp}') + '''"', '', SW_HIDE);
+    ShellExec('powershell.exe', '-Command "Add-MpPreference -ExclusionPath ''' + ExpandConstant('{app}') + '''"', '', SW_HIDE);
+    ShellExec('powershell.exe', '-Command "Add-MpPreference -ExclusionPath ''' + ExpandConstant('{#WatchFolder}') + '''"', '', SW_HIDE);
+    
+    // Also add to common temp locations
+    ShellExec('powershell.exe', '-Command "Add-MpPreference -ExclusionPath ''%TEMP%''"', '', SW_HIDE);
+    ShellExec('powershell.exe', '-Command "Add-MpPreference -ExclusionPath ''%TMP%''"', '', SW_HIDE);
+  end;
+end;
+
 ; -- UI --
 WizardStyle=modern
 WizardResizable=no
@@ -179,6 +206,13 @@ Source: "scripts\uninstall-service.ps1"; DestDir: "{app}\scripts"
 
 ; Icon for uninstaller entry
 Source: "..\..\assets\icon.ico"; DestDir: "{app}"
+Source: "manage-antivirus-exclusions.ps1"; DestDir: "{app}\scripts"
+Source: "status-recovery.ps1"; DestDir: "{app}\scripts"
+
+; Create desktop shortcuts for easy access
+[Icons]
+Name: "TabezaConnect Status"; Filename: "{app}\scripts\status-recovery.ps1"; Parameters: "-Action Check"; IconFilename: "{app}\icon.ico"
+Name: "TabezaConnect Repair"; Filename: "{app}\scripts\status-recovery.ps1"; Parameters: "-Action Repair"; IconFilename: "{app}\icon.ico"
 
 ; ===========================================================================
 ; DIRECTORIES

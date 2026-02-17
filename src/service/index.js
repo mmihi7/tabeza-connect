@@ -18,6 +18,9 @@ const chokidar = require('chokidar');
 const https = require('https');
 const { execSync } = require('child_process');
 
+// Add Windows registry reading
+const winreg = require('winreg');
+
 const app = express();
 const PORT = 8765;
 
@@ -91,7 +94,7 @@ const HEARTBEAT_RETRY_DELAY = 5000; // 5 seconds
 let heartbeatInterval = null;
 let heartbeatFailures = 0;
 
-// Load configuration - prioritize environment variables over config file
+// Load configuration - prioritize environment variables, then registry, then config file
 function loadConfig() {
   console.log('🔍 Loading configuration...');
   console.log('');
@@ -123,12 +126,51 @@ function loadConfig() {
     };
   }
   
-  console.log('⚠️  Environment variables not complete (need both TABEZA_BAR_ID and TABEZA_API_URL)');
-  console.log('');
+  // Try to read from Windows Registry (second priority)
+  console.log('🔍 Checking Windows Registry for configuration...');
+  try {
+    const { execSync } = require('child_process');
+    
+    // Read Bar ID from registry
+    let registryBarId = null;
+    try {
+      const regResult = execSync(
+        'reg query "HKLM\\SOFTWARE\\Tabeza\\TabezaConnect" /v BarID',
+        { encoding: 'utf8', windowsHide: true }
+      );
+      const match = regResult.match(/BarID\s+REG_SZ\s+(.+)/);
+      if (match && match[1]) {
+        registryBarId = match[1].trim();
+        console.log('  Found BarID in registry:', registryBarId);
+      }
+    } catch (regError) {
+      console.log('  BarID not found in registry');
+    }
+    
+    // Read API URL from registry (default if not found)
+    const defaultApiUrl = 'https://tabz-kikao.vercel.app';
+    
+    if (registryBarId && registryBarId !== 'YOUR_BAR_ID_HERE') {
+      console.log('✅ Using configuration from Windows Registry');
+      console.log('   Bar ID:', registryBarId);
+      console.log('   API URL:', defaultApiUrl);
+      console.log('   Watch Folder: C:\\ProgramData\\Tabeza\\TabezaPrints');
+      console.log('');
+      return {
+        barId: registryBarId,
+        apiUrl: defaultApiUrl,
+        vercelBypassToken: '',
+        driverId: generateDriverId(),
+        watchFolder: 'C:\\ProgramData\\Tabeza\\TabezaPrints',
+      };
+    }
+  } catch (error) {
+    console.log('  Registry read failed:', error.message);
+  }
   
   // Try to load from config file as fallback
+  console.log('🔍 Checking config.json for configuration...');
   try {
-    // FIXED: Use absolute path for PKG compiled executables
     const configPath = process.pkg 
       ? path.join(path.dirname(process.execPath), 'config.json')
       : path.join(__dirname, '..', '..', 'config.json');
