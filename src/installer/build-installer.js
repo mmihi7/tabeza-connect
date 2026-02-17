@@ -8,8 +8,13 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
+// Read version from package.json
+const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8'));
+const VERSION = packageJson.version;
+
 console.log('╔════════════════════════════════════════╗');
 console.log('║  Tabeza Connect Installer Builder     ║');
+console.log(`║  Version: ${VERSION.padEnd(28)} ║`);
 console.log('╚════════════════════════════════════════╝\n');
 
 const ROOT_DIR = path.join(__dirname, '..', '..');  // Go up to repository root
@@ -122,10 +127,10 @@ if (!fs.existsSync(OUTPUT_DIR)) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 
-// Create installer batch file
+// Create installer batch file with dynamic version
 const installerBatch = `@echo off
 REM Tabeza Connect Installer
-REM Version 1.0.0
+REM Version ${VERSION}
 
 echo ========================================
 echo Tabeza Connect Installer
@@ -318,7 +323,7 @@ console.log('✅ README created\n');
 // Step 6: Create ZIP package
 console.log('Step 6: Creating ZIP package...\n');
 
-const zipName = `TabezaConnect-Setup-v1.0.0.zip`;
+const zipName = `TabezaConnect-Setup-v${VERSION}.zip`;
 const zipPath = path.join(OUTPUT_DIR, zipName);
 
 let zipCreated = false;

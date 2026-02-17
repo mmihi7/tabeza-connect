@@ -8,16 +8,16 @@ param(
     [switch]$Uninstall
 )
 
-Write-Host "╔════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║  Tabeza Connect - Service Setup        ║" -ForegroundColor Cyan
-Write-Host "╚════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host "[====================================]" -ForegroundColor Cyan
+Write-Host "[  Tabeza Connect - Service Setup   ]" -ForegroundColor Cyan
+Write-Host "[====================================]" -ForegroundColor Cyan
 Write-Host ""
 
 # Check if running as administrator
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 if (-not $isAdmin) {
-    Write-Host "❌ This script must be run as Administrator" -ForegroundColor Red
+    Write-Host "[ERROR] This script must be run as Administrator" -ForegroundColor Red
     exit 1
 }
 
@@ -46,9 +46,9 @@ if ($Uninstall) {
 
 # Validate required parameters
 if (-not $BarId) {
-    Write-Host "❌ Bar ID is required" -ForegroundColor Red
+    Write-Host "[ERROR] Bar ID is required" -ForegroundColor Red
     Write-Host ""
-    Write-Host "Usage: .\register-service.ps1 -BarId <your-bar-id>" -ForegroundColor Yellow
+    Write-Host "Usage: .\register-service.ps1 -BarId YOUR_BAR_ID" -ForegroundColor Yellow
     exit 1
 }
 
@@ -57,14 +57,14 @@ $nodePath = Join-Path $InstallPath "nodejs\node.exe"
 $servicePath = Join-Path $InstallPath "nodejs\service\index.js"
 
 if (-not (Test-Path $nodePath)) {
-    Write-Host "❌ Node.js not found at: $nodePath" -ForegroundColor Red
+    Write-Host "[ERROR] Node.js not found at: $nodePath" -ForegroundColor Red
     Write-Host ""
     Write-Host "Please ensure Tabeza Connect is installed correctly." -ForegroundColor Yellow
     exit 1
 }
 
 if (-not (Test-Path $servicePath)) {
-    Write-Host "❌ Service file not found at: $servicePath" -ForegroundColor Red
+    Write-Host "[ERROR] Service file not found at: $servicePath" -ForegroundColor Red
     exit 1
 }
 
@@ -103,7 +103,7 @@ REM Start service with bundled Node.js
 "@
 
 $wrapperContent | Out-File -FilePath $wrapperPath -Encoding ASCII -Force
-Write-Host "  ✅ Service wrapper created" -ForegroundColor Green
+Write-Host "  [OK] Service wrapper created" -ForegroundColor Green
 
 # Create service using sc.exe (more reliable than New-Service for complex scenarios)
 $binaryPath = "`"$wrapperPath`""
@@ -112,12 +112,12 @@ Write-Host "  Creating service..." -ForegroundColor Gray
 $createResult = sc.exe create $serviceName binPath= $binaryPath DisplayName= $displayName start= auto
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "  ❌ Failed to create service" -ForegroundColor Red
+    Write-Host "  [ERROR] Failed to create service" -ForegroundColor Red
     Write-Host "  Error: $createResult" -ForegroundColor Red
     exit 1
 }
 
-Write-Host "  ✅ Service created" -ForegroundColor Green
+Write-Host "  [OK] Service created" -ForegroundColor Green
 
 # Set service description
 sc.exe description $serviceName $description | Out-Null
@@ -125,12 +125,12 @@ sc.exe description $serviceName $description | Out-Null
 # Configure service recovery (restart on failure)
 Write-Host "  Configuring automatic recovery..." -ForegroundColor Gray
 sc.exe failure $serviceName reset= 86400 actions= restart/5000/restart/10000/restart/30000 | Out-Null
-Write-Host "  ✅ Recovery configured (restart on failure)" -ForegroundColor Green
+Write-Host "  [OK] Recovery configured (restart on failure)" -ForegroundColor Green
 
 # Set service to run as LocalSystem
 Write-Host "  Setting service account..." -ForegroundColor Gray
 sc.exe config $serviceName obj= "LocalSystem" | Out-Null
-Write-Host "  ✅ Service account: LocalSystem" -ForegroundColor Green
+Write-Host "  [OK] Service account: LocalSystem" -ForegroundColor Green
 
 # Start the service
 Write-Host ""
@@ -142,20 +142,20 @@ try {
     
     $service = Get-Service -Name $serviceName
     if ($service.Status -eq 'Running') {
-        Write-Host "✅ Service started successfully" -ForegroundColor Green
+        Write-Host "[OK] Service started successfully" -ForegroundColor Green
     } else {
-        Write-Host "⚠️  Service created but not running (Status: $($service.Status))" -ForegroundColor Yellow
+        Write-Host "[WARN] Service created but not running (Status: $($service.Status))" -ForegroundColor Yellow
         Write-Host "  Try starting manually: Start-Service -Name $serviceName" -ForegroundColor Gray
     }
 } catch {
-    Write-Host "⚠️  Service created but failed to start: $_" -ForegroundColor Yellow
+    Write-Host "[WARN] Service created but failed to start: $_" -ForegroundColor Yellow
     Write-Host "  Check Event Viewer for details" -ForegroundColor Gray
 }
 
 Write-Host ""
-Write-Host "╔════════════════════════════════════════╗" -ForegroundColor Green
-Write-Host "║  Service Registration Complete!        ║" -ForegroundColor Green
-Write-Host "╚════════════════════════════════════════╝" -ForegroundColor Green
+Write-Host "[====================================]" -ForegroundColor Green
+Write-Host "[  Service Registration Complete!   ]" -ForegroundColor Green
+Write-Host "[====================================]" -ForegroundColor Green
 Write-Host ""
 Write-Host "Service Details:" -ForegroundColor Cyan
 Write-Host "  Name: $serviceName" -ForegroundColor White

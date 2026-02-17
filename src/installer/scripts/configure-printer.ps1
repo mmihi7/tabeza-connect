@@ -6,16 +6,16 @@ param(
     [switch]$SkipIfExists
 )
 
-Write-Host "╔════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║  Tabeza Connect - Printer Setup       ║" -ForegroundColor Cyan
-Write-Host "╚════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host "[====================================]" -ForegroundColor Cyan
+Write-Host "[  Tabeza Connect - Printer Setup   ]" -ForegroundColor Cyan
+Write-Host "[====================================]" -ForegroundColor Cyan
 Write-Host ""
 
 # Check if running as administrator
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 if (-not $isAdmin) {
-    Write-Host "❌ This script must be run as Administrator" -ForegroundColor Red
+    Write-Host "[ERROR] This script must be run as Administrator" -ForegroundColor Red
     Write-Host ""
     Write-Host "Right-click PowerShell and select 'Run as administrator'" -ForegroundColor Yellow
     exit 1
@@ -28,12 +28,12 @@ $existingPrinter = Get-Printer -Name $printerName -ErrorAction SilentlyContinue
 
 if ($existingPrinter) {
     if ($SkipIfExists) {
-        Write-Host "✅ Tabeza printer already exists - skipping" -ForegroundColor Green
+        Write-Host "[OK] Tabeza printer already exists - skipping" -ForegroundColor Green
         exit 0
     }
     
-    Write-Host "⚠️  Tabeza printer already exists" -ForegroundColor Yellow
-    $response = Read-Host "Remove and recreate? (y/n)"
+    Write-Host "[WARN] Tabeza printer already exists" -ForegroundColor Yellow
+    $response = Read-Host "Remove and recreate? [y/n]"
     
     if ($response -eq 'y') {
         Write-Host "Removing existing printer..." -ForegroundColor Gray
@@ -52,7 +52,7 @@ $detectionScript = Join-Path $PSScriptRoot "detect-printers.ps1"
 if (Test-Path $detectionScript) {
     & $detectionScript
 } else {
-    Write-Host "  ⚠️  Printer detection script not found" -ForegroundColor Yellow
+    Write-Host "  [WARN] Printer detection script not found" -ForegroundColor Yellow
 }
 
 Write-Host ""
@@ -64,9 +64,9 @@ $driver = Get-PrinterDriver -Name "Generic / Text Only" -ErrorAction SilentlyCon
 if (-not $driver) {
     try {
         Add-PrinterDriver -Name "Generic / Text Only" -ErrorAction Stop
-        Write-Host "  ✅ Driver installed" -ForegroundColor Green
+        Write-Host "  [OK] Driver installed" -ForegroundColor Green
     } catch {
-        Write-Host "  ❌ Failed to install driver: $_" -ForegroundColor Red
+        Write-Host "  [ERROR] Failed to install driver: $_" -ForegroundColor Red
         Write-Host ""
         Write-Host "The Generic/Text Only driver should be built into Windows." -ForegroundColor Yellow
         Write-Host "If this fails, you may need to:" -ForegroundColor Yellow
@@ -75,7 +75,7 @@ if (-not $driver) {
         exit 1
     }
 } else {
-    Write-Host "  ✅ Driver already installed" -ForegroundColor Green
+    Write-Host "  [OK] Driver already installed" -ForegroundColor Green
 }
 
 Write-Host ""
@@ -85,13 +85,13 @@ Write-Host "Step 3: Creating watch folder..." -ForegroundColor Cyan
 if (-not (Test-Path $WatchFolder)) {
     try {
         New-Item -ItemType Directory -Path $WatchFolder -Force | Out-Null
-        Write-Host "  ✅ Created: $WatchFolder" -ForegroundColor Green
+        Write-Host "  [OK] Created: $WatchFolder" -ForegroundColor Green
     } catch {
-        Write-Host "  ❌ Failed to create folder: $_" -ForegroundColor Red
+        Write-Host "  [ERROR] Failed to create folder: $_" -ForegroundColor Red
         exit 1
     }
 } else {
-    Write-Host "  ✅ Folder exists: $WatchFolder" -ForegroundColor Green
+    Write-Host "  [OK] Folder exists: $WatchFolder" -ForegroundColor Green
 }
 
 # Create subfolders
@@ -100,7 +100,7 @@ foreach ($subfolder in $subfolders) {
     $subfolderPath = Join-Path $WatchFolder $subfolder
     if (-not (Test-Path $subfolderPath)) {
         New-Item -ItemType Directory -Path $subfolderPath -Force | Out-Null
-        Write-Host "  ✅ Created: $subfolder\" -ForegroundColor Green
+        Write-Host "  [OK] Created: $subfolder\" -ForegroundColor Green
     }
 }
 
@@ -110,9 +110,9 @@ Write-Host "Step 4: Creating virtual printer..." -ForegroundColor Cyan
 # Add printer with FILE: port
 try {
     Add-Printer -Name $printerName -DriverName "Generic / Text Only" -PortName "FILE:" -ErrorAction Stop
-    Write-Host "  ✅ Printer created: $printerName" -ForegroundColor Green
+    Write-Host "  [OK] Printer created: $printerName" -ForegroundColor Green
 } catch {
-    Write-Host "  ❌ Failed to create printer: $_" -ForegroundColor Red
+    Write-Host "  [ERROR] Failed to create printer: $_" -ForegroundColor Red
     exit 1
 }
 
@@ -134,16 +134,16 @@ try {
     $portConfig = "winspool,FILE:,$WatchFolder"
     Set-ItemProperty -Path $regPath -Name $printerName -Value $portConfig -ErrorAction Stop
     
-    Write-Host "  ✅ Default save path configured" -ForegroundColor Green
+    Write-Host "  [OK] Default save path configured" -ForegroundColor Green
 } catch {
-    Write-Host "  ⚠️  Could not set default path: $_" -ForegroundColor Yellow
+    Write-Host "  [WARN] Could not set default path: $_" -ForegroundColor Yellow
     Write-Host "  Users will be prompted for save location on first print" -ForegroundColor Gray
 }
 
 Write-Host ""
-Write-Host "╔════════════════════════════════════════╗" -ForegroundColor Green
-Write-Host "║  Printer Setup Complete!               ║" -ForegroundColor Green
-Write-Host "╚════════════════════════════════════════╝" -ForegroundColor Green
+Write-Host "[====================================]" -ForegroundColor Green
+Write-Host "[  Printer Setup Complete!          ]" -ForegroundColor Green
+Write-Host "[====================================]" -ForegroundColor Green
 Write-Host ""
 Write-Host "Configuration:" -ForegroundColor Cyan
 Write-Host "  Printer Name: $printerName" -ForegroundColor White

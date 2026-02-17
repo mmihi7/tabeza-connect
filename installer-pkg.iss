@@ -21,7 +21,7 @@ DefaultGroupName=Tabeza Connect
 DisableProgramGroupPage=yes
 
 ; Output Configuration
-OutputDir=C:\Temp\TabezaConnect-Build
+OutputDir=dist
 OutputBaseFilename=TabezaConnect-Setup-v1.0.0
 SetupIconFile=icon.ico
 UninstallDisplayIcon={app}\icon.ico

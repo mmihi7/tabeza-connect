@@ -8,9 +8,13 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
+// Read version from package.json
+const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8'));
+const VERSION = packageJson.version;
+
 const NODEJS_BUNDLE_DIR = path.join(__dirname, 'nodejs-bundle');
 const OUTPUT_DIR = path.join(__dirname, '..', '..', 'dist');
-const ZIP_NAME = 'TabezaConnect-Setup-v1.0.0.zip';
+const ZIP_NAME = `TabezaConnect-Setup-v${VERSION}.zip`;
 const ZIP_PATH = path.join(OUTPUT_DIR, ZIP_NAME);
 
 console.log('Creating ZIP package...\n');
