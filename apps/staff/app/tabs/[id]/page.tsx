@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowRight, Clock, CheckCircle, Phone, Wallet, Plus, RefreshCw, User, UserCog, ShoppingCart, Trash2, X, MessageCircle, Send, AlertTriangle, Printer } from 'lucide-react';
+import { ArrowRight, Clock, CheckCircle, Phone, Wallet, Plus, RefreshCw, User, UserCog, ShoppingCart, Trash2, X, MessageCircle, Send, AlertTriangle, Printer, Settings, CreditCard, Bell } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
 import { timeAgo as kenyaTimeAgo } from '@/lib/formatUtils';
@@ -115,6 +115,8 @@ export default function TabDetailPage() {
   const tabId = params.id as string;
   const { showToast } = useToast();
   
+  const [tab, setTab] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'general' | 'venue' | 'payments' | 'notifications' | 'operations' | 'printer'>('general');
   const [displayName, setDisplayName] = useState('');
   const [tableNumber, setTableNumber] = useState<number | null>(null);
@@ -140,6 +142,25 @@ export default function TabDetailPage() {
 
   // Optimistic updates state
   const [optimisticOrders, setOptimisticOrders] = useState<Map<string, any>>(new Map());
+  
+  // Add printer service status check function
+  const checkPrinterServiceStatus = async () => {
+    try {
+      console.log('Checking printer service status...');
+      // This would call the same API as settings page
+      const response = await fetch('/api/printer/driver-status', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Printer status:', data);
+      }
+    } catch (error) {
+      console.error('Error checking printer status:', error);
+    }
+  };
 
   // Balance update helper function (Requirements 4.1, 4.3, 4.5)
   const triggerBalanceUpdateForTab = async (tabId: string, paymentId: string, paymentAmount: number, paymentMethod: string) => {
@@ -1547,7 +1568,8 @@ export default function TabDetailPage() {
                               </div>
                             ))}
                           </div>
-                          <p className="text-sm text-gray-500">{timeAgo(order.created_at)}<button 
+                          <p className="text-sm text-gray-500">{timeAgo(order.created_at)}</p>
+                          <button 
                 onClick={() => {
                   console.log('Switching to printer setup tab');
                   setActiveTab('printer');
