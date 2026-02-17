@@ -127,8 +127,8 @@ This implementation plan converts the GitHub release automation design into acti
     - Delete test release after verification
     - _Requirements: All_
 
-- [~] 5. Enhance release creation step
-  - [~] 5.1 Update release action configuration
+- [ ] 5. Enhance release creation step
+  - [ ] 5.1 Update release action configuration
     - Use `softprops/action-gh-release@v1`
     - Configure `files: 'dist/TabezaConnect-Setup-v*.zip'` to upload ZIP
     - Verify asset appears at: `/releases/download/v{version}/TabezaConnect-Setup-v{version}.zip`
@@ -148,13 +148,13 @@ This implementation plan converts the GitHub release automation design into acti
     - **Property 9: Pre-release Detection**
     - **Validates: Requirements 3.5**
 
-- [~] 6. Add build reproducibility measures
-  - [~] 6.1 Configure npm caching
+- [ ] 6. Add build reproducibility measures
+  - [ ] 6.1 Configure npm caching
     - Add cache: 'npm' to setup-node action
     - Cache node_modules between runs
     - _Requirements: 7.5_
 
-  - [~] 6.2 Pin dependency versions
+  - [ ] 6.2 Pin dependency versions
     - Update package.json with exact versions
     - Lock Node.js version to 18.x
     - Document version requirements
@@ -164,8 +164,8 @@ This implementation plan converts the GitHub release automation design into acti
     - **Property 5: Build Reproducibility**
     - **Validates: Requirements 7.5**
 
-- [~] 7. Implement failure handling and notifications
-  - [~] 7.1 Add error handling to workflow steps
+- [ ] 7. Implement failure handling and notifications
+  - [ ] 7.1 Add error handling to workflow steps
     - Set continue-on-error: false for critical steps
     - Add error message formatting
     - Preserve artifacts on failure for debugging
@@ -175,16 +175,16 @@ This implementation plan converts the GitHub release automation design into acti
     - **Property 10: Failure Atomicity**
     - **Validates: Requirements 9.4**
 
-  - [~] 7.3 Configure GitHub Actions notifications
+  - [ ] 7.3 Configure GitHub Actions notifications
     - Verify default email notifications are enabled
     - Document notification settings for maintainers
     - Add workflow status badge to README
     - _Requirements: 9.1, 9.2, 9.3_
 
-- [~] 8. Update staff app download links (Separate PR - Tabz repository)
+- [ ] 8. Update staff app download links (Separate PR - Tabz repository)
   - **Note**: These tasks are for the staff app repository (Tabz), not TabezaConnect. Create a separate PR after TabezaConnect workflow is working.
   
-  - [~] 8.1 Update PrinterStatusIndicator component
+  - [ ] 8.1 Update PrinterStatusIndicator component
     - File: `Tabz/apps/staff/components/PrinterStatusIndicator.tsx`
     - Verify download URL uses `/latest/` pattern: `https://github.com/billoapp/TabezaConnect/releases/latest/download/TabezaConnect-Setup-v1.0.0.zip`
     - Update to dynamic version if needed or keep static version reference
@@ -192,7 +192,7 @@ This implementation plan converts the GitHub release automation design into acti
     - Test download link functionality
     - _Requirements: 5.3_
 
-  - [~] 8.2 Update printer setup page
+  - [ ] 8.2 Update printer setup page
     - File: `Tabz/apps/staff/app/setup/printer/page.tsx`
     - Verify download URL uses `/latest/` pattern
     - Add link to specific version if needed
@@ -200,20 +200,20 @@ This implementation plan converts the GitHub release automation design into acti
     - Test download flow from staff app
     - _Requirements: 5.3, 10.3_
 
-  - [~] 8.3 Update driver detection service
+  - [ ] 8.3 Update driver detection service
     - File: `Tabz/packages/shared/lib/services/driver-detection-service.ts`
     - Verify download URL configuration uses `/latest/` pattern
     - Update version checking logic if needed
     - Ensure URL format matches GitHub release pattern
     - _Requirements: 5.3_
 
-- [~] 9. Add multi-version support
-  - [~] 9.1 Document version-specific URL pattern
+- [ ] 9. Add multi-version support
+  - [ ] 9.1 Document version-specific URL pattern
     - Add documentation for accessing specific versions
     - Document /latest/ vs /download/v{version}/ patterns
     - _Requirements: 10.2_
 
-  - [~] 9.2 Test maintenance branch releases
+  - [ ] 9.2 Test maintenance branch releases
     - Create test maintenance branch
     - Push tag to maintenance branch
     - Verify release is created correctly
@@ -228,8 +228,8 @@ This implementation plan converts the GitHub release automation design into acti
     - Verify all releases remain accessible
     - **Validates: Requirements 10.1**
 
-- [~] 10. Final checkpoint - Test complete release workflow
-  - [~] 10.1 Verify production release workflow
+- [ ] 10. Final checkpoint - Test complete release workflow
+  - [ ] 10.1 Verify production release workflow
     - Create production release tag (e.g., v1.0.0)
     - Monitor workflow execution
     - Verify release appears on GitHub releases page
@@ -239,7 +239,7 @@ This implementation plan converts the GitHub release automation design into acti
     - Monitor for any errors or issues
     - _Requirements: All_
   
-  - [~] 10.2 Verify URL patterns and accessibility
+  - [ ] 10.2 Verify URL patterns and accessibility
     - Test version-specific URL: `https://github.com/billoapp/TabezaConnect/releases/download/v1.0.0/TabezaConnect-Setup-v1.0.0.zip`
     - Test `/latest/` URL: `https://github.com/billoapp/TabezaConnect/releases/latest/download/TabezaConnect-Setup-v1.0.0.zip`
     - Verify both URLs return HTTP 200 and download the ZIP
@@ -247,8 +247,8 @@ This implementation plan converts the GitHub release automation design into acti
     - Test from different networks (not just localhost)
     - _Requirements: 5.1, 5.2, 5.3_
 
-- [~] 11. Create test release
-  - [~] 11.1 Create test tag and verify workflow
+- [ ] 11. Create test release
+  - [ ] 11.1 Create test tag and verify workflow
     - Push test tag (e.g., v1.0.1-test)
     - Monitor workflow execution
     - Verify release is created
@@ -257,7 +257,7 @@ This implementation plan converts the GitHub release automation design into acti
     - Clean up test release
     - _Requirements: All_
 
-  - [~] 11.2 Document release process
+  - [ ] 11.2 Document release process
     - Create RELEASING.md with step-by-step instructions
     - Document manual trigger process
     - Document troubleshooting steps
