@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowRight, Clock, CheckCircle, Phone, Wallet, Plus, RefreshCw, User, UserCog, ShoppingCart, Trash2, X, MessageCircle, Send, AlertTriangle } from 'lucide-react';
+import { ArrowRight, Clock, CheckCircle, Phone, Wallet, Plus, RefreshCw, User, UserCog, ShoppingCart, Trash2, X, MessageCircle, Send, AlertTriangle, Printer } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
 import { timeAgo as kenyaTimeAgo } from '@/lib/formatUtils';
@@ -115,8 +115,7 @@ export default function TabDetailPage() {
   const tabId = params.id as string;
   const { showToast } = useToast();
   
-  const [tab, setTab] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'general' | 'venue' | 'payments' | 'notifications' | 'operations' | 'printer'>('general');
   const [displayName, setDisplayName] = useState('');
   const [tableNumber, setTableNumber] = useState<number | null>(null);
   const [currentTime, setCurrentTime] = useState(Date.now());
@@ -1159,7 +1158,18 @@ export default function TabDetailPage() {
                 <RefreshCw size={24} />
               </button>
               
-              {/* Connection Status Indicator */}
+              {/* Add reload button for printer disconnections */}
+              <button
+                onClick={() => {
+                  console.log('Reloading printer status...');
+                  checkPrinterServiceStatus();
+                }}
+                className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                title="Reload printer status"
+              >
+                <RefreshCw size={16} />
+                Reload
+              </button>
               {showConnectionStatus && (
                 <div className="bg-white bg-opacity-20 backdrop-blur-sm px-3 py-1.5 rounded-full">
                   <ConnectionStatusIndicator 
@@ -1537,7 +1547,88 @@ export default function TabDetailPage() {
                               </div>
                             ))}
                           </div>
-                          <p className="text-sm text-gray-500">{timeAgo(order.created_at)}</p>
+                          <p className="text-sm text-gray-500">{timeAgo(order.created_at)}<button 
+                onClick={() => {
+                  console.log('Switching to printer setup tab');
+                  setActiveTab('printer');
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition ${
+                  activeTab === 'printer' 
+                    ? 'text-orange-600 bg-orange-50' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Printer size={16} />
+                Printer Setup
+              </button>
+              <button 
+                onClick={() => {
+                  console.log('Switching to venue tab');
+                  setActiveTab('venue');
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition ${
+                  activeTab === 'venue' 
+                    ? 'text-orange-600 bg-orange-50' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Settings size={16} />
+                Configuration
+              </button>
+              <button 
+                onClick={() => {
+                  console.log('Switching to payments tab');
+                  setActiveTab('payments');
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition ${
+                  activeTab === 'payments' 
+                    ? 'text-orange-600 bg-orange-50' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <CreditCard size={16} />
+                Payments
+              </button>
+              <button 
+                onClick={() => {
+                  console.log('Switching to notifications tab');
+                  setActiveTab('notifications');
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition ${
+                  activeTab === 'notifications' 
+                    ? 'text-orange-600 bg-orange-50' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Bell size={16} />
+                Notifications
+              </button>
+              <button 
+                onClick={() => {
+                  console.log('Switching to operations tab');
+                  setActiveTab('operations');
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition ${
+                  activeTab === 'operations' 
+                    ? 'text-orange-600 bg-orange-50' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Clock size={16} />
+                Operations
+              </button>
+              {/* Add reload button for printer disconnections */}
+              <button
+                onClick={() => {
+                  console.log('Reloading printer status...');
+                  checkPrinterServiceStatus();
+                }}
+                className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                title="Reload printer status"
+              >
+                <RefreshCw size={16} />
+                Reload
+              </button>
                         </div>
                         <div className="text-right ml-4">
                           <p className="font-bold text-orange-600">{tempFormatCurrency(order.total)}</p>

@@ -67,12 +67,12 @@ export default function PrinterSetupPage() {
               <div className="flex-1">
                 <p className="font-semibold text-gray-800">Download Printer Service</p>
                 <a
-                  href="https://github.com/billoapp/TabezaConnect/releases/latest/download/TabezaConnect-Setup-v1.0.0.zip"
+                  href="https://github.com/billoapp/TabezaConnect/releases/latest/download/TabezaConnect-Setup-v1.0.0.exe"
                   onClick={handleDownload}
                   className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm mt-1 hover:underline"
                 >
                   <Download size={16} />
-                  <span>TabezaConnect-Setup-v1.0.0.zip</span>
+                  <span>TabezaConnect-Setup-v1.0.0.exe</span>
                 </a>
               </div>
             </div>
@@ -84,7 +84,7 @@ export default function PrinterSetupPage() {
               <div className="flex-1">
                 <p className="font-semibold text-gray-800">Run Installer</p>
                 <p className="text-sm text-gray-600 mt-1">
-                  Right-click the downloaded file and select "Run as administrator"
+                  Right-click the downloaded .exe file and select "Run as administrator"
                 </p>
               </div>
             </div>

@@ -107,7 +107,7 @@ export default function SettingsPage() {
   const [showMpesaSetup, setShowMpesaSetup] = useState(false);
 
   // Tab Navigation State
-  const [activeTab, setActiveTab] = useState<'general' | 'venue' | 'payments' | 'notifications' | 'operations'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'venue' | 'payments' | 'notifications' | 'operations' | 'printer'>('general');
 
   // Venue Mode State
   const [venueMode, setVenueMode] = useState<'basic' | 'venue'>('venue');
@@ -122,6 +122,7 @@ export default function SettingsPage() {
   const [printerServiceStatus, setPrinterServiceStatus] = useState<'checking' | 'online' | 'offline' | 'error'>('checking');
   const [printerBarIdCopied, setPrinterBarIdCopied] = useState(false);
   const [configuringPrinter, setConfiguringPrinter] = useState(false);
+  const [restartingPrinter, setRestartingPrinter] = useState(false);
 
   // Configuration Change Validation State
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
@@ -263,6 +264,41 @@ export default function SettingsPage() {
       navigator.clipboard.writeText(barInfo.id);
       setPrinterBarIdCopied(true);
       setTimeout(() => setPrinterBarIdCopied(false), 2000);
+    }
+  };
+
+  const handleRestartPrinter = async () => {
+    if (!barInfo.id) {
+      alert('❌ Bar ID not found. Please refresh the page.');
+      return;
+    }
+
+    setRestartingPrinter(true);
+    try {
+      const response = await fetch('/api/printer/restart-service', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ barId: barInfo.id }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert('✅ TabezaConnect service restarted successfully!\n\nThe printer service will restart and reconnect automatically.');
+        // Wait a moment then check status again
+        setTimeout(() => {
+          checkPrinterServiceStatus();
+        }, 2000);
+      } else {
+        alert(`❌ Failed to restart TabezaConnect: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error: any) {
+      console.error('Error restarting TabezaConnect:', error);
+      alert('❌ Failed to restart TabezaConnect. Please try again.');
+    } finally {
+      setRestartingPrinter(false);
     }
   };
 
@@ -1574,6 +1610,20 @@ export default function SettingsPage() {
               </button>
               <button 
                 onClick={() => {
+                  console.log('Switching to printer setup tab');
+                  setActiveTab('printer');
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition ${
+                  activeTab === 'printer' 
+                    ? 'text-orange-600 bg-orange-50' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Printer size={16} />
+                Printer Setup
+              </button>
+              <button 
+                onClick={() => {
                   console.log('Switching to venue tab');
                   setActiveTab('venue');
                 }}
@@ -1881,6 +1931,170 @@ export default function SettingsPage() {
                   </button>
                 </div>
               )}
+            </>
+          )}
+
+          {/* Printer Setup Tab Content */}
+          {!isNewUser && activeTab === 'printer' && (
+            <>
+              <div className="mb-8">
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">Printer Setup</h2>
+                <p className="text-gray-600 mb-6">
+                  Download and install the Tabeza printer service to connect your POS system.
+                </p>
+                
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-800 mb-2">1. Download Installer</h3>
+                      <p className="text-sm text-gray-500">Download the latest TabezaConnect installer</p>
+                    </div>
+                    <div className="text-right">
+                      <a
+                        href="https://github.com/billoapp/TabezaConnect/releases/latest/download/TabezaConnect-Setup-v1.0.0.exe"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+                      >
+                        <Download size={16} />
+                        <span>TabezaConnect-Setup-v1.0.0.exe</span>
+                      </a>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-blue-600 font-bold text-sm">2</span>
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-800">Run Installer</p>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Right-click the downloaded .exe file and select "Run as administrator"
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-blue-600 font-bold text-sm">3</span>
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-800">Copy Your Bar ID</p>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Click the button below to copy your Bar ID to clipboard during installation
+                      </p>
+                      <div className="bg-gray-50 rounded p-2 mb-2">
+                        <code className="text-xs text-gray-800 break-all font-mono">{barInfo.id || 'Loading...'}</code>
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (barInfo.id) {
+                            navigator.clipboard.writeText(barInfo.id);
+                            alert('✅ Bar ID copied to clipboard! You can paste this during installation.');
+                          }
+                        }}
+                        className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                      >
+                        <Copy size={12} />
+                        Copy Bar ID
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-blue-600 font-bold text-sm">4</span>
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-800">Verify Installation</p>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Visit{' '}
+                        <a 
+                          href="http://localhost:8765/api/status" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline"
+                        >
+                          localhost:8765/api/status
+                        </a>
+                        {' '}to confirm the service is running
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-lg font-semibold text-gray-800">Installation Status</h3>
+                      <button
+                        onClick={() => checkPrinterServiceStatus()}
+                        className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                        title="Reload printer status"
+                      >
+                        <RefreshCw size={16} />
+                        Reload
+                      </button>
+                    </div>
+                    
+                    {printerServiceStatus === 'online' ? (
+                      <div className="flex items-start gap-2 mb-3">
+                        <CheckCircle size={16} className="text-green-600 mt-0.5" />
+                        <div className="flex-1">
+                          <span className="text-sm font-medium text-green-800 block mb-2">
+                            ✅ Service Running - Ready to Configure
+                          </span>
+                          <p className="text-xs text-green-700 mb-3">
+                            The printer service is running! Click the button below to connect it to your venue:
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={handleAutoConfigurePrinter}
+                              disabled={configuringPrinter || !barInfo.id}
+                              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mb-3"
+                            >
+                              {configuringPrinter ? (
+                                <>
+                                  <RefreshCw size={16} className="animate-spin" />
+                                  <span>Configuring...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Settings size={16} />
+                                  Auto-Configure Printer Service
+                                </>
+                              )}
+                            </button>
+                            <button
+                              onClick={handleRestartPrinter}
+                              disabled={restartingPrinter || !barInfo.id}
+                              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mb-3"
+                              title="Restart TabezaConnect service"
+                            >
+                              {restartingPrinter ? (
+                                <>
+                                  <RefreshCw size={16} className="animate-spin" />
+                                  <span>Restarting...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <RefreshCw size={16} />
+                                  Restart Service
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mt-4">
+                        <div className="flex items-center gap-2">
+                          <RefreshCw size={16} className="text-gray-600 animate-spin" />
+                          <span className="text-sm text-gray-600">Checking printer service status...</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </>
           )}
 
