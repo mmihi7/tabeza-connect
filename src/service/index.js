@@ -148,7 +148,7 @@ function loadConfig() {
     }
     
     // Read API URL from registry (default if not found)
-    const defaultApiUrl = 'https://tabz-kikao.vercel.app';
+    const defaultApiUrl = 'https://bkaigyrrzsqbfscyznzw.supabase.co';
     
     if (registryBarId && registryBarId !== 'YOUR_BAR_ID_HERE') {
       console.log('✅ Using configuration from Windows Registry');
@@ -210,44 +210,30 @@ function loadConfig() {
   }
   
   // No valid config found
-  console.error('');
-  console.error('❌ FATAL ERROR: No valid configuration found!');
-  console.error('');
-  console.error('Please configure the service by either:');
-  console.error('  1. Setting environment variables:');
-  console.error('     - TABEZA_BAR_ID');
-  console.error('     - TABEZA_API_URL');
-  console.error('     - TABEZA_WATCH_FOLDER');
-  console.error('  2. Creating config.json with valid barId and watchFolder');
-  console.error('');
-  
-  return null;
+  if (!registryBarId && !config) {
+    console.error('');
+    console.error('╔═══════════════════════════════════════════════════════════╗');
+    console.error('║                                                           ║');
+    console.error('║   ❌ FATAL ERROR: Cannot start service                    ║');
+    console.error('║                                                           ║');
+    console.error('║   No valid configuration found!                          ║');
+    console.error('║                                                           ║');
+    console.error('║   The service requires either:                           ║');
+    console.error('║   1. Environment variables (TABEZA_BAR_ID, etc.)         ║');
+    console.error('║   2. Valid config.json file                              ║');
+    console.error('║                                                           ║');
+    console.error('║   Check Windows Service environment variables in:        ║');
+    console.error('║   HKLM\\SYSTEM\\CurrentControlSet\\Services\\              ║');
+    console.error('║        TabezaConnect\\Environment                         ║');
+    console.error('║                                                           ║');
+    console.error('╚═══════════════════════════════════════════════════════════╝');
+    console.error('');
+    process.exit(1);
+  }
 }
 
-// Configuration
+// Load configuration
 let config = loadConfig();
-
-// EXIT if config is invalid (CRITICAL FIX)
-if (!config) {
-  console.error('');
-  console.error('╔═══════════════════════════════════════════════════════════╗');
-  console.error('║                                                           ║');
-  console.error('║   ❌ FATAL ERROR: Cannot start service                    ║');
-  console.error('║                                                           ║');
-  console.error('║   No valid configuration found!                          ║');
-  console.error('║                                                           ║');
-  console.error('║   The service requires either:                           ║');
-  console.error('║   1. Environment variables (TABEZA_BAR_ID, etc.)         ║');
-  console.error('║   2. Valid config.json file                              ║');
-  console.error('║                                                           ║');
-  console.error('║   Check Windows Service environment variables in:        ║');
-  console.error('║   HKLM\\SYSTEM\\CurrentControlSet\\Services\\              ║');
-  console.error('║        TabezaConnect\\Environment                         ║');
-  console.error('║                                                           ║');
-  console.error('╚═══════════════════════════════════════════════════════════╝');
-  console.error('');
-  process.exit(1);
-}
 
 // Ensure watch folder exists
 if (!fs.existsSync(config.watchFolder)) {
