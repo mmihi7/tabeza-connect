@@ -3245,6 +3245,7 @@ export default function SettingsPage() {
                           <li>• Staff can see which table each order came from</li>
                           <li>• When disabled, customers can order without table selection</li>
                         </ul>
+                      </div>
                     </div>
                   </div>
                 </div>
