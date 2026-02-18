@@ -39,16 +39,17 @@ const DriverInstallationGuidance: React.FC<DriverInstallationGuidanceProps> = ({
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Download TabezaConnect</h3>
         <p className="text-gray-600 mb-4">
-          Download and install the TabezaConnect service. It will automatically detect your printer and connect to Tabeza.
+          Download and install TabezaConnect to enable automatic printer connection.
         </p>
-        <button
-          onClick={handleDownload}
-          className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 font-medium"
-        >
-          <Download size={20} />
-          Download TabezaConnect
-          <ExternalLink size={16} />
-        </button>
+        <div className="flex justify-center">
+          <a
+            href="/download"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+          >
+            <Download className="w-5 h-5" />
+            Download TabezaConnect
+          </a>
+        </div>
         <p className="text-xs text-gray-500 mt-2 text-center">
           Available for Windows and macOS
         </p>
