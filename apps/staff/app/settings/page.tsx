@@ -1574,7 +1574,7 @@ export default function SettingsPage() {
                 }`}
               >
                 <Settings size={16} />
-                Configuration
+                POS Setup
               </button>
               <button 
                 onClick={() => {
@@ -1906,6 +1906,86 @@ export default function SettingsPage() {
                   </div>
                 )}
 
+                {/* Receipt Capture Section */}
+                <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-indigo-100 rounded-lg">
+                      <Settings size={20} className="text-indigo-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-800">Receipt Capture - Generate Template</h3>
+                      <p className="text-sm text-gray-500">Create AI-powered parsing templates for your POS receipts</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Template Generation Content */}
+                    <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+                      <h4 className="font-medium text-indigo-800 mb-2">Template Generation</h4>
+                      <p className="text-sm text-indigo-700 mb-4">
+                        Generate parsing templates for your POS receipts using AI-powered analysis.
+                      </p>
+                      <div className="space-y-3">
+                        <div className="bg-white p-3 rounded border border-indigo-200">
+                          <p className="text-sm text-gray-700 mb-2">
+                            <strong>How it works:</strong>
+                          </p>
+                          <ul className="text-xs text-gray-600 space-y-1">
+                            <li>• Print test receipts from your POS system</li>
+                            <li>• TabezaConnect captures them automatically</li>
+                            <li>• AI analyzes and creates parsing templates</li>
+                            <li>• Templates extract order data for customer tabs</li>
+                          </ul>
+                        </div>
+                        <button className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition text-sm font-medium">
+                          Open Receipt Capture → Generate Template
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Quick Actions */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <button className="p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition text-left">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Settings size={16} className="text-indigo-600" />
+                          <span className="text-sm font-medium text-gray-800">Templates</span>
+                        </div>
+                        <p className="text-xs text-gray-600">Manage parsing templates</p>
+                      </button>
+                      <button className="p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition text-left">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Grid3X3 size={16} className="text-teal-600" />
+                          <span className="text-sm font-medium text-gray-800">Assignments</span>
+                        </div>
+                        <p className="text-xs text-gray-600">Assign receipts to tabs</p>
+                      </button>
+                    </div>
+
+                    {/* Status Information */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div className="text-sm text-blue-800">
+                          <p className="font-medium mb-1">Receipt Capture Status</p>
+                          <ul className="text-xs space-y-1">
+                            <li>• TabezaConnect: Ready for setup</li>
+                            <li>• Template Engine: Available</li>
+                            <li>• AI Parsing: DeepSeek integration active</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => window.open('/receipt-capture', '_blank')}
+                    className="w-full mt-4 bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 flex items-center justify-center gap-2"
+                  >
+                    <Settings size={20} />
+                    Open Receipt Capture Dashboard
+                  </button>
+                </div>
+
                 <div className="bg-white border border-gray-200 p-6 rounded-lg mb-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1927,6 +2007,121 @@ export default function SettingsPage() {
                 <div className="bg-gray-50 p-6 rounded-lg mb-6">
                   <h3 className="text-lg font-semibold text-gray-800 mb-4">Configuration History</h3>
                   <ConfigurationHistory barId={barInfo.id} />
+                </div>
+
+                {/* POS Setup Section */}
+                <div className="bg-white rounded-xl shadow-sm p-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-teal-100 rounded-lg">
+                      <Grid3X3 size={20} className="text-teal-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-800">POS Setup</h3>
+                      <p className="text-sm text-gray-500">Configure your POS integration and receipt capture</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Enable Table Setup Toggle */}
+                    <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition">
+                      <div className="flex items-center gap-3">
+                        <Grid3X3 size={18} className="text-teal-600" />
+                        <div>
+                          <span className="text-sm font-medium text-gray-700">Require Table Selection</span>
+                          <p className="text-xs text-gray-500">Customers must select their table before ordering</p>
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={tableSettings.table_setup_enabled}
+                        onChange={(e) => setTableSettings({
+                          ...tableSettings, 
+                          table_setup_enabled: e.target.checked
+                        })}
+                        className="w-5 h-5 text-teal-500 rounded focus:ring-teal-500"
+                      />
+                    </label>
+
+                    {/* Table Count Configuration */}
+                    {tableSettings.table_setup_enabled && (
+                      <div className="p-4 bg-teal-50 border border-teal-200 rounded-lg">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Number of Tables
+                        </label>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={tableSettings.table_count}
+                            onChange={(e) => setTableSettings({
+                              ...tableSettings, 
+                              table_count: parseInt(e.target.value) || 1
+                            })}
+                            className="w-24 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none text-center font-medium"
+                          />
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-600">
+                              Tables will be numbered 1 to {tableSettings.table_count}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Range: 1-100 tables
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {/* Preview */}
+                        <div className="mt-3 p-3 bg-white border border-teal-200 rounded-lg">
+                          <p className="text-xs font-medium text-gray-700 mb-2">Preview:</p>
+                          <div className="grid grid-cols-6 gap-1">
+                            {Array.from({ length: Math.min(tableSettings.table_count, 12) }, (_, i) => (
+                              <div
+                                key={i + 1}
+                                className="w-8 h-8 bg-teal-100 border border-teal-300 rounded flex items-center justify-center text-xs font-medium text-teal-700"
+                              >
+                                {i + 1}
+                              </div>
+                            ))}
+                            {tableSettings.table_count > 12 && (
+                              <div className="w-8 h-8 bg-gray-100 border border-gray-300 rounded flex items-center justify-center text-xs text-gray-500">
+                                ...
+                              </div>
+                            )}
+                          </div>
+                          {tableSettings.table_count > 12 && (
+                            <p className="text-xs text-gray-500 mt-2">
+                              Showing first 12 of {tableSettings.table_count} tables
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Information Box */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div className="text-sm text-blue-800">
+                          <p className="font-medium mb-1">How Table Setup Works:</p>
+                          <ul className="text-xs space-y-1 ml-2">
+                            <li>• When enabled, customers must select their table number before ordering</li>
+                            <li>• Orders will be linked to the selected table for easy identification</li>
+                            <li>• Staff can see which table each order came from</li>
+                            <li>• When disabled, customers can order without table selection</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleSaveTableSettings}
+                    disabled={savingTableSettings}
+                    className="w-full mt-4 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
+                  >
+                    <Save size={20} />
+                    {savingTableSettings ? 'Saving...' : 'Save Table Settings'}
+                  </button>
                 </div>
               </div>
             </>
