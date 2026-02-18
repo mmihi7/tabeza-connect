@@ -336,20 +336,6 @@ export default function PrinterStatus({
     return (
       <div className="mt-3 space-y-3">
         <div className="text-sm">
-          <p className="font-medium mb-2">To connect your printer:</p>
-          <ol className="list-decimal list-inside space-y-1 text-sm opacity-90">
-            <li>Download TabezaConnect from tabeza.co.ke</li>
-            <li>Run the installer as administrator</li>
-            <li>Service will connect automatically</li>
-            <RefreshCw className={`w-4 h-4 ${state.isRefreshing ? 'animate-spin' : ''}`} />
-            Reconnect
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  /**
    * Compact view for header/navbar
    */
   if (compact) {
