@@ -201,117 +201,13 @@ app.post('/api/print-job', async (req, res) => {
   }
 });
 
-// NEW: Send print job to physical printer
-app.post('/api/print-to-physical', async (req, res) => {
-  try {
-    const { rawData, printerName } = req.body;
-    
-    if (!rawData) {
-      return res.status(400).json({
-        success: false,
-        error: 'rawData is required',
-      });
-    }
-    
-    console.log(`🖨️ Sending print job to physical printer...`);
-    
-    // Decode base64 data
-    const printBuffer = Buffer.from(rawData, 'base64');
-    
-    // Save to output folder for physical printer to pick up
-    const outputFolder = path.join(config.watchFolder, 'output');
-    if (!fs.existsSync(outputFolder)) {
-      fs.mkdirSync(outputFolder, { recursive: true });
-    }
-    
-    const outputFile = path.join(outputFolder, `print-${Date.now()}.prn`);
-    fs.writeFileSync(outputFile, printBuffer);
-    
-    console.log(`✅ Print job saved to: ${outputFile}`);
-    console.log(`📋 Configure your POS printer to monitor: ${outputFolder}`);
-    
-    res.json({
-      success: true,
-      message: 'Print job sent to physical printer',
-      outputFile,
-    });
-  } catch (error) {
-    console.error('Failed to send to physical printer:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-});
-
-// Poll cloud for print jobs (for venues behind firewall/NAT)
-let pollInterval = null;
-
-function startCloudPolling() {
-  if (!config.barId) {
-    console.log('⚠️  Skipping cloud polling - Bar ID not configured');
-    return;
-  }
-  
-  console.log('🔄 Starting cloud polling for print jobs...');
-  
-  // Build headers with Vercel bypass token if configured
-  const headers = {
-    'Content-Type': 'application/json',
-  };
-  
-  if (config.vercelBypassToken) {
-    headers['x-vercel-protection-bypass'] = config.vercelBypassToken;
-  }
-  
-  // Poll every 5 seconds
-  pollInterval = setInterval(async () => {
-    try {
-      const response = await fetch(`${config.apiUrl}/api/printer/pending-prints?barId=${config.barId}&driverId=${config.driverId}`, { headers });
-      
-      if (!response.ok) {
-        // Silently fail - don't spam logs
-        return;
-      }
-      
-      const { prints } = await response.json();
-      
-      if (prints && prints.length > 0) {
-        console.log(`📥 Received ${prints.length} print job(s) from cloud`);
-        
-        for (const print of prints) {
-          try {
-            // Decode and save to output folder
-            const printBuffer = Buffer.from(print.rawData, 'base64');
-            const outputFolder = path.join(config.watchFolder, 'output');
-            if (!fs.existsSync(outputFolder)) {
-              fs.mkdirSync(outputFolder, { recursive: true });
-            }
-            
-            const outputFile = path.join(outputFolder, `cloud-print-${Date.now()}.prn`);
-            fs.writeFileSync(outputFile, printBuffer);
-            
-            console.log(`✅ Cloud print job saved: ${outputFile}`);
-            
-            // Acknowledge receipt
-            await fetch(`${config.apiUrl}/api/printer/acknowledge-print`, {
-              method: 'POST',
-              headers,
-              body: JSON.stringify({
-                printId: print.id,
-                driverId: config.driverId,
-              }),
-            });
-          } catch (error) {
-            console.error('Error processing cloud print:', error);
-          }
-        }
-      }
-    } catch (error) {
-      // Silently fail - network issues are common
-    }
-  }, 5000); // Poll every 5 seconds
-}
+// REMOVED: Blocking print forwarding logic
+// CORE TRUTH: Manual service always exists. Digital authority is singular.
+// Tabeza adapts to the venue — never the reverse.
+//
+// The POS prints directly to the printer. TabezaConnect observes passively.
+// No blocking intermediary. No cloud-to-printer relay.
+// Architecture: POS → Printer (instant) + Windows Spooler → TabezaConnect watches
 
 // Start watching folder for new print files
 function startWatcher() {
@@ -702,8 +598,8 @@ async function start() {
   // Start file watcher
   startWatcher();
   
-  // Start cloud polling (for receiving print jobs from cloud)
-  startCloudPolling();
+  // REMOVED: Cloud polling for print jobs (blocking intermediary)
+  // POS prints directly to printer. TabezaConnect observes passively.
   
   // Start heartbeat service
   startHeartbeat();
@@ -791,9 +687,7 @@ process.on('SIGINT', () => {
   if (watcher) {
     watcher.close();
   }
-  if (pollInterval) {
-    clearInterval(pollInterval);
-  }
+  // REMOVED: pollInterval cleanup (no longer needed)
   stopHeartbeat();
   process.exit(0);
 });

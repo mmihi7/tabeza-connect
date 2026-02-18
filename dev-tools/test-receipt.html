@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Receipt - Print to TabezaConnect</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      max-width: 300px;
+      margin: 20px auto;
+      padding: 20px;
+    }
+    .receipt {
+      border: 1px solid #ccc;
+      padding: 20px;
+      background: white;
+    }
+    .center { text-align: center; }
+    .line { border-top: 1px dashed #000; margin: 10px 0; }
+    .item { display: flex; justify-content: space-between; margin: 5px 0; }
+    .total { font-weight: bold; font-size: 1.2em; }
+    button {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      margin: 20px 0;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #1d4ed8;
+    }
+    .instructions {
+      background: #fef3c7;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      border-left: 4px solid #f59e0b;
+    }
+    @media print {
+      body { margin: 0; padding: 0; }
+      button, .instructions { display: none; }
+      .receipt { border: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="instructions">
+    <strong>📋 Test Instructions:</strong>
+    <ol>
+      <li>Click "Print This Receipt" button below</li>
+      <li>In print dialog, select "Microsoft Print to PDF"</li>
+      <li>Save to: <code>C:\ProgramData\Tabeza\TabezaPrints</code></li>
+      <li>Watch TabezaConnect console for detection</li>
+      <li>Check Staff app for receipt in Captain's Orders</li>
+    </ol>
+  </div>
+
+  <button onclick="window.print()">🖨️ Print This Receipt</button>
+
+  <div class="receipt">
+    <div class="center">
+      <h2>TABEZA TEST RECEIPT</h2>
+      <p>Receipt #: RCP-TEST-001</p>
+      <p>Date: <span id="date"></span></p>
+      <p>Time: <span id="time"></span></p>
+    </div>
+    
+    <div class="line"></div>
+    
+    <div class="item">
+      <span>2x Tusker Lager 500ml</span>
+      <span>500.00</span>
+    </div>
+    <div class="item">
+      <span>1x Nyama Choma (Half Kg)</span>
+      <span>800.00</span>
+    </div>
+    <div class="item">
+      <span>3x Pilsner 500ml</span>
+      <span>600.00</span>
+    </div>
+    <div class="item">
+      <span>1x Chips Masala</span>
+      <span>150.00</span>
+    </div>
+    <div class="item">
+      <span>2x Soda (Coke)</span>
+      <span>160.00</span>
+    </div>
+    
+    <div class="line"></div>
+    
+    <div class="item">
+      <span>Subtotal:</span>
+      <span>2,210.00</span>
+    </div>
+    <div class="item">
+      <span>VAT (16%):</span>
+      <span>353.60</span>
+    </div>
+    
+    <div class="line"></div>
+    
+    <div class="item total">
+      <span>TOTAL:</span>
+      <span>KES 2,563.60</span>
+    </div>
+    
+    <div class="line"></div>
+    
+    <div class="center">
+      <p>Payment Method: Cash</p>
+      <p>Thank you for your business!</p>
+      <p style="margin-top: 20px;">Powered by Tabeza</p>
+    </div>
+  </div>
+
+  <script>
+    // Set current date and time
+    const now = new Date();
+    document.getElementById('date').textContent = now.toLocaleDateString();
+    document.getElementById('time').textContent = now.toLocaleTimeString();
+  </script>
+</body>
+</html>

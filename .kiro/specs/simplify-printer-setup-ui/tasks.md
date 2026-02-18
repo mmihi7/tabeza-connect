@@ -111,20 +111,28 @@ This plan implements a simplified printer setup experience by removing redundant
 - [x] 6. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
+- [ ] 6.1 Apply printer_drivers table migration
+  - Run database/create-printer-drivers-table.sql in Supabase
+  - Verify table exists with correct schema
+  - Verify indexes and RLS policies are created
+  - Test heartbeat by checking table populates within 30 seconds
+  - _Requirements: 4.2, 4.5_
+  - _Note: This is CRITICAL - without this table, heartbeats fail and printer status shows offline_
+
 - [ ] 7. Update documentation and user guidance
-  - [~] 7.1 Update printer setup documentation
+  - [ ] 7.1 Update printer setup documentation
     - Document automatic heartbeat mechanism
     - Update troubleshooting guide with new UI
     - Add screenshots of simplified printer status
     - _Requirements: 3.2_
   
-  - [~] 7.2 Create migration guide for existing users
+  - [ ] 7.2 Create migration guide for existing users
     - Explain removal of "Auto-Configure" button
     - Clarify that existing installations continue working
     - Document new status indicators
     - _Requirements: 1.4_
 
-- [~] 8. Final checkpoint - Ensure all tests pass
+- [ ] 8. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes
