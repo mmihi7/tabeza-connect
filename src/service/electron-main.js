@@ -121,7 +121,7 @@ function startPrinterService(config) {
   const env = {
     ...process.env,
     TABEZA_BAR_ID: config.barId,
-    TABEZA_API_URL: config.apiUrl || 'https://staff.tabeza.co.ke',
+    TABEZA_API_URL: config.apiUrl || 'https://tabeza.co.ke',
   };
   
   // Start the service as a child process
@@ -248,7 +248,7 @@ function createTrayIcon(config) {
     {
       label: 'Open Staff Dashboard',
       click: () => {
-        shell.openExternal(config.apiUrl || 'https://staff.tabeza.co.ke');
+        shell.openExternal(config.apiUrl || 'https://tabeza.co.ke');
       }
     },
     { type: 'separator' },
@@ -359,7 +359,7 @@ ipcMain.on('save-config', (event, barId) => {
     
     const config = {
       barId: barId.trim(),
-      apiUrl: 'https://staff.tabeza.co.ke',
+      apiUrl: 'https://tabeza.co.ke',
       driverId: `driver-${require('os').hostname()}-${Date.now()}`,
       watchFolder: path.join(process.env.USERPROFILE || process.env.HOME, 'TabezaPrints'),
       installedAt: new Date().toISOString(),

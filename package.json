@@ -30,9 +30,12 @@
   },
   "homepage": "https://github.com/billoapp/TabezaConnect#readme",
   "dependencies": {
-    "chokidar": "^5.0.0",
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
-    "winreg": "^1.2.5"
+    "cors": "^2.8.5",
+    "electron": "^28.0.0",
+    "express": "^4.18.2",
+    "fs-extra": "^11.1.1",
+    "node-machine-id": "^1.1.12",
+    "winreg": "^1.2.4",
+    "ws": "^8.14.2"
   }
 }

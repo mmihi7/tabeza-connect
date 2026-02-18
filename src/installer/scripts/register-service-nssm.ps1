@@ -4,7 +4,7 @@
 param(
     [string]$InstallPath = "C:\Program Files\Tabeza",
     [string]$BarId,
-    [string]$ApiUrl = "https://staff.tabeza.co.ke",
+    [string]$ApiUrl = "https://tabeza.co.ke",
     [switch]$Uninstall
 )
 

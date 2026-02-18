@@ -190,7 +190,7 @@ end;
 { Get API URL }
 function GetApiUrl(Param: String): String;
 begin
-  Result := 'https://staff.tabeza.co.ke';
+  Result := 'https://tabeza.co.ke';
 end;
 
 [Run]

@@ -6,14 +6,9 @@
  * Digital authority is singular. 
  * Tabeza adapts to the venue — never the reverse.
  * 
- * This service operates in two modes controlled by CAPTURE_MODE environment variable:
+ * This service operates in spooler mode controlled by CAPTURE_MODE environment variable:
  * 
- * 1. LEGACY MODE (captureMode='folder'):
- *    - Monitors a folder for print jobs (C:\ProgramData\Tabeza\TabezaPrints)
- *    - Works with "Print to File" or any printer that outputs to a folder
- *    - POS → TabezaConnect → Printer (blocking intermediary)
- * 
- * 2. NEW MODE (captureMode='spooler'):
+ * NEW MODE (captureMode='spooler'):
  *    - Monitors Windows print spooler (C:\Windows\System32\spool\PRINTERS)
  *    - Passive capture - POS prints directly to printer with zero latency
  *    - POS → Printer (instant) + TabezaConnect watches spooler (passive)
@@ -28,7 +23,6 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
-const chokidar = require('chokidar');
 const https = require('https');
 const { execSync } = require('child_process');
 
@@ -122,7 +116,7 @@ function loadConfig() {
   const envApiUrl = process.env.TABEZA_API_URL;
   const envWatchFolder = process.env.TABEZA_WATCH_FOLDER;
   const envVercelBypassToken = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || process.env.VERCEL_BYPASS_TOKEN;
-  const envCaptureMode = process.env.CAPTURE_MODE || 'folder'; // 'folder' (legacy) or 'spooler' (new)
+  const envCaptureMode = process.env.CAPTURE_MODE || 'spooler'; // 'folder' (legacy) or 'spooler' (new)
   
   console.log('  TABEZA_BAR_ID:', envBarId || '(not set)');
   console.log('  TABEZA_API_URL:', envApiUrl || '(not set)');
@@ -807,7 +801,7 @@ function startCloudPolling() {
 // Start monitoring based on capture mode
 function startWatcher() {
   console.log(`👀 Starting capture service...`);
-  console.log(`   Mode: ${config.captureMode === 'spooler' ? 'NEW (Passive Spooler Monitor)' : 'LEGACY (Folder Watch)'}`);
+  console.log(`   Mode: ${config.captureMode === 'spooler' ? 'NEW (Passive Spooler Monitor)' : 'UNKNOWN'}`);
   console.log('');
   
   if (config.captureMode === 'spooler') {
@@ -818,53 +812,8 @@ function startWatcher() {
     setInterval(uploadWorker, 5000); // Process queue every 5 seconds
     
   } else {
-    // LEGACY MODE: Monitor folder (blocking)
-    watcher = chokidar.watch(config.watchFolder, {
-      ignored: /(^|[\/\\])\../, // ignore dotfiles
-      persistent: true,
-      ignoreInitial: true,
-      awaitWriteFinish: {
-        stabilityThreshold: 2000,
-        pollInterval: 100
-      }
-    });
-
-    watcher
-      .on('add', async (filePath) => {
-        console.log(`📄 New print file detected: ${path.basename(filePath)}`);
-        
-        try {
-          // Read file
-          const fileData = fs.readFileSync(filePath);
-          
-          // Process and send to cloud
-          await processPrintJob(fileData, path.basename(filePath));
-          
-          console.log(`✅ Print job relayed successfully`);
-          
-          // Archive the file (move to processed folder)
-          const processedFolder = path.join(config.watchFolder, 'processed');
-          if (!fs.existsSync(processedFolder)) {
-            fs.mkdirSync(processedFolder, { recursive: true });
-          }
-          
-          const archivePath = path.join(processedFolder, `${Date.now()}-${path.basename(filePath)}`);
-          fs.renameSync(filePath, archivePath);
-          
-        } catch (error) {
-          console.error(`❌ Error processing print file:`, error);
-          
-          // Move to error folder
-          const errorFolder = path.join(config.watchFolder, 'errors');
-          if (!fs.existsSync(errorFolder)) {
-            fs.mkdirSync(errorFolder, { recursive: true });
-          }
-          
-          const errorPath = path.join(errorFolder, `${Date.now()}-${path.basename(filePath)}`);
-          fs.renameSync(filePath, errorPath);
-        }
-      })
-      .on('error', error => console.error(`Watcher error: ${error}`));
+    console.error('❌ Invalid capture mode. Please set "captureMode": "spooler" in config.json');
+    process.exit(1);
   }
 }
 

@@ -175,7 +175,7 @@ if "%BAR_ID%"=="" (
     exit /b 1
 )
 
-set API_URL=https://staff.tabeza.co.ke
+set API_URL=https://tabeza.co.ke
 echo Using API URL: %API_URL%
 echo.
 

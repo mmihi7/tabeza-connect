@@ -172,11 +172,11 @@ if (Test-Path $logPath) {
 Write-Host ""
 Write-Host "9. Network Connectivity" -ForegroundColor Cyan
 try {
-    $response = Test-NetConnection -ComputerName "staff.tabeza.co.ke" -Port 443 -InformationLevel Quiet -WarningAction SilentlyContinue
+    $response = Test-NetConnection -ComputerName "tabeza.co.ke" -Port 443 -InformationLevel Quiet -WarningAction SilentlyContinue
     if ($response) {
-        Write-Host "   ✅ Can reach staff.tabeza.co.ke" -ForegroundColor Green
+        Write-Host "   ✅ Can reach tabeza.co.ke" -ForegroundColor Green
     } else {
-        Write-Host "   ⚠️  Cannot reach staff.tabeza.co.ke" -ForegroundColor Yellow
+        Write-Host "   ⚠️  Cannot reach tabeza.co.ke" -ForegroundColor Yellow
         Write-Host "   (Check firewall/internet connection)" -ForegroundColor Gray
     }
 } catch {

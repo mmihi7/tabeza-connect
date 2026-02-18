@@ -1,6 +1,6 @@
 {
   "barId": "",
-  "apiUrl": "https://staff.tabeza.co.ke",
+  "apiUrl": "https://tabeza.co.ke",
   "watchFolder": "%USERPROFILE%\\TabezaPrints",
   "logLevel": "info",
   "logPath": "%APPDATA%\\Tabeza\\logs",
