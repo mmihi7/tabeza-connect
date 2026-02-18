@@ -2641,16 +2641,10 @@ export default function SettingsPage() {
                       venueMode === 'basic' 
                         ? 'text-blue-600' 
                         : venueMode === 'venue' && authorityMode === 'pos'
-                          ? 'bg-yellow-100'
-                          : 'bg-green-100'
-                    }`}>
-                      <Store size={20} className={
-                        venueMode === 'basic' 
-                          ? 'text-blue-600' 
-                          : venueMode === 'venue' && authorityMode === 'pos'
-                            ? 'text-yellow-600'
-                            : 'text-green-600'
-                      } />
+                          ? 'text-yellow-600'
+                          : 'text-green-600'
+                    } />
+                  </div>
                   <div className={`border-2 rounded-lg p-4 ${
                     venueMode === 'basic' 
                       ? 'bg-blue-50 border-blue-200' 
@@ -3251,7 +3245,6 @@ export default function SettingsPage() {
                           <li>• Staff can see which table each order came from</li>
                           <li>• When disabled, customers can order without table selection</li>
                         </ul>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -3259,6 +3252,11 @@ export default function SettingsPage() {
                 <button
                   onClick={handleSaveTableSettings}
                   disabled={savingTableSettings}
+                  className="w-full mt-4 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
+                >
+                  <Save size={20} />
+                  {savingTableSettings ? 'Saving...' : 'Save Table Settings'}
+                </button>
               </div>
             </>
           )}

@@ -1,19 +1,26 @@
-import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { TemplateGenerationStep } from '../../../components/TemplateGenerationStep';
-import { ReceiptAssignment } from '../../../components/ReceiptAssignment';
+"use client";
 
-const supabase = createClientComponentClient();
+import { useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
+import TemplateGenerationStep from '../../components/TemplateGenerationStep';
+import ReceiptAssignment from '../../components/ReceiptAssignment';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function ReceiptCapturePage() {
   const [activeTab, setActiveTab] = useState<'template' | 'assignment'>('template');
   const [barId, setBarId] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     // Get current bar ID from user context or session
     const fetchBarId = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        setUser(user);
         // TODO: Get bar ID from user profile or context
         setBarId('438c80c1-fe11-4ac5-8a48-2fc45104ba31'); // Using test bar ID for now
       }
@@ -93,7 +100,7 @@ export default function ReceiptCapturePage() {
               <p className="text-gray-600 mb-6">
                 View unclaimed receipts and assign them to customer tabs for payment.
               </p>
-              <ReceiptAssignment barId={barId} />
+              <ReceiptAssignment barId={barId} staffId={user?.id} />
             </div>
           )}
         </div>
