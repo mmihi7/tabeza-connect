@@ -14,7 +14,7 @@ const DriverInstallationGuidance: React.FC<DriverInstallationGuidanceProps> = ({
   onDriversConfirmed,
 }) => {
   const handleDownload = () => {
-    window.open('https://tabeza.co.ke/downloads/tabezaconnect', '_blank');
+    window.open('https://github.com/billoapp/TabezaConnect/releases/download/v1.1.0/TabezaConnect-Setup-v1.1.0.exe', '_blank');
   };
 
   return (
@@ -64,7 +64,7 @@ const DriverInstallationGuidance: React.FC<DriverInstallationGuidanceProps> = ({
             <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-semibold">
               1
             </span>
-            <span className="text-gray-700 pt-0.5">Download TabezaConnect from the link above</span>
+            <span className="text-gray-700 pt-0.5">Download TabezaConnect from link above</span>
           </li>
           <li className="flex items-start gap-3">
             <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-semibold">

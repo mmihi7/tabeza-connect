@@ -277,7 +277,7 @@ export default function PrinterSettingsPage() {
                   </p>
                   <div className="flex items-center gap-2">
                     <a
-                      href="https://tabeza.co.ke/downloads/tabezaconnect"
+                      href="https://github.com/billoapp/TabezaConnect/releases/download/v1.1.0/TabezaConnect-Setup-v1.1.0.exe"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"

@@ -45,7 +45,7 @@ describe('DriverInstallationGuidance', () => {
       fireEvent.click(downloadButton);
 
       expect(global.open).toHaveBeenCalledWith(
-        'https://tabeza.co.ke/downloads/tabezaconnect',
+        'https://github.com/billoapp/TabezaConnect/releases/download/v1.1.0/TabezaConnect-Setup-v1.1.0.exe',
         '_blank'
       );
     });

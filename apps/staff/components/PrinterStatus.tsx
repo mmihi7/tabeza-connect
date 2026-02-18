@@ -341,25 +341,6 @@ export default function PrinterStatus({
             <li>Download TabezaConnect from tabeza.co.ke</li>
             <li>Run the installer as administrator</li>
             <li>Service will connect automatically</li>
-          </ol>
-        </div>
-        
-        <div className="flex gap-2">
-          <a
-            href="https://tabeza.co.ke/downloads/tabezaconnect"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-lg hover:bg-opacity-90 transition text-sm font-medium"
-          >
-            <Download className="w-4 h-4" />
-            Download TabezaConnect
-          </a>
-          
-          <button
-            onClick={handleReconnect}
-            disabled={state.isRefreshing}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-lg hover:bg-opacity-90 transition text-sm font-medium disabled:opacity-50"
-          >
             <RefreshCw className={`w-4 h-4 ${state.isRefreshing ? 'animate-spin' : ''}`} />
             Reconnect
           </button>
