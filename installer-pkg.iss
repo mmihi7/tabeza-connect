@@ -117,7 +117,7 @@ begin
     'Configuration', 'Enter your venue details',
     'Please enter your Bar ID from the Tabeza staff dashboard.' + #13#10 + #13#10 +
     'To find your Bar ID:' + #13#10 +
-    '1. Log in to https://staff.tabeza.co.ke' + #13#10 +
+    '1. Log in to "https://tabeza.co.ke"' + #13#10 +
     '2. Go to Settings > Venue Details' + #13#10 +
     '3. Copy your Bar ID');
   

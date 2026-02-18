@@ -1,11 +1,10 @@
 {
   "name": "tabeza-connect",
-  "version": "1.0.0",
-  "description": "Tabeza Connect - Windows installer for POS integration",
+  "version": "1.1.0",
+  "description": "Tabeza Connect - Windows installer for POS integration with spooler monitoring",
   "scripts": {
-    "download:nodejs": "node src/installer/download-nodejs.js",
-    "build:installer": "node src/installer/build-installer.js",
-    "build": "npm run download:nodejs && npm run build:installer",
+    "build": "build-and-release.bat",
+    "build:installer": "build-and-release.bat",
     "test": "echo \"No tests yet\" && exit 0"
   },
   "devDependencies": {
@@ -29,5 +28,11 @@
   "bugs": {
     "url": "https://github.com/billoapp/TabezaConnect/issues"
   },
-  "homepage": "https://github.com/billoapp/TabezaConnect#readme"
+  "homepage": "https://github.com/billoapp/TabezaConnect#readme",
+  "dependencies": {
+    "chokidar": "^5.0.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "winreg": "^1.2.5"
+  }
 }

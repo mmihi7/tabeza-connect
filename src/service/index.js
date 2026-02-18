@@ -1,13 +1,27 @@
 #!/usr/bin/env node
 /**
- * Tabeza Printer Service
- * 
- * Monitors a folder for print jobs and relays them to Tabeza cloud
- * Works with "Print to File" or any printer that outputs to a folder
+ * Tabeza Printer Service (TabezaConnect Capture Service)
  * 
  * CORE TRUTH: Manual service always exists. 
  * Digital authority is singular. 
  * Tabeza adapts to the venue — never the reverse.
+ * 
+ * This service operates in two modes controlled by CAPTURE_MODE environment variable:
+ * 
+ * 1. LEGACY MODE (captureMode='folder'):
+ *    - Monitors a folder for print jobs (C:\ProgramData\Tabeza\TabezaPrints)
+ *    - Works with "Print to File" or any printer that outputs to a folder
+ *    - POS → TabezaConnect → Printer (blocking intermediary)
+ * 
+ * 2. NEW MODE (captureMode='spooler'):
+ *    - Monitors Windows print spooler (C:\Windows\System32\spool\PRINTERS)
+ *    - Passive capture - POS prints directly to printer with zero latency
+ *    - POS → Printer (instant) + TabezaConnect watches spooler (passive)
+ *    - Printer never knows Tabeza exists. POS never knows Tabeza exists.
+ *    - This is why it's called a "driver" - it integrates at the OS print layer
+ * 
+ * The new mode transforms TabezaConnect from a blocking intermediary to a 
+ * passive receipt capture system. Printing never depends on Tabeza.
  */
 
 const express = require('express');
@@ -20,6 +34,9 @@ const { execSync } = require('child_process');
 
 // Add Windows registry reading
 const winreg = require('winreg');
+
+// Import spool monitor for passive receipt capture
+const SpoolMonitor = require('./spoolMonitor');
 
 const app = express();
 const PORT = 8765;
@@ -105,10 +122,12 @@ function loadConfig() {
   const envApiUrl = process.env.TABEZA_API_URL;
   const envWatchFolder = process.env.TABEZA_WATCH_FOLDER;
   const envVercelBypassToken = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || process.env.VERCEL_BYPASS_TOKEN;
+  const envCaptureMode = process.env.CAPTURE_MODE || 'folder'; // 'folder' (legacy) or 'spooler' (new)
   
   console.log('  TABEZA_BAR_ID:', envBarId || '(not set)');
   console.log('  TABEZA_API_URL:', envApiUrl || '(not set)');
   console.log('  TABEZA_WATCH_FOLDER:', envWatchFolder || '(not set)');
+  console.log('  CAPTURE_MODE:', envCaptureMode);
   console.log('');
   
   if (envBarId && envApiUrl) {
@@ -116,6 +135,7 @@ function loadConfig() {
     console.log('   Bar ID:', envBarId);
     console.log('   API URL:', envApiUrl);
     console.log('   Watch Folder:', envWatchFolder || 'C:\\ProgramData\\Tabeza\\TabezaPrints');
+    console.log('   Capture Mode:', envCaptureMode);
     console.log('');
     return {
       barId: envBarId,
@@ -123,6 +143,7 @@ function loadConfig() {
       vercelBypassToken: envVercelBypassToken || '',
       driverId: generateDriverId(),
       watchFolder: envWatchFolder || 'C:\\ProgramData\\Tabeza\\TabezaPrints',
+      captureMode: envCaptureMode,
     };
   }
   
@@ -155,6 +176,7 @@ function loadConfig() {
       console.log('   Bar ID:', registryBarId);
       console.log('   API URL:', defaultApiUrl);
       console.log('   Watch Folder: C:\\ProgramData\\Tabeza\\TabezaPrints');
+      console.log('   Capture Mode: folder (default)');
       console.log('');
       return {
         barId: registryBarId,
@@ -162,6 +184,7 @@ function loadConfig() {
         vercelBypassToken: '',
         driverId: generateDriverId(),
         watchFolder: 'C:\\ProgramData\\Tabeza\\TabezaPrints',
+        captureMode: 'folder', // Default to legacy mode for registry config
       };
     }
   } catch (error) {
@@ -197,10 +220,16 @@ function loadConfig() {
         config.driverId = generateDriverId();
       }
       
+      // Add captureMode if not present (default to legacy folder mode)
+      if (!config.captureMode) {
+        config.captureMode = 'folder';
+      }
+      
       console.log('✅ Loaded configuration from config.json');
       console.log('   Bar ID:', config.barId);
       console.log('   API URL:', config.apiUrl);
       console.log('   Watch Folder:', config.watchFolder);
+      console.log('   Capture Mode:', config.captureMode);
       return config;
     } else {
       console.warn('⚠️  config.json not found at:', configPath);
@@ -244,6 +273,9 @@ if (!fs.existsSync(config.watchFolder)) {
 // File watcher
 let watcher = null;
 
+// Spool monitor for passive receipt capture
+let spoolMonitor = null;
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -251,6 +283,8 @@ app.use(express.raw({ type: 'application/octet-stream', limit: '10mb' }));
 
 // Health check endpoint
 app.get('/api/status', (req, res) => {
+  const spoolStats = spoolMonitor ? spoolMonitor.getStats() : null;
+  
   res.json({
     status: 'running',
     version: '1.0.0',
@@ -259,7 +293,9 @@ app.get('/api/status', (req, res) => {
     barId: config.barId,
     driverId: config.driverId,
     watchFolder: config.watchFolder,
+    captureMode: config.captureMode || 'folder',
     configured: !!config.barId,
+    spoolMonitor: spoolStats,
     ssl: {
       issuesDetected: sslIssuesDetected,
       lastError: lastSSLError,
@@ -279,6 +315,7 @@ app.get('/api/diagnostics', async (req, res) => {
       barId: config.barId || 'not configured',
       driverId: config.driverId,
       watchFolder: config.watchFolder,
+      captureMode: config.captureMode || 'folder',
     },
     ssl: {
       nodeOptions: process.env.NODE_OPTIONS || 'not set',
@@ -591,10 +628,16 @@ app.post('/api/test-print', async (req, res) => {
 
 // Configure endpoint
 app.post('/api/configure', (req, res) => {
-  const { barId, apiUrl, watchFolder } = req.body;
+  const { barId, apiUrl, watchFolder, captureMode } = req.body;
+  
+  const wasConfigured = !!config.barId;
   
   if (barId) config.barId = barId;
   if (apiUrl) config.apiUrl = apiUrl;
+  if (captureMode && ['folder', 'spooler'].includes(captureMode)) {
+    config.captureMode = captureMode;
+    console.log(`🔄 Capture mode changed to: ${captureMode}`);
+  }
   if (watchFolder) {
     config.watchFolder = watchFolder;
     // Recreate watcher with new folder
@@ -607,6 +650,13 @@ app.post('/api/configure', (req, res) => {
   // Save config to file
   saveConfig(config);
   
+  // ✅ FIX: Restart heartbeat if Bar ID was just configured
+  if (!wasConfigured && config.barId) {
+    console.log('🔄 Bar ID configured - starting heartbeat service...');
+    stopHeartbeat();
+    startHeartbeat();
+  }
+  
   res.json({
     success: true,
     config: {
@@ -614,6 +664,7 @@ app.post('/api/configure', (req, res) => {
       apiUrl: config.apiUrl,
       driverId: config.driverId,
       watchFolder: config.watchFolder,
+      captureMode: config.captureMode || 'folder',
     },
   });
 });
@@ -753,56 +804,68 @@ function startCloudPolling() {
   }, 5000); // Poll every 5 seconds
 }
 
-// Start watching folder for new print files
+// Start monitoring based on capture mode
 function startWatcher() {
-  console.log(`👀 Watching folder: ${config.watchFolder}`);
+  console.log(`👀 Starting capture service...`);
+  console.log(`   Mode: ${config.captureMode === 'spooler' ? 'NEW (Passive Spooler Monitor)' : 'LEGACY (Folder Watch)'}`);
+  console.log('');
   
-  watcher = chokidar.watch(config.watchFolder, {
-    ignored: /(^|[\/\\])\../, // ignore dotfiles
-    persistent: true,
-    ignoreInitial: true,
-    awaitWriteFinish: {
-      stabilityThreshold: 2000,
-      pollInterval: 100
-    }
-  });
-
-  watcher
-    .on('add', async (filePath) => {
-      console.log(`📄 New print file detected: ${path.basename(filePath)}`);
-      
-      try {
-        // Read file
-        const fileData = fs.readFileSync(filePath);
-        
-        // Process and send to cloud
-        await processPrintJob(fileData, path.basename(filePath));
-        
-        console.log(`✅ Print job relayed successfully`);
-        
-        // Archive the file (move to processed folder)
-        const processedFolder = path.join(config.watchFolder, 'processed');
-        if (!fs.existsSync(processedFolder)) {
-          fs.mkdirSync(processedFolder, { recursive: true });
-        }
-        
-        const archivePath = path.join(processedFolder, `${Date.now()}-${path.basename(filePath)}`);
-        fs.renameSync(filePath, archivePath);
-        
-      } catch (error) {
-        console.error(`❌ Error processing print file:`, error);
-        
-        // Move to error folder
-        const errorFolder = path.join(config.watchFolder, 'errors');
-        if (!fs.existsSync(errorFolder)) {
-          fs.mkdirSync(errorFolder, { recursive: true });
-        }
-        
-        const errorPath = path.join(errorFolder, `${Date.now()}-${path.basename(filePath)}`);
-        fs.renameSync(filePath, errorPath);
+  if (config.captureMode === 'spooler') {
+    // NEW MODE: Monitor Windows spooler (non-blocking)
+    watcher = startSpoolerMonitoring();
+    
+    // Start background upload worker
+    setInterval(uploadWorker, 5000); // Process queue every 5 seconds
+    
+  } else {
+    // LEGACY MODE: Monitor folder (blocking)
+    watcher = chokidar.watch(config.watchFolder, {
+      ignored: /(^|[\/\\])\../, // ignore dotfiles
+      persistent: true,
+      ignoreInitial: true,
+      awaitWriteFinish: {
+        stabilityThreshold: 2000,
+        pollInterval: 100
       }
-    })
-    .on('error', error => console.error(`Watcher error: ${error}`));
+    });
+
+    watcher
+      .on('add', async (filePath) => {
+        console.log(`📄 New print file detected: ${path.basename(filePath)}`);
+        
+        try {
+          // Read file
+          const fileData = fs.readFileSync(filePath);
+          
+          // Process and send to cloud
+          await processPrintJob(fileData, path.basename(filePath));
+          
+          console.log(`✅ Print job relayed successfully`);
+          
+          // Archive the file (move to processed folder)
+          const processedFolder = path.join(config.watchFolder, 'processed');
+          if (!fs.existsSync(processedFolder)) {
+            fs.mkdirSync(processedFolder, { recursive: true });
+          }
+          
+          const archivePath = path.join(processedFolder, `${Date.now()}-${path.basename(filePath)}`);
+          fs.renameSync(filePath, archivePath);
+          
+        } catch (error) {
+          console.error(`❌ Error processing print file:`, error);
+          
+          // Move to error folder
+          const errorFolder = path.join(config.watchFolder, 'errors');
+          if (!fs.existsSync(errorFolder)) {
+            fs.mkdirSync(errorFolder, { recursive: true });
+          }
+          
+          const errorPath = path.join(errorFolder, `${Date.now()}-${path.basename(filePath)}`);
+          fs.renameSync(filePath, errorPath);
+        }
+      })
+      .on('error', error => console.error(`Watcher error: ${error}`));
+  }
 }
 
 // Process print job and send to cloud
@@ -1143,6 +1206,7 @@ async function start() {
    • Bar ID: ${config.barId || '⚠️  NOT CONFIGURED'}
    • API URL: ${config.apiUrl}
    • Watch Folder: ${config.watchFolder}
+   • Capture Mode: ${config.captureMode || 'folder'} ${config.captureMode === 'spooler' ? '(NEW - Passive Capture)' : '(LEGACY - Folder Watch)'}
    • Config Source: ${process.env.TABEZA_BAR_ID ? 'Environment Variables' : 'Config File'}
 
 ${config.barId ? `
@@ -1206,6 +1270,9 @@ process.on('SIGINT', () => {
   console.log('\n👋 Shutting down Tabeza Connect...');
   if (watcher) {
     watcher.close();
+  }
+  if (spoolMonitor) {
+    spoolMonitor.stop();
   }
   if (pollInterval) {
     clearInterval(pollInterval);

@@ -1,0 +1,16 @@
+{
+  "id": "f730226c-45bd-40cc-bab8-19c39212af08",
+  "barId": "bar-test-123",
+  "deviceId": "device-test-456",
+  "timestamp": "2026-02-18T07:45:11.173Z",
+  "escposBytes": null,
+  "text": "Test Receipt 2\nItem 3: $20.00\nTotal: $20.00",
+  "metadata": {
+    "source": "test",
+    "fileSize": 512
+  },
+  "enqueuedAt": "2026-02-18T07:45:11.176Z",
+  "uploadAttempts": 0,
+  "lastUploadAttempt": null,
+  "lastUploadError": null
+}

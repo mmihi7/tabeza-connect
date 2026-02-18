@@ -35,7 +35,7 @@ ArchitecturesAllowed=x64
 ; Wizard Configuration
 WizardStyle=modern
 DisableWelcomePage=no
-LicenseFile=LICENSE.txt
+LicenseFile=src\installer\LICENSE.txt
 
 ; Uninstall Configuration
 UninstallDisplayName=Tabeza Connect
@@ -75,15 +75,14 @@ Source: "src\installer\scripts\*"; DestDir: "{app}\scripts"; Flags: recursesubdi
 Source: "config.template.json"; DestDir: "{app}"; DestName: "config.json"; Flags: onlyifdoesntexist; Components: core
 
 ; Documentation
-Source: "Plan\README.txt"; DestDir: "{app}\docs"; Components: docs
-Source: "Plan\BEFORE-INSTALL.txt"; DestDir: "{app}\docs"; Components: docs
-Source: "Plan\AFTER-INSTALL.txt"; DestDir: "{app}\docs"; Components: docs
+Source: "README.md"; DestDir: "{app}\docs"; Components: docs
+Source: "BUILD-AND-DEPLOY.md"; DestDir: "{app}\docs"; Components: docs
 
 ; Icon
 Source: "icon.ico"; DestDir: "{app}"; Components: core
 
 ; License
-Source: "LICENSE.txt"; DestDir: "{app}"; Components: core
+Source: "src\installer\LICENSE.txt"; DestDir: "{app}"; Components: core
 
 [Dirs]
 ; Create application data directories
@@ -108,7 +107,7 @@ begin
     'Configuration', 'Enter your venue details',
     'Please enter your Bar ID from the Tabeza staff dashboard.' + #13#10 + #13#10 +
     'To find your Bar ID:' + #13#10 +
-    '1. Log in to https://staff.tabeza.co.ke' + #13#10 +
+    '1. Log in to "https://tabeza.co.ke"' + #13#10 +
     '2. Go to Settings > Venue Details' + #13#10 +
     '3. Copy your Bar ID');
   
@@ -253,5 +252,5 @@ Type: filesandordirs; Name: "{userappdata}\TabezaPrints\failed"
 [Registry]
 ; Store installation path for updates
 Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"; Flags: uninsdeletekey
-Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "Version"; ValueData: "1.0.0"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "Version"; ValueData: "1.1.0"; Flags: uninsdeletekey
 Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "BarId"; ValueData: "{code:GetBarId}"; Flags: uninsdeletekey

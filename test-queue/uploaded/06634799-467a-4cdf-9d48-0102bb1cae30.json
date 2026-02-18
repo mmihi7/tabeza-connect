@@ -1,0 +1,18 @@
+{
+  "id": "06634799-467a-4cdf-9d48-0102bb1cae30",
+  "barId": "bar-test-123",
+  "deviceId": "device-test-456",
+  "timestamp": "2026-02-18T07:45:11.172Z",
+  "escposBytes": "RVNDL1BPUyB0ZXN0IGRhdGE=",
+  "text": "Test Receipt 1\nItem 1: $10.00\nItem 2: $15.00\nTotal: $25.00",
+  "metadata": {
+    "source": "test",
+    "fileSize": 1024
+  },
+  "enqueuedAt": "2026-02-18T07:45:11.175Z",
+  "uploadAttempts": 0,
+  "lastUploadAttempt": null,
+  "lastUploadError": null,
+  "uploadedAt": "2026-02-18T07:45:11.186Z",
+  "status": "uploaded"
+}
