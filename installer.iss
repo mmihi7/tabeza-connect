@@ -1,11 +1,11 @@
 ; Tabeza Connect Installer Script
-; Version 1.0.0
+; Version 1.1.0
 ; Built with Inno Setup 6.x
 
 [Setup]
 ; Application Information
 AppName=Tabeza Connect
-AppVersion=1.0.0
+AppVersion=1.1.0
 AppPublisher=Tabeza
 AppPublisherURL=https://tabeza.co.ke
 AppSupportURL=https://tabeza.co.ke/support
@@ -19,7 +19,7 @@ DisableProgramGroupPage=yes
 
 ; Output Configuration
 OutputDir=C:\Temp\TabezaConnect-Build
-OutputBaseFilename=TabezaConnect-Setup-v1.0.0
+OutputBaseFilename=TabezaConnect-Setup-v1.1.0
 SetupIconFile=icon.ico
 UninstallDisplayIcon={app}\icon.ico
 
@@ -27,7 +27,7 @@ UninstallDisplayIcon={app}\icon.ico
 Compression=lzma2/max
 SolidCompression=yes
 
-; Privileges and Architecture
+; Privileges and Architecture - REQUIRE ADMIN FOR WINDOWS SERVICE
 PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64
 ArchitecturesAllowed=x64
@@ -195,28 +195,42 @@ Filename: "powershell.exe"; \
   Flags: runhidden waituntilterminated; \
   Components: printer
 
-; Step 3: Register Windows service
+; Step 3: Generate SSL certificate for HTTPS
+Filename: "powershell.exe"; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\generate-ssl-cert.ps1"" -InstallPath ""{app}"""; \
+  StatusMsg: "Generating SSL certificate for HTTPS..."; \
+  Flags: runhidden waituntilterminated; \
+  Components: core
+
+; Step 4: Configure firewall and antivirus exclusions
+Filename: "powershell.exe"; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\configure-firewall.ps1"" -InstallPath ""{app}"""; \
+  StatusMsg: "Configuring firewall and antivirus..."; \
+  Flags: runhidden waituntilterminated; \
+  Components: core
+
+; Step 5: Register Windows service
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\register-service.ps1"" -InstallPath ""{app}"" -BarId ""{code:GetBarId}"" -ApiUrl ""{code:GetApiUrl}"""; \
   StatusMsg: "Registering Tabeza Connect service..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
-; Step 4: Start the service
+; Step 6: Start the service
 Filename: "sc.exe"; \
   Parameters: "start TabezaConnect"; \
   StatusMsg: "Starting Tabeza Connect service..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
-; Step 5: Verify installation
+; Step 7: Verify installation
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\verify-installation.ps1"" -InstallPath ""{app}"""; \
   StatusMsg: "Verifying installation..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
-; Step 6: Show post-install instructions (optional)
+; Step 8: Show post-install instructions (optional)
 Filename: "{win}\notepad.exe"; \
   Parameters: """{app}\docs\AFTER-INSTALL.txt"""; \
   Description: "View post-installation instructions"; \
