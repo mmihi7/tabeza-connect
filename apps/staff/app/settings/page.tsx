@@ -2641,18 +2641,16 @@ export default function SettingsPage() {
                       venueMode === 'basic' 
                         ? 'text-blue-600' 
                         : venueMode === 'venue' && authorityMode === 'pos'
-                          ? 'text-yellow-600'
-                          : 'text-green-600'
-                    } />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-gray-800">Venue Configuration</h3>
-                    <p className="text-sm text-gray-500">Configure how Tabeza operates at your venue</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {/* Current Configuration Display with Enhanced Theming */}
+                          ? 'bg-yellow-100'
+                          : 'bg-green-100'
+                    }`}>
+                      <Store size={20} className={
+                        venueMode === 'basic' 
+                          ? 'text-blue-600' 
+                          : venueMode === 'venue' && authorityMode === 'pos'
+                            ? 'text-yellow-600'
+                            : 'text-green-600'
+                      } />
                   <div className={`border-2 rounded-lg p-4 ${
                     venueMode === 'basic' 
                       ? 'bg-blue-50 border-blue-200' 
@@ -3160,8 +3158,8 @@ export default function SettingsPage() {
                     <Grid3X3 size={20} className="text-teal-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800">Table Setup</h3>
-                    <p className="text-sm text-gray-500">Configure customer table selection</p>
+                    <h3 className="font-bold text-gray-800">POS Setup</h3>
+                    <p className="text-sm text-gray-500">Configure your POS integration and receipt capture</p>
                   </div>
                 </div>
 
@@ -3261,11 +3259,6 @@ export default function SettingsPage() {
                 <button
                   onClick={handleSaveTableSettings}
                   disabled={savingTableSettings}
-                  className="w-full mt-4 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
-                >
-                  <Save size={20} />
-                  {savingTableSettings ? 'Saving...' : 'Save Table Settings'}
-                </button>
               </div>
             </>
           )}
@@ -3377,7 +3370,7 @@ export default function SettingsPage() {
           <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-bold text-gray-800">Venue Configuration</h3>
+                <h3 className="text-2xl font-bold text-gray-800">POS Setup</h3>
                 <button
                   onClick={() => setShowVenueModeModal(false)}
                   disabled={savingVenueMode}
