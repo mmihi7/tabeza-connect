@@ -126,7 +126,7 @@ Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\s
 Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\configure-printer.ps1"" -SkipIfExists"; StatusMsg: "Configuring virtual printer..."; Flags: runhidden waituntilterminated
 
 ; Register and start service
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\register-service.ps1"" -InstallPath ""{app}"" -BarId ""{code:GetBarId}"" -ApiUrl ""https://staff.tabeza.co.ke"""; StatusMsg: "Registering Windows service..."; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\register-service.ps1"" -InstallPath ""{app}"" -BarId ""{code:GetBarId}"" -ApiUrl ""https://tabeza.co.ke"""; StatusMsg: "Registering Windows service..."; Flags: runhidden waituntilterminated
 
 ; Open status page
 Filename: "http://localhost:8765/api/status"; Description: "Open Tabeza Connect status page"; Flags: shellexec postinstall skipifsilent nowait

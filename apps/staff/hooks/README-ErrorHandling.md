@@ -142,7 +142,7 @@ Allows users to report issues with automatic error log capture.
   "timestamp": "2024-01-15T14:30:00.000Z",
   "description": "User description of the issue",
   "userAgent": "Mozilla/5.0...",
-  "url": "https://staff.tabeza.co.ke/...",
+  "url": "https://tabeza.co.ke/...",
   "errors": [
     {
       "timestamp": "...",

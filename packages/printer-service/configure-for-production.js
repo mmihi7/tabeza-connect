@@ -19,7 +19,7 @@ if (fs.existsSync(configPath)) {
 }
 
 // Update to production URL
-config.apiUrl = 'https://staff.tabeza.co.ke';
+config.apiUrl = 'https://tabeza.co.ke';
 
 // Save config
 fs.writeFileSync(configPath, JSON.stringify(config, null, 2));

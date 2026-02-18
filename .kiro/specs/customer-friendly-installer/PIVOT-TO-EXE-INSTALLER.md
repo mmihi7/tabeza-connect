@@ -101,7 +101,7 @@ end;
 [Run]
 Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\create-folders.ps1"""; StatusMsg: "Creating watch folders..."; Flags: runhidden
 Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\configure-printer.ps1"""; StatusMsg: "Configuring printer..."; Flags: runhidden
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\register-service.ps1"" -InstallPath ""{app}"" -BarId ""{code:GetBarId}"" -ApiUrl ""https://staff.tabeza.co.ke"""; StatusMsg: "Registering Windows service..."; Flags: runhidden
+Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\register-service.ps1"" -InstallPath ""{app}"" -BarId ""{code:GetBarId}"" -ApiUrl ""https://tabeza.co.ke"""; StatusMsg: "Registering Windows service..."; Flags: runhidden
 
 [UninstallRun]
 Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -Command ""Stop-Service -Name 'TabezaConnect' -Force; sc.exe delete TabezaConnect"""; Flags: runhidden

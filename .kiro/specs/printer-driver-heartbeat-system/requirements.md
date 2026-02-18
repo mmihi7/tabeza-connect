@@ -10,7 +10,7 @@ The production staff app (hosted on Vercel) shows 404 errors for `/api/printer/d
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  VERCEL (Cloud) - staff.tabeza.co.ke                   │
+│  VERCEL (Cloud) - tabeza.co.ke                   │
 │  ├─ GET /api/printer/driver-status                     │
 │  │  └─ Queries database for active drivers             │
 │  ├─ POST /api/printer/heartbeat                        │
