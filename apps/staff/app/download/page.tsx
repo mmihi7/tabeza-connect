@@ -55,7 +55,7 @@ export default function DownloadPage() {
     }
   ]);
 
-  const downloadUrl = 'https://github.com/billoapp/TabezaConnect/releases/download/v1.0.0/TabezaConnect-Setup-v1.0.0.exe';
+  const downloadUrl = 'https://github.com/billoapp/TabezaConnect/releases/download/v1.2.0/TabezaConnect-Setup-v1.1.0.exe';
   const fallbackUrl = 'https://github.com/billoapp/TabezaConnect/releases/latest';
 
   const handleDownload = () => {
@@ -105,7 +105,7 @@ export default function DownloadPage() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                TabezaConnect v1.1.0
+                TabezaConnect v1.2.0
               </h2>
               <p className="text-gray-600">
                 Professional Windows installer with spooler monitoring support
@@ -158,7 +158,7 @@ export default function DownloadPage() {
               className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
             >
               <Download className="w-5 h-5" />
-              Download TabezaConnect v1.1.0
+              Download TabezaConnect v1.2.0
               <ArrowRight className="w-4 h-4" />
             </button>
             

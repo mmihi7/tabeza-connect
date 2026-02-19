@@ -113,12 +113,12 @@ export function generateInstallationGuidance(platform: Platform): InstallationGu
     throw new UnsupportedPlatformError(platform);
   }
   
-  const baseUrl = 'https://github.com/billoapp/TabezaConnect/releases/latest/download';
+  const baseUrl = 'https://github.com/billoapp/TabezaConnect/releases/download/v1.2.0';
   
   switch (platform.os) {
     case 'windows':
       return {
-        downloadUrl: `${baseUrl}/TabezaConnect-Setup-v1.0.0.zip`,
+        downloadUrl: `${baseUrl}/TabezaConnect-Setup-v1.1.0.exe`,
         instructions: [
           'Download TabezaConnect-Setup-v1.0.0.zip',
           'Extract the ZIP file to a temporary location',
