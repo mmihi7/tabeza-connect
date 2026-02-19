@@ -14,7 +14,7 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
 - TabezaConnect Capture Service: Node.js (current, production-ready)
 - Cloud API: TypeScript/Next.js (existing stack)
 - Database: PostgreSQL/Supabase (existing)
-- Queue: Redis + BullMQ (new)
+- Queue: Supabase Edge Functions + Database Triggers (existing)
 - AI: Claude Haiku or GPT-4o-mini (new)
 
 **Key Design Principles**:
@@ -64,7 +64,7 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Verify enum types are created correctly
     - _Requirements: 14.1-14.6_
 
-- [~] 2. Transform TabezaConnect Capture Service
+- [ ] 2. Transform TabezaConnect Capture Service
   - [x] 2.1 Remove blocking print forwarding logic
     - Remove current print relay code from TabezaConnect service
     - Ensure POS prints directly to printer without TabezaConnect in path
@@ -169,8 +169,8 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Verify queue files are valid JSON and can be parsed
     - **Validates: Requirements 5.2, 5.3**
 
-- [~] 3. Cloud Receipt Ingestion API
-  - [~] 3.1 Create ingestion endpoint
+- [ ] 3. Cloud Receipt Ingestion API
+  - [x] 3.1 Create ingestion endpoint
     - Implement `POST /api/receipts/ingest` in Next.js API routes
     - Accept raw receipt data: bar ID, device ID, timestamp, ESC/POS bytes (base64), text, metadata
     - Validate required fields (bar ID, text) and return 400 for missing fields
@@ -179,41 +179,51 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Never parse receipts inline during ingestion (async only)
     - _Requirements: 7.1, 7.2, 7.3_
   
-  - [~] 3.2 Implement async parsing queue
-    - Set up Redis + BullMQ for job queue infrastructure
-    - Queue receipt for parsing after ingestion (non-blocking)
-    - Configure queue workers with concurrency settings
-    - Never parse inline during ingestion (decouple ingestion from parsing)
-    - Add queue monitoring and health checks
+  - [x] 3.2 Create Supabase Edge Function for parsing
+    - Create `supabase/functions/parse-receipt/index.ts` Edge Function
+    - Load raw receipt from `raw_pos_receipts` table
+    - Load bar-specific template from `receipt_parsing_templates` (active version only)
+    - Try regex parser first (fast path, 1-5ms)
+    - Fallback to AI if confidence < 85% (slow path, ~300ms)
+    - Save structured receipt to `pos_receipts` and `pos_receipt_items` if successful
+    - Set status to 'UNCLAIMED' if parsed successfully, 'PARSE_FAILED' if both fail
+    - Uses DeepSeek API for AI fallback
     - _Requirements: 7.4, 7.5_
   
-  - [ ]* 3.3 Write property test for ingestion performance
+  - [x] 3.3 Create database trigger to invoke Edge Function
+    - Create `trigger_receipt_parsing()` function using pg_net.http_post
+    - Trigger calls Edge Function when raw receipt inserted
+    - Pass receipt_id to Edge Function for processing
+    - Use Supabase's built-in pg_net extension (no Redis needed)
+    - _Requirements: 7.4, 7.5_
+  
+  - [ ]* 3.4 Write property test for ingestion performance
     - **Property 10: Cloud Ingestion Performance**
     - *For any* receipt ingestion request, the Cloud_API SHALL save the receipt to raw_pos_receipts table and return success within 100ms without inline parsing
     - Test with fast-check: generate random receipts, measure ingestion latency
     - Verify no parsing happens during ingestion (async only)
     - **Validates: Requirements 7.2, 7.3, 7.5**
   
-  - [ ]* 3.4 Write property test for async queue
-    - **Property 11: Asynchronous Parsing Queue**
-    - *For any* ingested receipt, the Cloud_API SHALL queue it for parsing asynchronously
-    - Test with fast-check: verify queue contains receipt after ingestion, verify ingestion doesn't wait for parsing
-    - Verify queue job is created with correct receipt ID
+  - [ ]* 3.5 Write property test for async parsing trigger
+    - **Property 11: Asynchronous Parsing Trigger**
+    - *For any* ingested receipt, the database trigger SHALL invoke the Edge Function for parsing asynchronously
+    - Test with fast-check: verify Edge Function called after ingestion, verify ingestion doesn't wait for parsing
+    - Verify parsing happens in background via Supabase trigger
     - **Validates: Requirements 7.4**
 
 - [-] 4. Checkpoint - Verify Capture Pipeline
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 5. Regex Parsing Engine
-  - [~] 5.1 Implement regex parser core
-    - Load bar-specific templates from `receipt_parsing_templates` table (cache in Redis with 1 hour TTL)
+  - [ ] 5.1 Implement regex parser core
+    - Load bar-specific templates from `receipt_parsing_templates` table
     - Apply regex patterns to extract line items: quantity, name, unit price, line total using semantic map
     - Extract totals using patterns: subtotal, tax, total
     - Complete parsing within 5ms for standard receipts (performance requirement)
     - Handle edge cases from known_edge_cases: split bills, happy hour markers, void reprints, discount lines
     - _Requirements: 8.1, 8.2, 8.3_
   
-  - [~] 5.2 Implement confidence scoring with reconciliation
+  - [ ] 5.2 Implement confidence scoring with reconciliation
     - Calculate confidence based on pattern matches: items found (1 point each), totals found (2 points for total, 1 each for tax/subtotal)
     - Perform reconciliation check: sum of line item totals should equal receipt total (within 0.01 tolerance)
     - Deduct confidence points for reconciliation failures (items sum ≠ total)
@@ -221,17 +231,17 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Log reconciliation failures for debugging and template improvement
     - _Requirements: 8.4_
   
-  - [~] 5.3 Implement conditional save logic
-    - Save structured receipt to `pos_receipts` and `pos_receipt_items` if confidence ≥ 80%
-    - Trigger AI fallback if confidence < 80% (queue for AI parsing, don't block)
+  - [ ] 5.3 Implement conditional save logic
+    - Save structured receipt to `pos_receipts` and `pos_receipt_items` if confidence ≥ 85%
+    - Trigger AI fallback if confidence < 85% (queue for AI parsing, don't block)
     - Use database transactions for atomicity (both tables or neither, rollback on failure)
-    - Set receipt status to 'PARSED' if confidence ≥ 80%, 'PARSING' if queued for AI
+    - Set receipt status to 'PARSED' if confidence ≥ 85%, 'PARSING' if queued for AI
     - Store parsing_method ('regex'), template_version, and confidence_score
     - _Requirements: 8.5, 8.6_
   
   - [ ]* 5.4 Write property test for parsing performance
     - **Property 12: Regex Parsing Performance and Confidence**
-    - *For any* standard receipt, the Regex_Parser SHALL complete parsing within 5ms and calculate a confidence score based on pattern matches, saving the structured receipt if confidence ≥ 80%
+    - *For any* standard receipt, the Regex_Parser SHALL complete parsing within 5ms and calculate a confidence score based on pattern matches, saving the structured receipt if confidence ≥ 85%
     - Test with fast-check: generate random receipts, measure parsing time and confidence
     - Verify parsing latency < 5ms for standard receipts
     - **Validates: Requirements 8.2, 8.3, 8.4, 8.5, 12.3**
@@ -250,17 +260,18 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Verify templates that fail round-trip are not activated
     - **Validates: Requirements 19.4, 19.5**
 
-- [ ] 6. Parsing Orchestrator
-  - [~] 6.1 Create queue worker for receipt parsing
-    - Process receipts from Redis queue (BullMQ worker with concurrency settings)
+- [ ] 6. Parsing Orchestrator (Integrated in Edge Function)
+  - [ ] 6.1 Implement parsing orchestration in Edge Function
+    - Edge Function orchestrates regex → AI fallback flow (no Redis/BullMQ needed)
     - Load raw receipt from `raw_pos_receipts` table
     - Load bar-specific template from `receipt_parsing_templates` (active version only)
     - Apply regex parser first (fast path, 1-5ms)
-    - Route to AI fallback if confidence < 80% (slow path, ~300ms)
-    - Handle parsing errors gracefully (log and store in pos_parse_failures, don't crash worker)
+    - Route to AI fallback if confidence < 85% (slow path, ~300ms)
+    - Handle parsing errors gracefully (log and store in pos_parse_failures)
+    - Use Supabase database triggers + pg_net for orchestration
     - _Requirements: 8.1, 8.6_
   
-  - [~] 6.2 Implement structured receipt storage
+  - [ ] 6.2 Implement structured receipt storage
     - Save parsed receipts to `pos_receipts` table with confidence score, parsing_method, template_version
     - Save line items to `pos_receipt_items` table with line numbers (ordered)
     - Use database transactions for atomicity (both tables or neither)
@@ -271,13 +282,13 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
   
   - [ ]* 6.3 Write property test for AI fallback trigger
     - **Property 13: AI Fallback Trigger**
-    - *For any* receipt with regex confidence score < 80%, the Parsing_Orchestrator SHALL invoke the AI_Parser
+    - *For any* receipt with regex confidence score < 85%, the Parsing_Orchestrator SHALL invoke the AI_Parser
     - Test with fast-check: generate low-confidence receipts, verify AI invocation
-    - Verify AI is NOT invoked for high-confidence receipts (≥ 80%)
+    - Verify AI is NOT invoked for high-confidence receipts (≥ 85%)
     - **Validates: Requirements 8.6, 9.1**
 
 - [ ] 7. AI Fallback Parser
-  - [~] 7.1 Implement Claude Haiku / GPT-4o-mini integration
+  - [ ] 7.1 Implement Claude Haiku / GPT-4o-mini integration
     - Set up API client for Claude Haiku or GPT-4o-mini (choose based on cost/performance)
     - Build prompt with receipt text and bar context: currency, tax inclusive, known edge cases
     - Parse AI response to extract structured data: items, quantities, prices, subtotal, tax, total
@@ -285,7 +296,7 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Set low temperature (0.1) for deterministic output
     - _Requirements: 9.2, 9.3_
   
-  - [~] 7.2 Implement format consistency validation
+  - [ ] 7.2 Implement format consistency validation
     - Ensure AI output matches regex parser format exactly (same JSON structure)
     - Validate all required fields present: items array, subtotal, tax, total
     - Validate data types: numbers for prices, integers for quantities, strings for names
@@ -293,7 +304,7 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Reject invalid AI responses and log to parse_failures
     - _Requirements: 9.4_
   
-  - [~] 7.3 Implement success handling
+  - [ ] 7.3 Implement success handling
     - Save structured receipt to `pos_receipts` and `pos_receipt_items` after AI parsing
     - Store learning event in `template_learning_events` for template evolution
     - Set parsing_method to 'ai' in receipt record
@@ -319,11 +330,11 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Test with fast-check: simulate various printer types, verify capture success
     - **Validates: Requirements 18.1, 18.2, 18.3, 18.4, 18.5**
 
-- [~] 8. Checkpoint - Verify Parsing Pipeline
+- [ ] 8. Checkpoint - Verify Parsing Pipeline
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 9. AI Template Generation (Onboarding)
-  - [~] 9.1 Create onboarding template generator
+  - [ ] 9.1 Create onboarding template generator
     - Accept 5-10 test receipts from bar during onboarding (variety > volume)
     - Use AI (Claude Haiku or GPT-4o-mini) to analyze ALL receipts together (not one at a time)
     - Generate regex patterns for: item_line, total_line, tax_line, void_marker, discount_line
@@ -333,7 +344,7 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Return JSON with patterns, semantic_map, known_edge_cases, confidence_threshold
     - _Requirements: 20.1, 20.2, 20.3_
   
-  - [~] 9.2 Implement template testing and storage
+  - [ ] 9.2 Implement template testing and storage
     - Test generated template against all test receipts (validate accuracy)
     - Calculate accuracy score: percentage of receipts parsed correctly
     - Save template to `receipt_parsing_templates` table with version 1
@@ -342,7 +353,7 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Include patterns, semantic_map, known_edge_cases in JSONB fields
     - _Requirements: 20.4, 20.5_
   
-  - [~] 9.3 Add onboarding UI flow to staff app
+  - [ ] 9.3 Add onboarding UI flow to staff app
     - Add "Print Test Receipts" step to staff onboarding (after mode/authority selection)
     - Display captured receipts in real-time as they arrive from capture service
     - Show template generation progress with loading indicator and status messages
@@ -353,7 +364,7 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - _Requirements: 20.1, 20.2, 20.3, 20.4, 20.5_
 
 - [ ] 10. Self-Healing Template Learning
-  - [~] 10.1 Implement learning event storage
+  - [ ] 10.1 Implement learning event storage
     - Store AI parsing results in `template_learning_events` table
     - Include bar ID, raw receipt ID, AI output (structured data as JSONB)
     - Track pattern detection: identify new patterns not in current template
@@ -361,7 +372,7 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Add timestamp for tracking learning event age
     - _Requirements: 10.1_
   
-  - [~] 10.2 Create background template evolution worker
+  - [ ] 10.2 Create background template evolution worker
     - Check for 10+ learning events with similar patterns (pattern similarity detection)
     - Use AI to analyze learning events and generate new regex patterns
     - Create new template version (increment version number from current active)
@@ -369,7 +380,7 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Run as scheduled job (e.g., daily or weekly) or triggered by event threshold
     - _Requirements: 10.2_
   
-  - [~] 10.3 Implement template testing and activation
+  - [ ] 10.3 Implement template testing and activation
     - Test new template against historical receipts (last 100 receipts from bar)
     - Calculate accuracy improvement compared to current active template
     - Activate new template if accuracy improves by 5% or more (set active = true)
@@ -391,7 +402,7 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - **Validates: Requirements 11.1, 11.2, 11.3, 11.4, 11.5**
 
 - [ ] 11. Parse Failure Tracking
-  - [~] 11.1 Implement failure logging
+  - [ ] 11.1 Implement failure logging
     - Store failures in `pos_parse_failures` table with all context
     - Include raw receipt ID, bar ID, template version used
     - Store regex confidence score and whether AI was attempted
@@ -400,14 +411,14 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Add timestamp for failure tracking and analysis
     - _Requirements: 13.1, 13.2_
   
-  - [~] 11.2 Implement failure retry logic
+  - [ ] 11.2 Implement failure retry logic
     - Retry failed receipts after template updates (new version activated)
     - Track retry attempts and outcomes in parse_failures table
     - Update receipt status if retry succeeds (PARSE_FAILED → PARSED)
     - Limit retry attempts to prevent infinite loops (max 3 retries per template version)
     - _Requirements: 13.3_
   
-  - [~] 11.3 Create failure monitoring endpoint
+  - [ ] 11.3 Create failure monitoring endpoint
     - Add `GET /api/receipts/parse-failures` endpoint with filtering
     - Filter by bar ID and date range (query parameters)
     - Return failure count, error messages, and affected receipts
@@ -428,7 +439,7 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - **Validates: Requirements 13.3**
 
 - [ ] 12. Receipt-to-Tab Linking
-  - [~] 12.1 Create "Recent Receipts" API endpoint
+  - [ ] 12.1 Create "Recent Receipts" API endpoint
     - Add `GET /api/receipts/recent` endpoint with bar filtering
     - Filter by bar ID and status = 'UNCLAIMED' (only show claimable receipts)
     - Return receipts from last 30 minutes only (session window)
@@ -437,7 +448,16 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Limit to 20 receipts maximum (prevent overwhelming UI)
     - _Requirements: 15.1_
   
-  - [~] 12.2 Implement receipt claim API
+  - [ ] 12.2 Implement receipt delete/discard API
+    - Add `DELETE /api/receipts/:id` endpoint for staff
+    - Validate receipt is UNCLAIMED (cannot delete claimed receipts)
+    - Soft delete: update status to 'VOID' instead of hard delete
+    - Set voided_at timestamp and voided_by_staff_id
+    - Log deletion in audit_logs table for tracking
+    - Return error if receipt already claimed or assigned
+    - _Requirements: Staff workflow, database cleanup_
+  
+  - [ ] 12.3 Implement receipt claim API
     - Add `POST /api/receipts/claim` endpoint with validation
     - Validate receipt is UNCLAIMED and belongs to bar (prevent cross-bar claims)
     - Validate tab is OPEN and belongs to bar (prevent closed tab claims)
@@ -448,7 +468,7 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Handle claim conflicts gracefully (receipt already claimed by another customer)
     - _Requirements: 15.3_
   
-  - [~] 12.3 Add customer PWA "Recent Receipts" UI
+  - [ ] 12.4 Add customer PWA "Recent Receipts" UI
     - Display list of recent unclaimed receipts for current bar
     - Show time, amount, currency, and item preview for each receipt
     - Add "Claim Receipt" button for each receipt
@@ -458,7 +478,7 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Refresh list automatically when new receipts arrive (Supabase Realtime)
     - _Requirements: 15.1_
   
-  - [~] 12.4 Add staff unclaim action
+  - [ ] 12.5 Add staff unclaim action
     - Add "Unclaim Receipt" button in staff dashboard receipt detail view
     - Update receipt status from CLAIMED back to UNCLAIMED (atomic update)
     - Remove link from `tab_pos_receipts` join table
@@ -467,14 +487,14 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Log unclaim action in audit_logs table for tracking
     - _Requirements: 15.5_
   
-  - [ ]* 12.5 Write property test for staff receipt display
+  - [ ]* 12.6 Write property test for staff receipt display
     - **Property 24: Staff Receipt Display Completeness**
     - *For any* parsed receipt displayed in the Staff_App, the UI SHALL show all line items, totals, confidence score, and parsing errors
     - Test with fast-check: generate random receipts, verify UI displays all required fields
     - **Validates: Requirements 15.2, 15.4**
 
 - [ ] 13. Staff App Receipt Management
-  - [~] 13.1 Create receipt list view
+  - [ ] 13.1 Create receipt list view
     - Display recent receipts for bar (paginated, 50 per page)
     - Show parsing status, confidence score, parsing method (regex/ai)
     - Show receipt number, total, timestamp, claimed status
@@ -482,9 +502,11 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Filter by date range (date picker)
     - Show parsing errors for PARSE_FAILED receipts (error message preview)
     - Add search by receipt number or amount
+    - Add "Delete" button for UNCLAIMED receipts (soft delete to VOID status)
+    - Show VOID status badge for deleted receipts
     - _Requirements: 15.1, 15.4_
   
-  - [~] 13.2 Create receipt detail view
+  - [ ] 13.2 Create receipt detail view
     - Show all line items with quantities, names, unit prices, totals
     - Display subtotal, tax, total, currency
     - Show confidence score and parsing method (regex or ai)
@@ -493,9 +515,11 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Allow manual correction of parsing errors (edit items, totals, save changes)
     - Show claimed tab information if receipt is claimed (tab number, customer)
     - Add "Unclaim" button if receipt is claimed
+    - Add "Delete" button if receipt is UNCLAIMED (with confirmation dialog)
+    - Show voided_at and voided_by_staff_id for VOID receipts
     - _Requirements: 15.2, 15.4, 15.5_
   
-  - [~] 13.3 Add template management UI
+  - [ ] 13.3 Add template management UI
     - Display active template version and accuracy (current version badge)
     - Show template version history with accuracy metrics over time (chart)
     - Display learning events that contributed to template improvements (list with details)
@@ -505,21 +529,21 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Show template testing results before activation (accuracy comparison)
     - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5_
   
-  - [~] 13.4 Add parsing confidence monitoring dashboard
+  - [ ] 13.4 Add parsing confidence monitoring dashboard
     - Display average confidence score for bar (last 7 days, 30 days)
     - Show chart of confidence scores over time (daily averages, line chart)
-    - Alert administrators when confidence drops below 80% (banner notification)
+    - Alert administrators when confidence drops below 85% (banner notification)
     - Show percentage of receipts requiring AI fallback (pie chart)
     - Display parse failure count (last 7 days) with trend indicator
     - Show list of recent parse failures with links to receipts
     - Add export functionality for confidence data (CSV download)
     - _Requirements: 17.1, 17.2, 17.3, 17.4, 17.5_
 
-- [~] 14. Checkpoint - Verify End-to-End Flow
+- [ ] 14. Checkpoint - Verify End-to-End Flow
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 15. Integration and Performance Optimization
-  - [~] 15.1 Optimize database queries
+  - [ ] 15.1 Optimize database queries
     - Add missing indexes based on query patterns (analyze slow query log)
     - Optimize receipt list queries with pagination and proper indexes
     - Add composite indexes for common filter combinations: (bar_id, status, timestamp)
@@ -527,15 +551,15 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Use EXPLAIN ANALYZE to identify slow queries and optimize
     - _Requirements: 12.1, 12.2, 12.4_
   
-  - [~] 15.2 Implement Redis caching
-    - Cache active templates per bar (key: `template:bar:{bar_id}`, TTL: 1 hour)
-    - Cache recent receipts list (key: `receipts:recent:{bar_id}`, TTL: 30 seconds)
-    - Cache bar configuration (venue mode, authority mode, key: `bar:config:{bar_id}`, TTL: 1 hour)
-    - Set appropriate TTLs for each cache type based on update frequency
+  - [ ] 15.2 Implement database query optimization
+    - Use Supabase's built-in caching for frequently accessed data
+    - Optimize template queries with proper indexes
+    - Use materialized views for complex aggregations (confidence scores, failure rates)
+    - Implement query result caching at application level (in-memory cache with TTL)
     - Invalidate caches on updates (template changes, new receipts, config changes)
     - _Requirements: 8.1, 12.1_
   
-  - [~] 15.3 Add real-time receipt updates
+  - [ ] 15.3 Add real-time receipt updates
     - Use Supabase Realtime subscriptions for receipt status changes
     - Update customer PWA when receipt becomes UNCLAIMED (show in "Recent receipts")
     - Update staff dashboard when new receipts arrive (show notification badge)
@@ -550,7 +574,7 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - **Validates: Requirements 12.1, 12.2, 12.4, 12.5**
 
 - [ ] 16. Error Handling and Monitoring
-  - [~] 16.1 Add comprehensive error logging
+  - [ ] 16.1 Add comprehensive error logging
     - Log capture service errors to local file (`C:\ProgramData\Tabeza\logs\capture.log`)
     - Log cloud API errors to Supabase (separate error_logs table)
     - Include context: receipt ID, bar ID, operation, timestamp, and stack traces
@@ -558,16 +582,16 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Add log levels: ERROR, WARN, INFO, DEBUG
     - _Requirements: 13.1, 13.2_
   
-  - [~] 16.2 Implement health check endpoints
+  - [ ] 16.2 Implement health check endpoints
     - Add `/api/receipts/health` endpoint with component checks
     - Check database connectivity (query test with timeout)
-    - Check Redis queue status (queue size, worker status, pending jobs)
+    - Check Supabase Edge Function status (test invocation with timeout)
     - Check AI API availability (test API call with timeout)
     - Return detailed health status with component-level checks (200 OK or 503 Service Unavailable)
     - Include response times for each component
     - _Requirements: 7.1_
   
-  - [~] 16.3 Add monitoring dashboards
+  - [ ] 16.3 Add monitoring dashboards
     - Create admin dashboard for system health (separate admin route)
     - Display capture service status per bar (last heartbeat, queue size, online/offline)
     - Show parsing success rate (regex vs AI, failures) with charts
@@ -577,7 +601,7 @@ This plan transforms TabezaConnect from a blocking print intermediary to a passi
     - Add alerts for anomalies: high failure rate, slow parsing, queue backlog
     - _Requirements: 17.1, 17.2, 17.3, 17.4, 17.5_
 
-- [~] 17. Final Checkpoint - Production Readiness
+- [ ] 17. Final Checkpoint - Production Readiness
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes
