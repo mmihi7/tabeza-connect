@@ -338,7 +338,7 @@ export default function PrinterStatus({
         <div className="text-sm">
           <p className="font-medium mb-2">To connect your printer:</p>
           <ol className="list-decimal list-inside space-y-1 text-sm opacity-90">
-            <li>Download TabezaConnect from <a href="/download" className="text-blue-600 hover:text-blue-700 underline">Downloads page</a></li>
+            <li>Download Tabeza POS Connect from <a href="/download" className="text-blue-600 hover:text-blue-700 underline">Downloads page</a></li>
             <li>Run the installer as administrator</li>
             <li>Service will connect automatically</li>
           </ol>
@@ -350,7 +350,7 @@ export default function PrinterStatus({
             className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-lg hover:bg-opacity-90 transition text-sm font-medium"
           >
             <Download className="w-4 h-4" />
-            Download TabezaConnect
+            Download Tabeza POS Connect
           </a>
           
           <button

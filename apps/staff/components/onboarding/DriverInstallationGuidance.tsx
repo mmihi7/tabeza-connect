@@ -14,7 +14,7 @@ const DriverInstallationGuidance: React.FC<DriverInstallationGuidanceProps> = ({
   onDriversConfirmed,
 }) => {
   const handleDownload = () => {
-    window.open('https://github.com/billoapp/TabezaConnect/releases/download/v1.2.0/TabezaConnect-Setup-v1.2.0.exe', '_blank');
+    window.open('https://github.com/billoapp/TabezaConnect/releases/download/v1.3.0/TabezaConnect-Setup-v1.3.0.exe', '_blank');
   };
 
   return (
@@ -37,9 +37,9 @@ const DriverInstallationGuidance: React.FC<DriverInstallationGuidanceProps> = ({
 
       {/* Download Section */}
       <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Download TabezaConnect</h3>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Download Tabeza POS Connect</h3>
         <p className="text-gray-600 mb-4">
-          Download and install TabezaConnect to enable automatic printer connection.
+          Download and install Tabeza POS Connect to enable automatic printer connection.
         </p>
         <div className="flex justify-center">
           <a
@@ -47,7 +47,7 @@ const DriverInstallationGuidance: React.FC<DriverInstallationGuidanceProps> = ({
             className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
           >
             <Download className="w-5 h-5" />
-            Download TabezaConnect
+            Download Tabeza POS Connect
           </a>
         </div>
         <p className="text-xs text-gray-500 mt-2 text-center">
@@ -65,7 +65,7 @@ const DriverInstallationGuidance: React.FC<DriverInstallationGuidanceProps> = ({
             <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-semibold">
               1
             </span>
-            <span className="text-gray-700 pt-0.5">Download TabezaConnect from link above</span>
+            <span className="text-gray-700 pt-0.5">Download Tabeza POS Connect from link above</span>
           </li>
           <li className="flex items-start gap-3">
             <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-semibold">
@@ -97,8 +97,8 @@ const DriverInstallationGuidance: React.FC<DriverInstallationGuidanceProps> = ({
         <ul className="space-y-2">
           <li className="flex items-start gap-2 text-sm text-green-700">
             <span className="text-green-600 flex-shrink-0">✓</span>
-            <span>TabezaConnect reads your venue ID from the installation</span>
-          </li>
+            <span>Tabeza POS Connect reads your venue ID from the installation</span>
+          </li></invoke>
           <li className="flex items-start gap-2 text-sm text-green-700">
             <span className="text-green-600 flex-shrink-0">✓</span>
             <span>The service automatically sends heartbeats to register your printer</span>

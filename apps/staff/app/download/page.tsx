@@ -27,8 +27,8 @@ export default function DownloadPage() {
   const [steps, setSteps] = useState<InstallationStep[]>([
     {
       id: 1,
-      title: 'Download TabezaConnect',
-      description: 'Download the latest version of TabezaConnect installer',
+      title: 'Download Tabeza POS Connect',
+      description: 'Download the latest version of Tabeza POS Connect installer',
       icon: <Download className="w-5 h-5" />,
       completed: false
     },
@@ -55,7 +55,7 @@ export default function DownloadPage() {
     }
   ]);
 
-  const downloadUrl = 'https://github.com/billoapp/TabezaConnect/releases/download/v1.2.0/TabezaConnect-Setup-v1.2.0.exe';
+  const downloadUrl = 'https://github.com/billoapp/TabezaConnect/releases/download/v1.3.0/TabezaConnect-Setup-v1.3.0.exe';
   const fallbackUrl = 'https://github.com/billoapp/TabezaConnect/releases/latest';
 
   const handleDownload = () => {
@@ -92,10 +92,10 @@ export default function DownloadPage() {
             <Download className="w-8 h-8 text-blue-600" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-4">
-            Download TabezaConnect
+            Download Tabeza POS Connect
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            TabezaConnect enables automatic receipt capture from your POS system to Tabeza. 
+            Tabeza POS Connect enables automatic receipt capture from your POS system to Tabeza. 
             Install it on your venue's computer to start processing receipts automatically.
           </p>
         </div>
@@ -105,7 +105,7 @@ export default function DownloadPage() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                TabezaConnect v1.2.0
+                Tabeza POS Connect v1.3.0
               </h2>
               <p className="text-gray-600">
                 Professional Windows installer with spooler monitoring support
@@ -158,7 +158,7 @@ export default function DownloadPage() {
               className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
             >
               <Download className="w-5 h-5" />
-              Download TabezaConnect v1.2.0
+              Download Tabeza POS Connect v1.3.0
               <ArrowRight className="w-4 h-4" />
             </button>
             
@@ -244,7 +244,7 @@ export default function DownloadPage() {
                 <span className="font-medium">Installation Complete!</span>
               </div>
               <p className="text-green-700 text-sm mt-1">
-                Your TabezaConnect service should now be running. Check your staff dashboard to verify the connection status.
+                Your Tabeza POS Connect service should now be running. Check your staff dashboard to verify the connection status.
               </p>
             </div>
           )}
@@ -266,7 +266,7 @@ export default function DownloadPage() {
                 <li>• Ensure you're running the installer as Administrator</li>
                 <li>• Check that your Bar ID is correct during setup</li>
                 <li>• Verify your internet connection</li>
-                <li>• Restart the TabezaConnect service from Windows Services</li>
+                <li>• Restart the Tabeza POS Connect service from Windows Services</li>
               </ul>
             </div>
 
@@ -276,7 +276,7 @@ export default function DownloadPage() {
                 Firewall Blocking
               </h3>
               <ul className="text-sm text-gray-600 space-y-1 ml-7">
-                <li>• Allow TabezaConnect through Windows Firewall</li>
+                <li>• Allow Tabeza POS Connect through Windows Firewall</li>
                 <li>• Check corporate firewall settings</li>
                 <li>• Port 80 and 443 should be accessible</li>
               </ul>
