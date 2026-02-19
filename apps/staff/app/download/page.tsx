@@ -55,7 +55,7 @@ export default function DownloadPage() {
     }
   ]);
 
-  const downloadUrl = 'https://github.com/billoapp/TabezaConnect/releases/download/v1.2.0/TabezaConnect-Setup-v1.1.0.exe';
+  const downloadUrl = 'https://github.com/billoapp/TabezaConnect/releases/download/v1.2.0/TabezaConnect-Setup-v1.2.0.exe';
   const fallbackUrl = 'https://github.com/billoapp/TabezaConnect/releases/latest';
 
   const handleDownload = () => {

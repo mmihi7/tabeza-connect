@@ -14,7 +14,7 @@ const DriverInstallationGuidance: React.FC<DriverInstallationGuidanceProps> = ({
   onDriversConfirmed,
 }) => {
   const handleDownload = () => {
-    window.open('https://github.com/billoapp/TabezaConnect/releases/download/v1.2.0/TabezaConnect-Setup-v1.1.0.exe', '_blank');
+    window.open('https://github.com/billoapp/TabezaConnect/releases/download/v1.2.0/TabezaConnect-Setup-v1.2.0.exe', '_blank');
   };
 
   return (
