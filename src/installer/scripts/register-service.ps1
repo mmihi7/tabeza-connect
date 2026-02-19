@@ -19,7 +19,7 @@ param(
     [Parameter(Mandatory = $true)]  [string]$InstallDir,
     [Parameter(Mandatory = $true)]  [string]$BarID,
     [Parameter(Mandatory = $true)]  [string]$WatchFolder,
-    [Parameter(Mandatory = $false)] [string]$ServiceName = 'TabezaConnect',
+    [Parameter(Mandatory = $false)] [string]$ServiceName = 'TabezaConnectService',
     [switch]$Silent
 )
 
@@ -89,7 +89,7 @@ try {
         binPath= $binPath `
         start= auto `
         obj= "LocalSystem" `
-        DisplayName= "Tabeza Connect Service" | Out-Null
+        DisplayName= "Tabeza POS Connect Service" | Out-Null
 
     if ($LASTEXITCODE -ne 0) {
         Write-Log "sc.exe create failed with code $LASTEXITCODE" 'ERROR'

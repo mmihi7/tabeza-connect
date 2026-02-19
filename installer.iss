@@ -1,11 +1,11 @@
 ; Tabeza Connect Installer Script
-; Version 1.1.0
+; Version 1.3.0
 ; Built with Inno Setup 6.x
 
 [Setup]
 ; Application Information
-AppName=Tabeza Connect
-AppVersion=1.1.0
+AppName=Tabeza POS Connect
+AppVersion=1.3.0
 AppPublisher=Tabeza
 AppPublisherURL=https://tabeza.co.ke
 AppSupportURL=https://tabeza.co.ke/support
@@ -13,13 +13,13 @@ AppUpdatesURL=https://tabeza.co.ke/downloads
 AppCopyright=Copyright (C) 2026 Tabeza
 
 ; Installation Directories
-DefaultDirName={autopf}\Tabeza
-DefaultGroupName=Tabeza Connect
+DefaultDirName={autopf}\TabezaConnect
+DefaultGroupName=Tabeza POS Connect
 DisableProgramGroupPage=yes
 
 ; Output Configuration
 OutputDir=C:\Temp\TabezaConnect-Build
-OutputBaseFilename=TabezaConnect-Setup-v1.1.0
+OutputBaseFilename=TabezaConnect-Setup-v1.3.0
 SetupIconFile=icon.ico
 UninstallDisplayIcon={app}\icon.ico
 
@@ -29,23 +29,29 @@ SolidCompression=yes
 
 ; Privileges and Architecture - REQUIRE ADMIN FOR WINDOWS SERVICE
 PrivilegesRequired=admin
+PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesInstallIn64BitMode=x64
 ArchitecturesAllowed=x64
+
+; Directory Configuration
+UsePreviousAppDir=yes
+DirExistsWarning=auto
+DisableDirPage=no
 
 ; Wizard Configuration
 WizardStyle=modern
 DisableWelcomePage=no
-LicenseFile=src\installer\LICENSE.txt
+LicenseFile=src\installer\TERMS_AND_PRIVACY.txt
 
 ; Uninstall Configuration
-UninstallDisplayName=Tabeza Connect
+UninstallDisplayName=Tabeza POS Connect
 UninstallFilesDir={app}\uninstall
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Messages]
-WelcomeLabel2=This will install Tabeza Connect on your computer.%n%nTabeza Connect captures receipt data from your POS system and syncs it with the Tabeza staff app.%n%nIMPORTANT: Tabeza works ALONGSIDE your existing printer. Your current printer setup will NOT change.
+WelcomeLabel2=This will install Tabeza POS Connect on your computer.%n%nTabeza POS Connect captures receipt data from your POS system and syncs it with the Tabeza staff app.%n%nIMPORTANT: Tabeza works ALONGSIDE your existing printer. Your current printer setup will NOT change.
 
 [CustomMessages]
 BarIdPrompt=Enter your Bar ID from the Tabeza staff dashboard:
@@ -69,7 +75,7 @@ Source: "src\installer\nodejs-bundle\nodejs\*"; DestDir: "{app}\nodejs"; Flags: 
 Source: "src\installer\nodejs-bundle\service\*"; DestDir: "{app}\service"; Flags: recursesubdirs; Components: core
 
 ; PowerShell Scripts
-Source: "src\installer\scripts\*"; DestDir: "{app}\scripts"; Flags: recursesubdirs; Components: core
+Source: "src\installer\nodejs-bundle\scripts\*"; DestDir: "{app}\scripts"; Flags: recursesubdirs; Components: core
 
 ; Configuration Template
 Source: "config.template.json"; DestDir: "{app}"; DestName: "config.json"; Flags: onlyifdoesntexist; Components: core
@@ -77,6 +83,7 @@ Source: "config.template.json"; DestDir: "{app}"; DestName: "config.json"; Flags
 ; Documentation
 Source: "README.md"; DestDir: "{app}\docs"; Components: docs
 Source: "BUILD-AND-DEPLOY.md"; DestDir: "{app}\docs"; Components: docs
+Source: "src\installer\nodejs-bundle\docs\AFTER-INSTALL.txt"; DestDir: "{app}\docs"; Components: docs
 
 ; Icon
 Source: "icon.ico"; DestDir: "{app}"; Components: core
@@ -93,21 +100,22 @@ Name: "{userappdata}\TabezaPrints"; Permissions: users-modify
 Name: "{userappdata}\TabezaPrints\pending"; Permissions: users-modify
 Name: "{userappdata}\TabezaPrints\processed"; Permissions: users-modify
 Name: "{userappdata}\TabezaPrints\failed"; Permissions: users-modify
+; Create logs directory in application folder for terms acceptance
+Name: "{app}\logs"; Permissions: users-readexec
 
 [Code]
 var
   BarIdPage: TInputQueryWizardPage;
   BarId: String;
 
-{ Custom page for Bar ID input }
 procedure InitializeWizard;
 begin
-  { Create Bar ID input page }
-  BarIdPage := CreateInputQueryPage(wpSelectComponents,
+  { Create Bar ID input page after license }
+  BarIdPage := CreateInputQueryPage(wpLicense,
     'Configuration', 'Enter your venue details',
     'Please enter your Bar ID from the Tabeza staff dashboard.' + #13#10 + #13#10 +
     'To find your Bar ID:' + #13#10 +
-    '1. Log in to "https://tabeza.co.ke"' + #13#10 +
+    '1. Log in to https://tabeza.co.ke' + #13#10 +
     '2. Go to Settings > Venue Details' + #13#10 +
     '3. Copy your Bar ID');
   
@@ -115,7 +123,6 @@ begin
   BarIdPage.Values[0] := '';
 end;
 
-{ Validate Bar ID }
 function ValidateBarId(const Value: String): Boolean;
 var
   I: Integer;
@@ -141,11 +148,11 @@ begin
   Result := True;
 end;
 
-{ Validate Bar ID page }
 function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
   
+  { Validate Bar ID }
   if CurPageID = BarIdPage.ID then
   begin
     BarId := Trim(BarIdPage.Values[0]);
@@ -168,103 +175,64 @@ begin
   end;
 end;
 
-{ Get Bar ID for use in scripts }
 function GetBarId(Param: String): String;
 begin
   Result := BarId;
 end;
 
-{ Get API URL }
 function GetApiUrl(Param: String): String;
 begin
   Result := 'https://tabeza.co.ke';
 end;
 
+procedure LogTermsAcceptance(BarID: String);
+var
+  LogFile: String;
+  LogContent: String;
+  Timestamp: String;
+  LogDir: String;
+begin
+  { Ensure logs directory exists }
+  LogDir := ExpandConstant('{app}\logs');
+  if not DirExists(LogDir) then
+    CreateDir(LogDir);
+  
+  LogFile := ExpandConstant('{app}\logs\terms-acceptance.log');
+  Timestamp := GetDateTimeString('yyyy-mm-dd hh:nn:ss', #0, #0);
+  LogContent := Format('[%s] Bar ID: %s | Terms v1.0 | Installer v1.3.0 | Accepted', [Timestamp, BarID]);
+  SaveStringToFile(LogFile, LogContent + #13#10, True);
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  { Log terms acceptance after files are installed }
+  if CurStep = ssPostInstall then
+  begin
+    LogTermsAcceptance(BarId);
+  end;
+end;
+
 [Run]
-; Step 1: Create watch folders
-Filename: "powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\create-folders.ps1"""; \
-  StatusMsg: "Creating watch folders..."; \
-  Flags: runhidden waituntilterminated; \
-  Components: core
-
-; Step 2: Configure printer (if selected)
-Filename: "powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\configure-printer.ps1"""; \
-  StatusMsg: "Configuring Tabeza Receipt Printer..."; \
-  Flags: runhidden waituntilterminated; \
-  Components: printer
-
-; Step 3: Generate SSL certificate for HTTPS
-Filename: "powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\generate-ssl-cert.ps1"" -InstallPath ""{app}"""; \
-  StatusMsg: "Generating SSL certificate for HTTPS..."; \
-  Flags: runhidden waituntilterminated; \
-  Components: core
-
-; Step 4: Configure firewall and antivirus exclusions
-Filename: "powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\configure-firewall.ps1"" -InstallPath ""{app}"""; \
-  StatusMsg: "Configuring firewall and antivirus..."; \
-  Flags: runhidden waituntilterminated; \
-  Components: core
-
-; Step 5: Register Windows service
-Filename: "powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\register-service.ps1"" -InstallPath ""{app}"" -BarId ""{code:GetBarId}"" -ApiUrl ""{code:GetApiUrl}"""; \
-  StatusMsg: "Registering Tabeza Connect service..."; \
-  Flags: runhidden waituntilterminated; \
-  Components: core
-
-; Step 6: Start the service
-Filename: "sc.exe"; \
-  Parameters: "start TabezaConnect"; \
-  StatusMsg: "Starting Tabeza Connect service..."; \
-  Flags: runhidden waituntilterminated; \
-  Components: core
-
-; Step 7: Verify installation
-Filename: "powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\verify-installation.ps1"" -InstallPath ""{app}"""; \
-  StatusMsg: "Verifying installation..."; \
-  Flags: runhidden waituntilterminated; \
-  Components: core
-
-; Step 8: Show post-install instructions (optional)
-Filename: "{win}\notepad.exe"; \
-  Parameters: """{app}\docs\AFTER-INSTALL.txt"""; \
-  Description: "View post-installation instructions"; \
-  Flags: postinstall shellexec skipifsilent nowait unchecked; \
-  Components: docs; \
-  Check: FileExists(ExpandConstant('{app}\docs\AFTER-INSTALL.txt'))
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\create-folders.ps1"""; StatusMsg: "Creating watch folders..."; Flags: runhidden waituntilterminated; Components: core
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\configure-printer.ps1"""; StatusMsg: "Configuring Tabeza Receipt Printer..."; Flags: runhidden waituntilterminated; Components: printer
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\generate-ssl-cert.ps1"" -InstallPath ""{app}"""; StatusMsg: "Generating SSL certificate for HTTPS..."; Flags: runhidden waituntilterminated; Components: core
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\configure-firewall.ps1"" -InstallPath ""{app}"""; StatusMsg: "Configuring firewall and antivirus..."; Flags: runhidden waituntilterminated; Components: core
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\register-service.ps1"" -InstallPath ""{app}"" -BarId ""{code:GetBarId}"" -ApiUrl ""{code:GetApiUrl}"""; StatusMsg: "Registering Tabeza POS Connect service..."; Flags: runhidden waituntilterminated; Components: core
+Filename: "sc.exe"; Parameters: "start TabezaConnect"; StatusMsg: "Starting Tabeza POS Connect service..."; Flags: runhidden waituntilterminated; Components: core
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\verify-installation.ps1"" -InstallPath ""{app}"""; StatusMsg: "Verifying installation..."; Flags: runhidden waituntilterminated; Components: core
+Filename: "{win}\notepad.exe"; Parameters: """{app}\docs\AFTER-INSTALL.txt"""; Description: "View post-installation instructions"; Flags: postinstall shellexec skipifsilent nowait unchecked; Components: docs; Check: FileExists(ExpandConstant('{app}\docs\AFTER-INSTALL.txt'))
 
 [UninstallRun]
-; Stop the service
-Filename: "sc.exe"; \
-  Parameters: "stop TabezaConnect"; \
-  Flags: runhidden; \
-  RunOnceId: "StopService"
-
-; Delete the service
-Filename: "sc.exe"; \
-  Parameters: "delete TabezaConnect"; \
-  Flags: runhidden; \
-  RunOnceId: "DeleteService"
-
-; Remove printer (optional - ask user)
-Filename: "powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Remove-Printer -Name 'Tabeza Receipt Printer' -ErrorAction SilentlyContinue"""; \
-  Flags: runhidden; \
-  RunOnceId: "RemovePrinter"
+Filename: "sc.exe"; Parameters: "stop TabezaConnect"; Flags: runhidden; RunOnceId: "StopService"
+Filename: "sc.exe"; Parameters: "delete TabezaConnect"; Flags: runhidden; RunOnceId: "DeleteService"
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Remove-Printer -Name 'Tabeza Receipt Printer' -ErrorAction SilentlyContinue"""; Flags: runhidden; RunOnceId: "RemovePrinter"
 
 [UninstallDelete]
-; Clean up log files (ask user)
 Type: filesandordirs; Name: "{userappdata}\Tabeza\logs"
 Type: filesandordirs; Name: "{userappdata}\TabezaPrints\processed"
 Type: filesandordirs; Name: "{userappdata}\TabezaPrints\failed"
 
 [Registry]
-; Store installation path for updates
 Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"; Flags: uninsdeletekey
-Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "Version"; ValueData: "1.1.0"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "Version"; ValueData: "1.3.0"; Flags: uninsdeletekey
 Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "BarId"; ValueData: "{code:GetBarId}"; Flags: uninsdeletekey

@@ -1,9 +1,6 @@
-; Tabeza Connect Installer Script (NSSM Version)
-; Version 1.0.0
+; Tabeza Connect Installer Script
+; Version 1.3.0
 ; Built with Inno Setup 6.x
-;
-; This version uses NSSM (Non-Sucking Service Manager) to wrap
-; the PKG-compiled executable as a proper Windows service.
 
 [Setup]
 ; Application Information
@@ -21,7 +18,7 @@ DefaultGroupName=Tabeza POS Connect
 DisableProgramGroupPage=yes
 
 ; Output Configuration
-OutputDir=C:\Users\mwene\Desktop\TabezaConnect-Build
+OutputDir=C:\Temp\TabezaConnect-Build
 OutputBaseFilename=TabezaConnect-Setup-v1.3.0
 SetupIconFile=icon.ico
 UninstallDisplayIcon={app}\icon.ico
@@ -30,7 +27,7 @@ UninstallDisplayIcon={app}\icon.ico
 Compression=lzma2/max
 SolidCompression=yes
 
-; Privileges and Architecture
+; Privileges and Architecture - REQUIRE ADMIN FOR WINDOWS SERVICE
 PrivilegesRequired=admin
 PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesInstallIn64BitMode=x64
@@ -44,7 +41,7 @@ DisableDirPage=no
 ; Wizard Configuration
 WizardStyle=modern
 DisableWelcomePage=no
-LicenseFile=LICENSE.txt
+LicenseFile=src\installer\LICENSE.txt
 
 ; Uninstall Configuration
 UninstallDisplayName=Tabeza POS Connect
@@ -71,47 +68,40 @@ Name: "printer"; Description: "Virtual Printer Configuration"; Types: full custo
 Name: "docs"; Description: "Documentation"; Types: full custom
 
 [Files]
-; ============================================================================
-; NSSM VERSION: Includes NSSM service wrapper + compiled executable
-; ============================================================================
+; Node.js Runtime
+Source: "src\installer\nodejs-bundle\nodejs\*"; DestDir: "{app}\nodejs"; Flags: recursesubdirs; Components: core
 
-; NSSM Service Wrapper (64-bit)
-Source: "nssm\win64\nssm.exe"; DestDir: "{app}\nssm\win64"; Flags: ignoreversion; Components: core
-
-; Compiled Service Executable (single file, ~40-50 MB)
-Source: "TabezaService.exe"; DestDir: "{app}"; Flags: ignoreversion; Components: core
+; Service Files
+Source: "src\installer\nodejs-bundle\service\*"; DestDir: "{app}\service"; Flags: recursesubdirs; Components: core
 
 ; PowerShell Scripts
-Source: "src\installer\scripts\*"; DestDir: "{app}\scripts"; Flags: recursesubdirs; Components: core
+Source: "src\installer\nodejs-bundle\scripts\*"; DestDir: "{app}\scripts"; Flags: recursesubdirs; Components: core
 
 ; Configuration Template
 Source: "config.template.json"; DestDir: "{app}"; DestName: "config.json"; Flags: onlyifdoesntexist; Components: core
 
 ; Documentation
-Source: "Plan\README.txt"; DestDir: "{app}\docs"; Components: docs
-Source: "Plan\BEFORE-INSTALL.txt"; DestDir: "{app}\docs"; Components: docs
-Source: "Plan\AFTER-INSTALL.txt"; DestDir: "{app}\docs"; Components: docs
-
-; Diagnostic Tools
-Source: "DIAGNOSE-SERVICE.bat"; DestDir: "{app}"; Components: core
-Source: "VERIFY-INSTALLATION-IN-SANDBOX.bat"; DestDir: "{app}"; Components: core
-Source: "MANUAL-SERVICE-SETUP.bat"; DestDir: "{app}"; Components: core
+Source: "README.md"; DestDir: "{app}\docs"; Components: docs
+Source: "BUILD-AND-DEPLOY.md"; DestDir: "{app}\docs"; Components: docs
+Source: "src\installer\nodejs-bundle\docs\AFTER-INSTALL.txt"; DestDir: "{app}\docs"; Components: docs
 
 ; Icon
 Source: "icon.ico"; DestDir: "{app}"; Components: core
 
 ; License
-Source: "LICENSE.txt"; DestDir: "{app}"; Components: core
+Source: "src\installer\LICENSE.txt"; DestDir: "{app}"; Components: core
 
 [Dirs]
-; Create application data directories in ProgramData (accessible to LocalSystem service)
-Name: "{commonappdata}\Tabeza"; Permissions: users-modify
-Name: "{commonappdata}\Tabeza\logs"; Permissions: users-modify
-Name: "{commonappdata}\Tabeza\config"; Permissions: users-modify
-Name: "{commonappdata}\Tabeza\TabezaPrints"; Permissions: users-modify
-Name: "{commonappdata}\Tabeza\TabezaPrints\pending"; Permissions: users-modify
-Name: "{commonappdata}\Tabeza\TabezaPrints\processed"; Permissions: users-modify
-Name: "{commonappdata}\Tabeza\TabezaPrints\failed"; Permissions: users-modify
+; Create application data directories
+Name: "{userappdata}\Tabeza"; Permissions: users-modify
+Name: "{userappdata}\Tabeza\logs"; Permissions: users-modify
+Name: "{userappdata}\Tabeza\config"; Permissions: users-modify
+Name: "{userappdata}\TabezaPrints"; Permissions: users-modify
+Name: "{userappdata}\TabezaPrints\pending"; Permissions: users-modify
+Name: "{userappdata}\TabezaPrints\processed"; Permissions: users-modify
+Name: "{userappdata}\TabezaPrints\failed"; Permissions: users-modify
+; Create logs directory in application folder for terms acceptance
+Name: "{app}\logs"; Permissions: users-read admins-full
 
 [Code]
 var
@@ -279,10 +269,42 @@ begin
   Result := 'https://tabeza.co.ke';
 end;
 
+{ Log terms acceptance to file for compliance }
+procedure LogTermsAcceptance(BarID: String);
+var
+  LogFile: String;
+  LogContent: String;
+  Timestamp: String;
+  LogDir: String;
+begin
+  { Ensure logs directory exists }
+  LogDir := ExpandConstant('{app}\logs');
+  if not DirExists(LogDir) then
+    CreateDir(LogDir);
+  
+  LogFile := ExpandConstant('{app}\logs\terms-acceptance.log');
+  Timestamp := GetDateTimeString('yyyy-mm-dd hh:nn:ss', #0, #0);
+  
+  LogContent := Format('[%s] Bar ID: %s | Terms v1.0 | Installer v1.3.0 | Accepted', 
+                       [Timestamp, BarID]);
+  
+  SaveStringToFile(LogFile, LogContent + #13#10, True);
+end;
+
+{ Called at various stages of installation }
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  { Log terms acceptance after files are installed }
+  if CurStep = ssPostInstall then
+  begin
+    LogTermsAcceptance(BarId);
+  end;
+end;
+
 [Run]
-; Step 1: Create watch folders (use ProgramData for service access)
+; Step 1: Create watch folders
 Filename: "powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\create-folders.ps1"" -WatchFolder ""C:\ProgramData\Tabeza\TabezaPrints"""; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\create-folders.ps1"""; \
   StatusMsg: "Creating watch folders..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
@@ -294,21 +316,42 @@ Filename: "powershell.exe"; \
   Flags: runhidden waituntilterminated; \
   Components: printer
 
-; Step 3: Register Windows service using NSSM
+; Step 3: Generate SSL certificate for HTTPS
 Filename: "powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\register-service-nssm.ps1"" -InstallPath ""{app}"" -BarId ""{code:GetBarId}"" -ApiUrl ""{code:GetApiUrl}"""; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\generate-ssl-cert.ps1"" -InstallPath ""{app}"""; \
+  StatusMsg: "Generating SSL certificate for HTTPS..."; \
+  Flags: runhidden waituntilterminated; \
+  Components: core
+
+; Step 4: Configure firewall and antivirus exclusions
+Filename: "powershell.exe"; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\configure-firewall.ps1"" -InstallPath ""{app}"""; \
+  StatusMsg: "Configuring firewall and antivirus..."; \
+  Flags: runhidden waituntilterminated; \
+  Components: core
+
+; Step 5: Register Windows service
+Filename: "powershell.exe"; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\register-service.ps1"" -InstallPath ""{app}"" -BarId ""{code:GetBarId}"" -ApiUrl ""{code:GetApiUrl}"""; \
   StatusMsg: "Registering Tabeza POS Connect service..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
-; Step 4: Verify installation
+; Step 6: Start the service
+Filename: "sc.exe"; \
+  Parameters: "start TabezaConnect"; \
+  StatusMsg: "Starting Tabeza POS Connect service..."; \
+  Flags: runhidden waituntilterminated; \
+  Components: core
+
+; Step 7: Verify installation
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\verify-installation.ps1"" -InstallPath ""{app}"""; \
   StatusMsg: "Verifying installation..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
-; Step 5: Show post-install instructions (optional)
+; Step 8: Show post-install instructions (optional)
 Filename: "{win}\notepad.exe"; \
   Parameters: """{app}\docs\AFTER-INSTALL.txt"""; \
   Description: "View post-installation instructions"; \
@@ -317,14 +360,15 @@ Filename: "{win}\notepad.exe"; \
   Check: FileExists(ExpandConstant('{app}\docs\AFTER-INSTALL.txt'))
 
 [UninstallRun]
-; Stop and remove the service using NSSM
-Filename: "{app}\nssm\win64\nssm.exe"; \
+; Stop the service
+Filename: "sc.exe"; \
   Parameters: "stop TabezaConnect"; \
   Flags: runhidden; \
   RunOnceId: "StopService"
 
-Filename: "{app}\nssm\win64\nssm.exe"; \
-  Parameters: "remove TabezaConnect confirm"; \
+; Delete the service
+Filename: "sc.exe"; \
+  Parameters: "delete TabezaConnect"; \
   Flags: runhidden; \
   RunOnceId: "DeleteService"
 
@@ -336,9 +380,9 @@ Filename: "powershell.exe"; \
 
 [UninstallDelete]
 ; Clean up log files (ask user)
-Name: "{commonappdata}\Tabeza\logs"; Type: filesandordirs
-Name: "{commonappdata}\Tabeza\TabezaPrints\processed"; Type: filesandordirs
-Name: "{commonappdata}\Tabeza\TabezaPrints\failed"; Type: filesandordirs
+Type: filesandordirs; Name: "{userappdata}\Tabeza\logs"
+Type: filesandordirs; Name: "{userappdata}\TabezaPrints\processed"
+Type: filesandordirs; Name: "{userappdata}\TabezaPrints\failed"
 
 [Registry]
 ; Store installation path for updates

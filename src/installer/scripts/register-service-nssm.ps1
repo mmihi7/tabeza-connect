@@ -21,8 +21,8 @@ if (-not $isAdmin) {
     exit 1
 }
 
-$serviceName = "TabezaConnect"
-$displayName = "Tabeza Connect"
+$serviceName = "TabezaConnectService"
+$displayName = "Tabeza POS Connect Service"
 $description = "Bridges POS system with Tabeza cloud for digital receipts and customer engagement"
 $nssmPath = Join-Path $InstallPath "nssm\win64\nssm.exe"
 $exePath = Join-Path $InstallPath "TabezaService.exe"

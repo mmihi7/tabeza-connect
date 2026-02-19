@@ -22,8 +22,8 @@ if (-not $isAdmin) {
     exit 1
 }
 
-$serviceName = "TabezaConnect"
-$displayName = "Tabeza Connect"
+$serviceName = "TabezaConnectService"
+$displayName = "Tabeza POS Connect Service"
 $description = "Bridges POS system with Tabeza cloud for digital receipts and customer engagement"
 
 # Check if service exists

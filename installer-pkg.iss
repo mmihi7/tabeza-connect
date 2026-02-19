@@ -7,8 +7,8 @@
 
 [Setup]
 ; Application Information
-AppName=Tabeza Connect
-AppVersion=1.0.0
+AppName=Tabeza POS Connect
+AppVersion=1.3.0
 AppPublisher=Tabeza
 AppPublisherURL=https://tabeza.co.ke
 AppSupportURL=https://tabeza.co.ke/support
@@ -16,13 +16,13 @@ AppUpdatesURL=https://tabeza.co.ke/downloads
 AppCopyright=Copyright (C) 2026 Tabeza
 
 ; Installation Directories
-DefaultDirName={autopf}\Tabeza
-DefaultGroupName=Tabeza Connect
+DefaultDirName={autopf}\TabezaConnect
+DefaultGroupName=Tabeza POS Connect
 DisableProgramGroupPage=yes
 
 ; Output Configuration
 OutputDir=dist
-OutputBaseFilename=TabezaConnect-Setup-v1.0.0
+OutputBaseFilename=TabezaConnect-Setup-v1.3.0
 SetupIconFile=icon.ico
 UninstallDisplayIcon={app}\icon.ico
 
@@ -32,8 +32,14 @@ SolidCompression=yes
 
 ; Privileges and Architecture
 PrivilegesRequired=admin
+PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesInstallIn64BitMode=x64
 ArchitecturesAllowed=x64
+
+; Directory Configuration
+UsePreviousAppDir=yes
+DirExistsWarning=auto
+DisableDirPage=no
 
 ; Wizard Configuration
 WizardStyle=modern
@@ -41,14 +47,14 @@ DisableWelcomePage=no
 LicenseFile=LICENSE.txt
 
 ; Uninstall Configuration
-UninstallDisplayName=Tabeza Connect
+UninstallDisplayName=Tabeza POS Connect
 UninstallFilesDir={app}\uninstall
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Messages]
-WelcomeLabel2=This will install Tabeza Connect on your computer.%n%nTabeza Connect captures receipt data from your POS system and syncs it with the Tabeza staff app.%n%nIMPORTANT: Tabeza works ALONGSIDE your existing printer. Your current printer setup will NOT change.
+WelcomeLabel2=This will install Tabeza POS Connect on your computer.%n%nTabeza POS Connect captures receipt data from your POS system and syncs it with the Tabeza staff app.%n%nIMPORTANT: Tabeza works ALONGSIDE your existing printer. Your current printer setup will NOT change.
 
 [CustomMessages]
 BarIdPrompt=Enter your Bar ID from the Tabeza staff dashboard:
@@ -108,12 +114,80 @@ Name: "{commonappdata}\Tabeza\TabezaPrints\failed"; Permissions: users-modify
 var
   BarIdPage: TInputQueryWizardPage;
   BarId: String;
+  TermsPage: TOutputMsgMemoWizardPage;
+  AcceptCheckbox: TNewCheckBox;
+
+{ Get safe temp directory with write permissions }
+function GetSafeTempDir(): String;
+var
+  TempDir: String;
+begin
+  { Try system temp first }
+  TempDir := ExpandConstant('{tmp}');
+  
+  { Verify write access }
+  if DirExists(TempDir) and IsAdminInstallMode then
+    Result := TempDir
+  else
+    { Fallback to user temp }
+    Result := ExpandConstant('{usertmp}');
+end;
+
+{ Install file with retry logic to handle antivirus interference }
+function InstallFileWithRetry(SourceFile, DestFile: String): Boolean;
+var
+  Retry: Integer;
+  Success: Boolean;
+begin
+  Retry := 0;
+  Success := False;
+  
+  while (Retry < 3) and (not Success) do
+  begin
+    try
+      FileCopy(SourceFile, DestFile, False);
+      Success := True;
+    except
+      Retry := Retry + 1;
+      if Retry < 3 then
+        Sleep(1000); { Wait 1 second before retry }
+    end;
+  end;
+  
+  Result := Success;
+end;
 
 { Custom page for Bar ID input }
 procedure InitializeWizard;
 begin
+  { Create terms page after welcome }
+  TermsPage := CreateOutputMsgMemoPage(wpWelcome,
+    'Terms of Service and Privacy Policy',
+    'Please review and accept the terms',
+    'By installing Tabeza POS Connect, you agree to our Terms of Service and Privacy Policy.',
+    '');
+  
+  { Add terms text }
+  TermsPage.RichEditViewer.Lines.Add('TABEZA POS CONNECT');
+  TermsPage.RichEditViewer.Lines.Add('Terms of Service & Privacy Policy');
+  TermsPage.RichEditViewer.Lines.Add('');
+  TermsPage.RichEditViewer.Lines.Add('Full terms available at: https://tabeza.co.ke/terms');
+  TermsPage.RichEditViewer.Lines.Add('');
+  TermsPage.RichEditViewer.Lines.Add('By installing this software, you agree to:');
+  TermsPage.RichEditViewer.Lines.Add('1. Use the service in accordance with our Terms of Service');
+  TermsPage.RichEditViewer.Lines.Add('2. Allow collection of usage data as described in our Privacy Policy');
+  TermsPage.RichEditViewer.Lines.Add('3. Comply with all applicable laws and regulations');
+  
+  { Add acceptance checkbox }
+  AcceptCheckbox := TNewCheckBox.Create(TermsPage);
+  AcceptCheckbox.Parent := TermsPage.Surface;
+  AcceptCheckbox.Top := TermsPage.RichEditViewer.Top + TermsPage.RichEditViewer.Height + 16;
+  AcceptCheckbox.Width := TermsPage.SurfaceWidth;
+  AcceptCheckbox.Caption := 'I accept the Terms of Service and Privacy Policy';
+  AcceptCheckbox.Checked := False;
+  
   { Create Bar ID input page }
-  BarIdPage := CreateInputQueryPage(wpSelectComponents,
+  BarIdPage := CreateInputQueryPage(TermsPage.ID,
     'Configuration', 'Enter your venue details',
     'Please enter your Bar ID from the Tabeza staff dashboard.' + #13#10 + #13#10 +
     'To find your Bar ID:' + #13#10 +
@@ -151,11 +225,23 @@ begin
   Result := True;
 end;
 
-{ Validate Bar ID page }
+{ Validate terms acceptance and Bar ID page }
 function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
   
+  { Validate terms acceptance }
+  if CurPageID = TermsPage.ID then
+  begin
+    if not AcceptCheckbox.Checked then
+    begin
+      MsgBox('You must accept the Terms of Service and Privacy Policy to continue.', 
+             mbError, MB_OK);
+      Result := False;
+    end;
+  end;
+  
+  { Validate Bar ID }
   if CurPageID = BarIdPage.ID then
   begin
     BarId := Trim(BarIdPage.Values[0]);
@@ -208,14 +294,14 @@ Filename: "powershell.exe"; \
 ; Step 3: Register Windows service (PKG version uses TabezaService.exe)
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\register-service-pkg.ps1"" -InstallPath ""{app}"" -BarId ""{code:GetBarId}"" -ApiUrl ""{code:GetApiUrl}"""; \
-  StatusMsg: "Registering Tabeza Connect service..."; \
+  StatusMsg: "Registering Tabeza POS Connect service..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
 ; Step 4: Start the service
 Filename: "sc.exe"; \
   Parameters: "start TabezaConnect"; \
-  StatusMsg: "Starting Tabeza Connect service..."; \
+  StatusMsg: "Starting Tabeza POS Connect service..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
@@ -262,5 +348,5 @@ Name: "{commonappdata}\Tabeza\TabezaPrints\failed"; Type: filesandordirs
 [Registry]
 ; Store installation path for updates
 Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"; Flags: uninsdeletekey
-Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "Version"; ValueData: "1.0.0"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "Version"; ValueData: "1.3.0"; Flags: uninsdeletekey
 Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "BarId"; ValueData: "{code:GetBarId}"; Flags: uninsdeletekey

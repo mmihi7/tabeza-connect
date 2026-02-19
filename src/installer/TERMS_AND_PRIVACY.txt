@@ -1,0 +1,297 @@
+TABEZA POS CONNECT - TERMS OF SERVICE AND PRIVACY POLICY
+
+Last Updated: February 19, 2026
+
+BY INSTALLING TABEZA POS CONNECT, YOU AGREE TO THESE TERMS AND OUR PRIVACY POLICY.
+
+================================================================================
+1. SERVICE DESCRIPTION
+================================================================================
+
+Tabeza POS Connect is a Windows background service that:
+- Monitors your Windows print spooler for receipt data
+- Captures receipt information AFTER printing completes
+- Sends receipt data to Tabeza cloud services for digital receipt delivery
+- Does NOT interfere with or delay your normal printing operations
+
+IMPORTANT: Your printer and POS system operate independently. Tabeza POS Connect 
+only observes print jobs after they complete - it never blocks or modifies 
+printing.
+
+================================================================================
+2. ACCEPTANCE OF TERMS
+================================================================================
+
+By installing this software, you acknowledge that you have read, understood, 
+and agree to be bound by these Terms of Service and Privacy Policy.
+
+If you do not agree to these terms, do not install or use this software.
+
+================================================================================
+3. LICENSE GRANT
+================================================================================
+
+Tabeza grants you a non-exclusive, non-transferable license to:
+- Install and use Tabeza POS Connect on your venue's computers
+- Capture and transmit receipt data from your POS system
+- Access digital receipt services through the Tabeza platform
+
+This license is valid for the duration of your Tabeza subscription.
+
+================================================================================
+4. DATA COLLECTION AND PRIVACY
+================================================================================
+
+4.1 WHAT WE COLLECT
+
+Tabeza POS Connect collects and transmits:
+- Receipt data: items, quantities, prices, totals, taxes
+- Venue identifier (Bar ID)
+- Timestamp of each transaction
+- Device identifier (anonymous)
+- Print job metadata
+
+4.2 WHAT WE DO NOT COLLECT
+
+We do NOT collect:
+- Customer names or personal information from receipts
+- Credit card numbers or payment card data
+- Employee personal information
+- Any data unrelated to receipts
+
+4.3 HOW WE USE YOUR DATA
+
+Receipt data is used to:
+- Provide digital receipts to your customers via the Tabeza app
+- Enable customers to link receipts to their tabs
+- Generate analytics and reports for your venue
+- Improve receipt parsing accuracy
+
+4.4 DATA STORAGE AND SECURITY
+
+- Receipt data is encrypted during transmission (HTTPS/TLS)
+- Data is stored securely on Supabase cloud infrastructure
+- Access is restricted to authorized Tabeza systems and your venue staff
+- We implement industry-standard security practices
+
+4.5 DATA RETENTION
+
+- Raw receipt data: Retained for 90 days
+- Parsed receipt data: Retained for 1 year or as required by law
+- You may request deletion of your venue's data at any time
+
+4.6 DATA SHARING
+
+We do NOT sell your data. We may share data only:
+- With your explicit consent
+- With service providers who assist in operating Tabeza (under strict NDAs)
+- When required by law or legal process
+- To protect Tabeza's rights or prevent fraud
+
+================================================================================
+5. YOUR RESPONSIBILITIES
+================================================================================
+
+You agree to:
+- Provide accurate venue information during setup
+- Maintain the security of your Bar ID and credentials
+- Comply with all applicable laws regarding receipt data
+- Notify customers that digital receipts are available via Tabeza
+- Ensure you have the right to transmit receipt data from your POS system
+
+You must NOT:
+- Attempt to reverse engineer or modify the software
+- Use the service for any illegal purpose
+- Transmit malicious code or interfere with the service
+- Share your Bar ID with unauthorized parties
+
+================================================================================
+6. PRINTER AND POS COMPATIBILITY
+================================================================================
+
+6.1 SUPPORTED SYSTEMS
+
+Tabeza POS Connect works with:
+- Any POS system that prints to Windows printers
+- Thermal printers, network printers, USB printers
+- ESC/POS compatible receipt printers
+
+6.2 NO WARRANTY OF COMPATIBILITY
+
+While we strive for broad compatibility, we do not guarantee that Tabeza POS 
+Connect will work with all POS systems or printers. Receipt parsing accuracy 
+may vary based on receipt format.
+
+6.3 NO LIABILITY FOR PRINTING ISSUES
+
+Tabeza POS Connect operates AFTER printing completes and does not interfere 
+with your printing process. We are not liable for any printing delays, failures, 
+or issues with your POS system or printers.
+
+================================================================================
+7. SERVICE AVAILABILITY
+================================================================================
+
+7.1 UPTIME
+
+We strive for 99.9% uptime but do not guarantee uninterrupted service. The 
+service may be unavailable due to:
+- Scheduled maintenance
+- Technical issues
+- Internet connectivity problems
+- Force majeure events
+
+7.2 LOCAL QUEUE
+
+Tabeza POS Connect includes a local queue that stores receipts when internet 
+connectivity is unavailable. Receipts will be uploaded when connectivity is 
+restored.
+
+================================================================================
+8. LIMITATION OF LIABILITY
+================================================================================
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW:
+
+- Tabeza POS Connect is provided "AS IS" without warranties of any kind
+- We are not liable for any indirect, incidental, or consequential damages
+- Our total liability shall not exceed the amount you paid for the service 
+  in the 12 months preceding the claim
+- We are not responsible for data loss, business interruption, or lost profits
+
+================================================================================
+9. INDEMNIFICATION
+================================================================================
+
+You agree to indemnify and hold Tabeza harmless from any claims, damages, or 
+expenses arising from:
+- Your use of Tabeza POS Connect
+- Your violation of these terms
+- Your violation of any third-party rights
+- Any data you transmit through the service
+
+================================================================================
+10. TERMINATION
+================================================================================
+
+10.1 BY YOU
+
+You may terminate this agreement at any time by:
+- Uninstalling Tabeza POS Connect
+- Canceling your Tabeza subscription
+- Requesting deletion of your venue data
+
+10.2 BY TABEZA
+
+We may terminate or suspend your access if:
+- You violate these terms
+- Your subscription expires or payment fails
+- We discontinue the service (with 30 days notice)
+
+10.3 EFFECT OF TERMINATION
+
+Upon termination:
+- Your license to use the software ends immediately
+- You must uninstall Tabeza POS Connect
+- Your data will be deleted according to our retention policy
+
+================================================================================
+11. UPDATES AND MODIFICATIONS
+================================================================================
+
+11.1 SOFTWARE UPDATES
+
+Tabeza POS Connect may automatically download and install updates. Updates may:
+- Add new features
+- Fix bugs or security issues
+- Improve performance
+- Change functionality
+
+11.2 TERMS UPDATES
+
+We may update these terms at any time. Continued use of the service after 
+changes constitutes acceptance of the new terms. We will notify you of 
+material changes via email or dashboard notification.
+
+================================================================================
+12. COMPLIANCE WITH LAWS
+================================================================================
+
+You are responsible for ensuring your use of Tabeza POS Connect complies with:
+- Local data protection laws (GDPR, CCPA, etc.)
+- Tax and accounting regulations
+- Consumer protection laws
+- Any industry-specific regulations
+
+================================================================================
+13. DISPUTE RESOLUTION
+================================================================================
+
+13.1 GOVERNING LAW
+
+These terms are governed by the laws of Kenya.
+
+13.2 ARBITRATION
+
+Any disputes shall be resolved through binding arbitration in Nairobi, Kenya, 
+except where prohibited by law.
+
+13.3 CLASS ACTION WAIVER
+
+You agree to resolve disputes individually and waive any right to participate 
+in class action lawsuits.
+
+================================================================================
+14. MISCELLANEOUS
+================================================================================
+
+14.1 ENTIRE AGREEMENT
+
+These terms constitute the entire agreement between you and Tabeza regarding 
+Tabeza POS Connect.
+
+14.2 SEVERABILITY
+
+If any provision is found unenforceable, the remaining provisions remain in 
+full effect.
+
+14.3 NO WAIVER
+
+Failure to enforce any provision does not constitute a waiver of that provision.
+
+14.4 ASSIGNMENT
+
+You may not assign these terms without our written consent. We may assign our 
+rights and obligations to any successor or affiliate.
+
+================================================================================
+15. CONTACT INFORMATION
+================================================================================
+
+For questions about these terms or privacy practices:
+
+Email: support@tabeza.co.ke
+Website: https://tabeza.co.ke
+Address: Nairobi, Kenya
+
+For data protection inquiries:
+Email: privacy@tabeza.co.ke
+
+================================================================================
+16. ACKNOWLEDGMENT
+================================================================================
+
+BY CLICKING "I ACCEPT" OR INSTALLING THIS SOFTWARE, YOU ACKNOWLEDGE THAT:
+
+✓ You have read and understood these Terms of Service and Privacy Policy
+✓ You agree to be bound by these terms
+✓ You have the authority to bind your venue to these terms
+✓ You understand that receipt data will be transmitted to Tabeza cloud services
+✓ You will comply with all applicable laws regarding data collection
+
+================================================================================
+
+Full terms available at: https://tabeza.co.ke/terms
+Privacy policy available at: https://tabeza.co.ke/privacy
+
+© 2026 Tabeza. All rights reserved.
