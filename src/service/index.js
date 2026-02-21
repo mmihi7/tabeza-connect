@@ -31,6 +31,9 @@ const winreg = require('winreg');
 
 // Import spool monitor for passive receipt capture
 const SpoolMonitor = require('./spoolMonitor');
+const LocalQueue = require('./localQueue');
+const UploadWorker = require('./uploadWorker');
+const PrintBridge = require('./final-bridge');
 
 const app = express();
 const PORT = 8765;
@@ -162,6 +165,22 @@ function loadConfig() {
       console.log('  BarID not found in registry');
     }
     
+    // Read CaptureMode from registry
+    let registryCaptureMode = 'spooler'; // Default to spooler
+    try {
+      const captureResult = execSync(
+        'reg query "HKLM\\SOFTWARE\\Tabeza\\TabezaConnect" /v CaptureMode',
+        { encoding: 'utf8', windowsHide: true }
+      );
+      const captureMatch = captureResult.match(/CaptureMode\s+REG_SZ\s+(.+)/);
+      if (captureMatch && captureMatch[1]) {
+        registryCaptureMode = captureMatch[1].trim();
+        console.log('  Found CaptureMode in registry:', registryCaptureMode);
+      }
+    } catch (captureError) {
+      console.log('  CaptureMode not found in registry, using default spooler');
+    }
+    
     // Read API URL from registry (default if not found)
     const defaultApiUrl = 'https://bkaigyrrzsqbfscyznzw.supabase.co';
     
@@ -170,7 +189,7 @@ function loadConfig() {
       console.log('   Bar ID:', registryBarId);
       console.log('   API URL:', defaultApiUrl);
       console.log('   Watch Folder: C:\\ProgramData\\Tabeza\\TabezaPrints');
-      console.log('   Capture Mode: folder (default)');
+      console.log('   Capture Mode:', registryCaptureMode);
       console.log('');
       return {
         barId: registryBarId,
@@ -178,7 +197,7 @@ function loadConfig() {
         vercelBypassToken: '',
         driverId: generateDriverId(),
         watchFolder: 'C:\\ProgramData\\Tabeza\\TabezaPrints',
-        captureMode: 'folder', // Default to legacy mode for registry config
+        captureMode: registryCaptureMode,
       };
     }
   } catch (error) {
@@ -270,6 +289,10 @@ let watcher = null;
 // Spool monitor for passive receipt capture
 let spoolMonitor = null;
 
+// Local queue and upload worker
+let localQueue = null;
+let uploadWorker = null;
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -282,7 +305,7 @@ app.get('/api/status', (req, res) => {
   res.json({
     status: 'running',
     version: '1.0.0',
-    printerName: 'Tabeza Receipt Printer',
+    printerName: 'Tabeza POS Connect',
     timestamp: new Date().toISOString(),
     barId: config.barId,
     driverId: config.driverId,
@@ -798,21 +821,106 @@ function startCloudPolling() {
   }, 5000); // Poll every 5 seconds
 }
 
+// Initialize local queue and upload worker
+async function initializeQueue() {
+  console.log('🗂️  Initializing local queue and upload worker...');
+  
+  // Create local queue
+  localQueue = new LocalQueue({
+    queuePath: 'C:\\ProgramData\\Tabeza\\queue',
+  });
+  
+  // Initialize queue
+  await localQueue.initialize();
+  
+  // Create upload worker
+  uploadWorker = new UploadWorker({
+    localQueue,
+    apiEndpoint: config.apiUrl,
+    barId: config.barId,
+    deviceId: config.driverId,
+  });
+  
+  // Start upload worker
+  await uploadWorker.start();
+  
+  console.log('✅ Queue and upload worker initialized');
+}
+
+// Start spooler monitoring
+function startSpoolerMonitoring() {
+  console.log('🚀 Starting Windows spooler monitor...');
+  
+  // Create SpoolMonitor instance
+  const monitor = new SpoolMonitor({
+    spoolPath: 'C:\\Windows\\System32\\spool\\PRINTERS',
+    fileTypes: ['.SPL', '.SHD'],
+  });
+  
+  // Handle file detection events
+  monitor.on('file-detected', async (filePath, receiptData) => {
+    console.log('📄 Receipt detected from spooler');
+    
+    try {
+      // Enqueue receipt for upload
+      await localQueue.enqueue({
+        barId: config.barId,
+        deviceId: config.driverId,
+        timestamp: new Date().toISOString(),
+        escposBytes: receiptData.escposBytes,
+        text: receiptData.text,
+        metadata: {
+          source: 'spooler',
+          fileName: path.basename(filePath),
+          fileSize: receiptData.metadata.fileSize,
+          lineCount: receiptData.metadata.lineCount,
+          isESCPOS: receiptData.isESCPOS,
+        },
+      });
+      
+      console.log('✅ Receipt enqueued for upload');
+    } catch (error) {
+      console.error('❌ Error queuing receipt:', error.message);
+    }
+  });
+  
+  monitor.on('error', (error) => {
+    console.error('❌ Spooler monitor error:', error.message);
+  });
+  
+  // Start monitoring
+  monitor.start();
+  
+  return monitor;
+}
+
 // Start monitoring based on capture mode
-function startWatcher() {
+async function startWatcher() {
   console.log(`👀 Starting capture service...`);
-  console.log(`   Mode: ${config.captureMode === 'spooler' ? 'NEW (Passive Spooler Monitor)' : 'UNKNOWN'}`);
+  console.log(`   Mode: ${config.captureMode === 'spooler' ? 'NEW (Passive Spooler Monitor)' : config.captureMode === 'bridge' ? 'SILENT BRIDGE (Parallel + Physical)' : 'UNKNOWN'}`);
   console.log('');
   
   if (config.captureMode === 'spooler') {
-    // NEW MODE: Monitor Windows spooler (non-blocking)
-    watcher = startSpoolerMonitoring();
+    // Initialize queue and upload worker first
+    await initializeQueue();
     
-    // Start background upload worker
-    setInterval(uploadWorker, 5000); // Process queue every 5 seconds
+    // NEW MODE: Monitor Windows spooler (non-blocking)
+    spoolMonitor = startSpoolerMonitoring();
+    
+  } else if (config.captureMode === 'bridge') {
+    // BRIDGE MODE: Silent Bridge for parallel + physical printing
+    await initializeQueue();
+    
+    console.log('🌉 Starting Silent Bridge Mode... (FINAL VERSION)');
+    console.log('   This enables digital capture + physical receipt printing');
+    console.log('   Physical printing requires this service to stay running!');
+    console.log('');
+    
+    const printBridge = new PrintBridge();
+    printBridge.start();
     
   } else {
-    console.error('❌ Invalid capture mode. Please set "captureMode": "spooler" in config.json');
+    console.error('❌ Invalid capture mode. Please set "captureMode": "spooler" or "bridge" in config.json');
     process.exit(1);
   }
 }
@@ -835,7 +943,7 @@ async function processPrintJob(printData, fileName = 'receipt.prn') {
     barId: config.barId,
     timestamp: new Date().toISOString(),
     rawData: base64Data,
-    printerName: 'Tabeza Receipt Printer',
+    printerName: 'Tabeza POS Connect',
     documentName: fileName,
     metadata: {
       jobId,
@@ -1056,7 +1164,7 @@ Visit us again soon.
     barId: config.barId,
     timestamp: new Date().toISOString(),
     rawData: Buffer.from(testData).toString('base64'),
-    printerName: 'Tabeza Receipt Printer',
+    printerName: 'Tabeza POS Connect',
     documentName: `Test Receipt ${receiptNumber}`,
     metadata: {
       jobId: `test-${Date.now()}`,
@@ -1128,7 +1236,7 @@ async function start() {
   }
   
   // Start file watcher
-  startWatcher();
+  await startWatcher();
   
   // Start cloud polling (for receiving print jobs from cloud)
   startCloudPolling();
@@ -1215,13 +1323,13 @@ Press Ctrl+C to stop the service
 }
 
 // Handle shutdown
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('\n👋 Shutting down Tabeza Connect...');
   if (watcher) {
-    watcher.close();
+    await watcher.stop();
   }
-  if (spoolMonitor) {
-    spoolMonitor.stop();
+  if (uploadWorker) {
+    await uploadWorker.stop();
   }
   if (pollInterval) {
     clearInterval(pollInterval);

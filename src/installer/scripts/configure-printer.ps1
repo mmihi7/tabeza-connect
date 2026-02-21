@@ -2,6 +2,13 @@
 # Installs and configures the Tabeza Virtual Printer.
 # Called from Inno Setup [Run] section (TR-4).
 #
+# CORE TRUTH: Manual service always exists. 
+# Digital authority is singular. 
+# Tabeza adapts to the venue — never the reverse.
+#
+# This printer uses the Windows print spooler so TabezaConnect can
+# passively capture receipts without blocking the POS print flow.
+#
 # Usage:
 #   .\configure-printer.ps1 -WatchFolder "C:\TabezaPrints" [-Silent]
 #
@@ -21,10 +28,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$PrinterName   = 'Tabeza Virtual Printer'
+$PrinterName   = 'Tabeza POS Connect'
 $DriverName    = 'Generic / Text Only'   # Built-in Windows driver — no download needed
-$PortName      = 'TabezaPrintPort'
-$PortPath      = Join-Path $WatchFolder 'print_output.prn'
+$PortName      = 'NULL:'                 # NULL port - goes through spooler but doesn't print
 
 function Write-Log {
     param([string]$Message, [string]$Level = 'INFO')
@@ -64,34 +70,28 @@ try {
         exit 2
     }
 
-    # ── 3. Create local port pointing to watch folder ─────────────────────────
-    $existingPort = Get-PrinterPort -Name $PortName -ErrorAction SilentlyContinue
-    if (-not $existingPort) {
-        Write-Log "Adding printer port: $PortName -> $PortPath"
-        Add-PrinterPort -Name $PortName -PrinterHostAddress $PortPath -ErrorAction Stop
-    } else {
-        Write-Log "Port '$PortName' already exists — reusing"
-    }
-
-    # ── 4. Ensure printer driver is installed (Generic / Text Only is inbox) ──
+    # ── 3. Ensure printer driver is installed (Generic / Text Only is inbox) ──
     $driver = Get-PrinterDriver -Name $DriverName -ErrorAction SilentlyContinue
     if (-not $driver) {
         Write-Log "Installing driver: $DriverName"
         Add-PrinterDriver -Name $DriverName -ErrorAction Stop
     }
 
-    # ── 5. Install the virtual printer ───────────────────────────────────────
-    Write-Log "Adding virtual printer: $PrinterName"
+    # ── 4. Install the virtual printer with NULL port ────────────────────────
+    # NULL port means print jobs go through Windows spooler but don't actually print
+    # This allows TabezaConnect to capture them from the spooler directory
+    Write-Log "Adding virtual printer: $PrinterName (using NULL port for spooler capture)"
     Add-Printer `
         -Name       $PrinterName `
         -DriverName $DriverName `
         -PortName   $PortName `
         -ErrorAction Stop
 
-    # ── 6. Set printer as shared (optional, useful for kiosk POS setups) ─────
+    # ── 5. Set printer as not shared ──────────────────────────────────────────
     Set-Printer -Name $PrinterName -Shared $false -ErrorAction SilentlyContinue
 
     Write-Log "Virtual printer configured successfully"
+    Write-Log "Print jobs to '$PrinterName' will be captured by TabezaConnect from the Windows spooler"
     exit 0
 
 } catch {

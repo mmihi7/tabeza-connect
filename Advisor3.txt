@@ -1,0 +1,226 @@
+Good. Now we finally have **real signal** instead of guessing.
+
+Your debug output tells us everything:
+
+```
+❌ Cannot list files: EPERM: operation not permitted
+🔍 File filter: C:/Windows/System32/spool/PRINTERS -> IGNORE
+```
+
+This means:
+
+👉 Windows is blocking directory enumeration of
+`C:\Windows\System32\spool\PRINTERS`
+even when running as Administrator.
+
+That folder is protected at a kernel level.
+You can create/delete a file (because you’re elevated),
+but **Node + chokidar cannot reliably monitor it**.
+
+So here’s the key conclusion:
+
+---
+
+# 🚨 The Spooler Folder Approach Will Not Work Reliably on Windows
+
+It’s not your code.
+It’s not polling.
+It’s not permissions.
+
+Windows deliberately restricts real-time file watching in the spooler directory.
+
+Even enterprise print monitoring software doesn’t watch `.SPL` files directly.
+
+---
+
+# ✅ The Correct Architecture (What You Should Be Using)
+
+Instead of watching:
+
+```
+C:\Windows\System32\spool\PRINTERS
+```
+
+You should capture print jobs using one of these:
+
+---
+
+## ✅ OPTION 1 (RECOMMENDED): FILE Port Printer (Stable + Simple)
+
+This is actually already shown in your console:
+
+```
+Watch Folder: C:\ProgramData\Tabeza\TabezaPrints
+Capture Mode: spooler
+```
+
+But you're not actually using that folder.
+
+You should NOT monitor the Windows spooler directory.
+
+Instead:
+
+### ✔ Create a dedicated printer that outputs to FILE
+
+Steps:
+
+1. Open **Control Panel → Devices and Printers**
+2. Click **Add Printer**
+3. Choose:
+
+   ```
+   The printer I want isn’t listed
+   ```
+4. Select:
+
+   ```
+   Add a local printer
+   ```
+5. Create a new port:
+
+   ```
+   Local Port
+   ```
+6. For port name, enter:
+
+```
+C:\ProgramData\Tabeza\TabezaPrints\receipt.txt
+```
+
+7. Choose driver:
+
+   ```
+   Generic → Generic / Text Only
+   ```
+
+8. Name it:
+
+   ```
+   Tabeza Virtual Printer
+   ```
+
+---
+
+Now change your service to:
+
+```
+CAPTURE_MODE = file
+WATCH_FOLDER = C:\ProgramData\Tabeza\TabezaPrints
+```
+
+And monitor that folder instead of the spooler directory.
+
+This works 100% reliably.
+
+No admin required.
+No Windows security conflicts.
+No kernel restrictions.
+
+---
+
+## ✅ OPTION 2 (Advanced / Enterprise): Use Windows Print API
+
+Use:
+
+* `Get-PrintJob`
+* WMI
+* Win32_PrintJob
+* PowerShell event subscription
+
+But that requires:
+
+* Native Windows bindings
+* Or running PowerShell listeners
+
+Much more complex.
+
+For a POS bridge system, it's unnecessary.
+
+---
+
+# 🎯 Why Your Current System Is Silent
+
+You only see:
+
+```
+💓 Sending heartbeat...
+❌ Heartbeat failed
+```
+
+Because:
+
+• Spooler watcher never receives file events
+• So no receipt processing is triggered
+• So only heartbeat runs
+
+The system is technically "working"
+—but watching a folder Windows refuses to expose.
+
+---
+
+# 🏆 The Clean Fix
+
+Stop fighting Windows.
+
+Switch to:
+
+```
+FILE-based virtual printer → watch your own folder
+```
+
+That is exactly how:
+
+• Restaurant POS bridges
+• ESC/POS forwarders
+• Accounting capture tools
+• Legacy printer interceptors
+
+are built on Windows.
+
+---
+
+# 📌 Important Insight
+
+Even if spooler monitoring *did* work,
+`.SPL` files are binary EMF or RAW formats.
+
+Parsing them reliably across drivers is fragile.
+
+But:
+
+**Generic / Text Only → FILE → Plain text output**
+
+That gives you clean ESC/POS-compatible data.
+
+Much better for your cloud receipt pipeline.
+
+---
+
+# 🚀 What I Recommend You Do Now
+
+1. Create **Generic / Text Only → Local Port → File path**
+2. Point it to:
+
+   ```
+   C:\ProgramData\Tabeza\TabezaPrints
+   ```
+3. Switch capture mode from `spooler` → `file`
+4. Restart service
+5. Print test receipt
+
+You will immediately see detection logs.
+
+---
+
+If you want, I can now:
+
+* Rewrite your capture architecture cleanly
+* Design a production-grade POS bridge pattern
+* Or fix the Supabase heartbeat issue next
+
+Your core issue is solved:
+
+👉 Windows spooler directory cannot be monitored reliably with Node.
+👉 Use a file-port printer instead.
+
+Tell me how you want to proceed.

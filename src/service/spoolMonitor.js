@@ -195,7 +195,7 @@ class SpoolMonitor extends EventEmitter {
       persistent: true,
       ignoreInitial: true,
       awaitWriteFinish: false, // We'll handle write completion ourselves
-      usePolling: false, // Use native file system events for better performance
+      usePolling: true, // Use polling for Windows spooler directory compatibility
       interval: this.pollInterval,
       depth: 0, // Only watch the immediate directory, not subdirectories
     });

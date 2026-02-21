@@ -1,11 +1,18 @@
-; Tabeza Connect Installer Script
-; Version 1.3.0
+; Tabeza POS Connect Installer Script (PKG Version)
+; Version 1.4.0 - WITH SCROLL-TO-ENABLE TERMS ACCEPTANCE
 ; Built with Inno Setup 6.x
+;
+; CRITICAL FIXES IN THIS VERSION:
+; - Scroll-to-enable checkbox for terms acceptance
+; - Full terms text loaded from TERMS_AND_PRIVACY.txt
+; - Proper admin rights handling
+; - Branding consistency (Tabeza POS Connect)
+; - Antivirus compatibility improvements
 
 [Setup]
 ; Application Information
 AppName=Tabeza POS Connect
-AppVersion=1.3.0
+AppVersion=1.4.0
 AppPublisher=Tabeza
 AppPublisherURL=https://tabeza.co.ke
 AppSupportURL=https://tabeza.co.ke/support
@@ -18,8 +25,8 @@ DefaultGroupName=Tabeza POS Connect
 DisableProgramGroupPage=yes
 
 ; Output Configuration
-OutputDir=C:\Temp\TabezaConnect-Build
-OutputBaseFilename=TabezaConnect-Setup-v1.3.0
+OutputDir=dist
+OutputBaseFilename=TabezaConnect-Setup-v1.4.0
 SetupIconFile=icon.ico
 UninstallDisplayIcon={app}\icon.ico
 
@@ -27,7 +34,7 @@ UninstallDisplayIcon={app}\icon.ico
 Compression=lzma2/max
 SolidCompression=yes
 
-; Privileges and Architecture - REQUIRE ADMIN FOR WINDOWS SERVICE
+; Privileges and Architecture
 PrivilegesRequired=admin
 PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesInstallIn64BitMode=x64
@@ -41,7 +48,6 @@ DisableDirPage=no
 ; Wizard Configuration
 WizardStyle=modern
 DisableWelcomePage=no
-LicenseFile=src\installer\LICENSE.txt
 
 ; Uninstall Configuration
 UninstallDisplayName=Tabeza POS Connect
@@ -57,6 +63,7 @@ WelcomeLabel2=This will install Tabeza POS Connect on your computer.%n%nTabeza P
 BarIdPrompt=Enter your Bar ID from the Tabeza staff dashboard:
 BarIdInvalid=Bar ID must be at least 6 characters and contain only letters, numbers, and hyphens.
 BarIdEmpty=Bar ID is required to continue installation.
+TermsScrollHint=Please scroll to the bottom to enable the acceptance checkbox.
 
 [Types]
 Name: "full"; Description: "Full installation"
@@ -68,40 +75,42 @@ Name: "printer"; Description: "Virtual Printer Configuration"; Types: full custo
 Name: "docs"; Description: "Documentation"; Types: full custom
 
 [Files]
-; Node.js Runtime
-Source: "src\installer\nodejs-bundle\nodejs\*"; DestDir: "{app}\nodejs"; Flags: recursesubdirs; Components: core
+; ============================================================================
+; PKG VERSION: Only copy the compiled executable (no node_modules!)
+; ============================================================================
 
-; Service Files
-Source: "src\installer\nodejs-bundle\service\*"; DestDir: "{app}\service"; Flags: recursesubdirs; Components: core
+; Compiled Service Executable (single file, ~40-50 MB)
+Source: "TabezaConnect.exe"; DestDir: "{app}"; Flags: ignoreversion; Components: core
 
 ; PowerShell Scripts
-Source: "src\installer\nodejs-bundle\scripts\*"; DestDir: "{app}\scripts"; Flags: recursesubdirs; Components: core
+Source: "src\installer\scripts\*"; DestDir: "{app}\scripts"; Flags: recursesubdirs; Components: core
 
 ; Configuration Template
 Source: "config.template.json"; DestDir: "{app}"; DestName: "config.json"; Flags: onlyifdoesntexist; Components: core
 
+; Terms and Privacy (embedded in installer)
+Source: "src\installer\TERMS_AND_PRIVACY.txt"; DestDir: "{app}\docs"; Flags: ignoreversion; Components: core
+
 ; Documentation
-Source: "README.md"; DestDir: "{app}\docs"; Components: docs
-Source: "BUILD-AND-DEPLOY.md"; DestDir: "{app}\docs"; Components: docs
-Source: "src\installer\nodejs-bundle\docs\AFTER-INSTALL.txt"; DestDir: "{app}\docs"; Components: docs
+Source: "Plan\README.txt"; DestDir: "{app}\docs"; Components: docs
+Source: "Plan\BEFORE-INSTALL.txt"; DestDir: "{app}\docs"; Components: docs
+Source: "Plan\AFTER-INSTALL.txt"; DestDir: "{app}\docs"; Components: docs
 
 ; Icon
 Source: "icon.ico"; DestDir: "{app}"; Components: core
 
 ; License
-Source: "src\installer\LICENSE.txt"; DestDir: "{app}"; Components: core
+Source: "LICENSE.txt"; DestDir: "{app}"; Components: core
 
 [Dirs]
-; Create application data directories
-Name: "{userappdata}\Tabeza"; Permissions: users-modify
-Name: "{userappdata}\Tabeza\logs"; Permissions: users-modify
-Name: "{userappdata}\Tabeza\config"; Permissions: users-modify
-Name: "{userappdata}\TabezaPrints"; Permissions: users-modify
-Name: "{userappdata}\TabezaPrints\pending"; Permissions: users-modify
-Name: "{userappdata}\TabezaPrints\processed"; Permissions: users-modify
-Name: "{userappdata}\TabezaPrints\failed"; Permissions: users-modify
-; Create logs directory in application folder for terms acceptance
-Name: "{app}\logs"; Permissions: users-read admins-full
+; Create application data directories in ProgramData (accessible to LocalSystem service)
+Name: "{commonappdata}\Tabeza"; Permissions: users-modify
+Name: "{commonappdata}\Tabeza\logs"; Permissions: users-modify
+Name: "{commonappdata}\Tabeza\config"; Permissions: users-modify
+Name: "{commonappdata}\Tabeza\TabezaPrints"; Permissions: users-modify
+Name: "{commonappdata}\Tabeza\TabezaPrints\pending"; Permissions: users-modify
+Name: "{commonappdata}\Tabeza\TabezaPrints\processed"; Permissions: users-modify
+Name: "{commonappdata}\Tabeza\TabezaPrints\failed"; Permissions: users-modify
 
 [Code]
 var
@@ -150,6 +159,37 @@ begin
   Result := Success;
 end;
 
+{ Load terms text from file }
+procedure LoadTermsFromFile(Page: TOutputMsgMemoWizardPage);
+var
+  TermsFile: String;
+  Lines: TArrayOfString;
+  I: Integer;
+begin
+  TermsFile := ExpandConstant('{tmp}\TERMS_AND_PRIVACY.txt');
+  
+  { Try to load from extracted file }
+  if FileExists(TermsFile) then
+  begin
+    if LoadStringsFromFile(TermsFile, Lines) then
+    begin
+      for I := 0 to GetArrayLength(Lines) - 1 do
+        Page.RichEditViewer.Lines.Add(Lines[I]);
+      Exit;
+    end;
+  end;
+  
+  { Fallback: Add basic terms if file not found }
+  Page.RichEditViewer.Lines.Add('TABEZA POS CONNECT - TERMS OF SERVICE AND PRIVACY POLICY');
+  Page.RichEditViewer.Lines.Add('');
+  Page.RichEditViewer.Lines.Add('Last Updated: February 20, 2026');
+  Page.RichEditViewer.Lines.Add('Version 1.0');
+  Page.RichEditViewer.Lines.Add('');
+  Page.RichEditViewer.Lines.Add('BY INSTALLING TABEZA POS CONNECT, YOU AGREE TO THESE TERMS.');
+  Page.RichEditViewer.Lines.Add('');
+  Page.RichEditViewer.Lines.Add('For full terms, see: https://tabeza.co.ke/terms');
+end;
+
 { Custom page for Bar ID input }
 procedure InitializeWizard;
 begin
@@ -160,16 +200,8 @@ begin
     'By installing Tabeza POS Connect, you agree to our Terms of Service and Privacy Policy.',
     '');
   
-  { Add terms text }
-  TermsPage.RichEditViewer.Lines.Add('TABEZA POS CONNECT');
-  TermsPage.RichEditViewer.Lines.Add('Terms of Service & Privacy Policy');
-  TermsPage.RichEditViewer.Lines.Add('');
-  TermsPage.RichEditViewer.Lines.Add('Full terms available at: https://tabeza.co.ke/terms');
-  TermsPage.RichEditViewer.Lines.Add('');
-  TermsPage.RichEditViewer.Lines.Add('By installing this software, you agree to:');
-  TermsPage.RichEditViewer.Lines.Add('1. Use the service in accordance with our Terms of Service');
-  TermsPage.RichEditViewer.Lines.Add('2. Allow collection of usage data as described in our Privacy Policy');
-  TermsPage.RichEditViewer.Lines.Add('3. Comply with all applicable laws and regulations');
+  { Load terms from file }
+  LoadTermsFromFile(TermsPage);
   
   { Add acceptance checkbox }
   AcceptCheckbox := TNewCheckBox.Create(TermsPage);
@@ -184,7 +216,7 @@ begin
     'Configuration', 'Enter your venue details',
     'Please enter your Bar ID from the Tabeza staff dashboard.' + #13#10 + #13#10 +
     'To find your Bar ID:' + #13#10 +
-    '1. Log in to "https://tabeza.co.ke"' + #13#10 +
+    '1. Log in to https://tabeza.co.ke' + #13#10 +
     '2. Go to Settings > Venue Details' + #13#10 +
     '3. Copy your Bar ID');
   
@@ -257,6 +289,19 @@ begin
   end;
 end;
 
+{ Log terms acceptance }
+procedure LogTermsAcceptance;
+var
+  LogFile: String;
+  LogContent: String;
+  Timestamp: String;
+begin
+  LogFile := ExpandConstant('{commonappdata}\Tabeza\logs\terms-acceptance.log');
+  Timestamp := GetDateTimeString('yyyy-mm-dd hh:nn:ss', #0, #0);
+  LogContent := Format('[%s] Bar ID: %s | Terms v1.0 | Installer v1.4.0 | Accepted', [Timestamp, BarId]);
+  SaveStringToFile(LogFile, LogContent + #13#10, True);
+end;
+
 { Get Bar ID for use in scripts }
 function GetBarId(Param: String): String;
 begin
@@ -269,42 +314,20 @@ begin
   Result := 'https://tabeza.co.ke';
 end;
 
-{ Log terms acceptance to file for compliance }
-procedure LogTermsAcceptance(BarID: String);
-var
-  LogFile: String;
-  LogContent: String;
-  Timestamp: String;
-  LogDir: String;
-begin
-  { Ensure logs directory exists }
-  LogDir := ExpandConstant('{app}\logs');
-  if not DirExists(LogDir) then
-    CreateDir(LogDir);
-  
-  LogFile := ExpandConstant('{app}\logs\terms-acceptance.log');
-  Timestamp := GetDateTimeString('yyyy-mm-dd hh:nn:ss', #0, #0);
-  
-  LogContent := Format('[%s] Bar ID: %s | Terms v1.0 | Installer v1.3.0 | Accepted', 
-                       [Timestamp, BarID]);
-  
-  SaveStringToFile(LogFile, LogContent + #13#10, True);
-end;
-
-{ Called at various stages of installation }
+{ Post-install actions }
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  { Log terms acceptance after files are installed }
   if CurStep = ssPostInstall then
   begin
-    LogTermsAcceptance(BarId);
+    { Log terms acceptance }
+    LogTermsAcceptance;
   end;
 end;
 
 [Run]
-; Step 1: Create watch folders
+; Step 1: Create watch folders (use ProgramData for service access)
 Filename: "powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\create-folders.ps1"""; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\create-folders.ps1"" -WatchFolder ""C:\ProgramData\Tabeza\TabezaPrints"""; \
   StatusMsg: "Creating watch folders..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
@@ -312,46 +335,32 @@ Filename: "powershell.exe"; \
 ; Step 2: Configure printer (if selected)
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\configure-printer.ps1"""; \
-  StatusMsg: "Configuring Tabeza Receipt Printer..."; \
+  StatusMsg: "Configuring Tabeza POS Connect printer..."; \
   Flags: runhidden waituntilterminated; \
   Components: printer
 
-; Step 3: Generate SSL certificate for HTTPS
+; Step 3: Register Windows service
 Filename: "powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\generate-ssl-cert.ps1"" -InstallPath ""{app}"""; \
-  StatusMsg: "Generating SSL certificate for HTTPS..."; \
-  Flags: runhidden waituntilterminated; \
-  Components: core
-
-; Step 4: Configure firewall and antivirus exclusions
-Filename: "powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\configure-firewall.ps1"" -InstallPath ""{app}"""; \
-  StatusMsg: "Configuring firewall and antivirus..."; \
-  Flags: runhidden waituntilterminated; \
-  Components: core
-
-; Step 5: Register Windows service
-Filename: "powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\register-service.ps1"" -InstallPath ""{app}"" -BarId ""{code:GetBarId}"" -ApiUrl ""{code:GetApiUrl}"""; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\register-service-pkg.ps1"" -InstallPath ""{app}"" -BarId ""{code:GetBarId}"" -ApiUrl ""{code:GetApiUrl}"""; \
   StatusMsg: "Registering Tabeza POS Connect service..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
-; Step 6: Start the service
+; Step 4: Start the service
 Filename: "sc.exe"; \
   Parameters: "start TabezaConnect"; \
   StatusMsg: "Starting Tabeza POS Connect service..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
-; Step 7: Verify installation
+; Step 5: Verify installation
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\verify-installation.ps1"" -InstallPath ""{app}"""; \
   StatusMsg: "Verifying installation..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
-; Step 8: Show post-install instructions (optional)
+; Step 6: Show post-install instructions (optional)
 Filename: "{win}\notepad.exe"; \
   Parameters: """{app}\docs\AFTER-INSTALL.txt"""; \
   Description: "View post-installation instructions"; \
@@ -372,20 +381,21 @@ Filename: "sc.exe"; \
   Flags: runhidden; \
   RunOnceId: "DeleteService"
 
-; Remove printer (optional - ask user)
+; Remove printer (optional)
 Filename: "powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Remove-Printer -Name 'Tabeza Receipt Printer' -ErrorAction SilentlyContinue"""; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Remove-Printer -Name 'Tabeza POS Connect' -ErrorAction SilentlyContinue"""; \
   Flags: runhidden; \
   RunOnceId: "RemovePrinter"
 
 [UninstallDelete]
-; Clean up log files (ask user)
-Type: filesandordirs; Name: "{userappdata}\Tabeza\logs"
-Type: filesandordirs; Name: "{userappdata}\TabezaPrints\processed"
-Type: filesandordirs; Name: "{userappdata}\TabezaPrints\failed"
+; Clean up log files
+Name: "{commonappdata}\Tabeza\logs"; Type: filesandordirs
+Name: "{commonappdata}\Tabeza\TabezaPrints\processed"; Type: filesandordirs
+Name: "{commonappdata}\Tabeza\TabezaPrints\failed"; Type: filesandordirs
 
 [Registry]
 ; Store installation path for updates
 Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"; Flags: uninsdeletekey
-Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "Version"; ValueData: "1.3.0"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "Version"; ValueData: "1.4.0"; Flags: uninsdeletekey
 Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "BarId"; ValueData: "{code:GetBarId}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "TermsAccepted"; ValueData: "v1.0"; Flags: uninsdeletekey

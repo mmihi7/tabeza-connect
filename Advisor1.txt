@@ -1,0 +1,283 @@
+Looking at the debugging output, I can see the root cause:
+
+```
+❌ Cannot list files: EPERM: operation not permitted, scandir 'C:\Windows\System32\spool\PRINTERS'
+🔍 File filter: C:/Windows/System32/spool/PRINTERS -> IGNORE
+```
+
+**The Windows Print Spooler directory has special security restrictions** that prevent even administrators from:
+- Listing files directly
+- Using file watchers on the directory
+- Accessing files while they're being written
+
+## Solution: Use Windows Print Job API Instead
+
+Instead of trying to monitor the spooler files directly, let's use the Windows Print Job API which is designed for this purpose. Here's a complete solution:
+
+### 1. Create a PowerShell-based print monitor:
+
+**`print-monitor.ps1`**
+```powershell
+# print-monitor.ps1
+param(
+    [string]$WatchFolder = "C:\ProgramData\Tabeza\TabezaPrints",
+    [int]$PollIntervalMs = 1000
+)
+
+$printerName = "EPSON L3210 Series"
+Write-Host "Starting Windows Print Job Monitor..."
+Write-Host "Monitoring printer: $printerName"
+Write-Host "Output folder: $WatchFolder"
+
+# Ensure output folder exists
+if (!(Test-Path $WatchFolder)) {
+    New-Item -ItemType Directory -Path $WatchFolder -Force | Out-Null
+}
+
+# Get initial job IDs
+$lastJobIds = @{}
+try {
+    $jobs = Get-WmiObject -Class Win32_PrintJob | Where-Object { $_.Name -like "*$printerName*" }
+    foreach ($job in $jobs) {
+        $lastJobIds[$job.JobId] = (Get-Date)
+    }
+} catch {
+    Write-Host "Initial job enumeration failed: $_"
+}
+
+Write-Host "Monitor started. Polling every ${PollIntervalMs}ms..."
+
+while ($true) {
+    try {
+        # Get current print jobs
+        $currentJobs = Get-WmiObject -Class Win32_PrintJob -ErrorAction SilentlyContinue | 
+                      Where-Object { $_.Name -like "*$printerName*" }
+        
+        $currentJobIds = @{}
+        
+        foreach ($job in $currentJobs) {
+            $currentJobIds[$job.JobId] = $true
+            
+            # Check if this is a new job
+            if (!$lastJobIds.ContainsKey($job.JobId)) {
+                Write-Host "`n📄 New print job detected: ID $($job.JobId)"
+                Write-Host "   Document: $($job.Document)"
+                Write-Host "   Owner: $($job.Owner)"
+                Write-Host "   Pages: $($job.TotalPages)"
+                Write-Host "   Size: $($job.Size) bytes"
+                Write-Host "   Status: $($job.Status)"
+                
+                # Create a receipt file in the watch folder
+                $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+                $receiptFile = Join-Path $WatchFolder "receipt_${timestamp}_job$($job.JobId).txt"
+                
+                # Capture job data (you may need to extract actual print data)
+                $jobData = @"
+Timestamp: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+Printer: $printerName
+Job ID: $($job.JobId)
+Document: $($job.Document)
+Owner: $($job.Owner)
+Pages: $($job.TotalPages)
+Size: $($job.Size) bytes
+Status: $($job.Status)
+"@
+                
+                $jobData | Out-File -FilePath $receiptFile -Encoding UTF8
+                Write-Host "✅ Receipt saved: $receiptFile"
+                
+                # Also create a .json file for Tabeza
+                $jsonFile = Join-Path $WatchFolder "receipt_${timestamp}.json"
+                $jsonData = @{
+                    timestamp = (Get-Date -Format "o")
+                    printer = $printerName
+                    jobId = $job.JobId
+                    document = $job.Document
+                    owner = $job.Owner
+                    pages = $job.TotalPages
+                    size = $job.Size
+                    status = $job.Status
+                } | ConvertTo-Json
+                
+                $jsonData | Out-File -FilePath $jsonFile -Encoding UTF8
+            }
+        }
+        
+        # Update last job IDs
+        $lastJobIds = $currentJobIds
+        
+    } catch {
+        Write-Host "Error monitoring print jobs: $_"
+    }
+    
+    Start-Sleep -Milliseconds $PollIntervalMs
+}
+```
+
+### 2. Create a Node.js wrapper to integrate with your existing service:
+
+**`print-job-monitor.js`**
+```javascript
+const { spawn } = require('child_process');
+const path = require('path');
+const fs = require('fs');
+const chokidar = require('chokidar');
+
+class PrintJobMonitor {
+    constructor(watchFolder = 'C:\\ProgramData\\Tabeza\\TabezaPrints') {
+        this.watchFolder = watchFolder;
+        this.process = null;
+        this.watcher = null;
+    }
+
+    start() {
+        console.log('📡 Starting Windows Print Job Monitor...');
+        
+        // Ensure watch folder exists
+        if (!fs.existsSync(this.watchFolder)) {
+            fs.mkdirSync(this.watchFolder, { recursive: true });
+        }
+
+        // Start PowerShell monitor
+        const scriptPath = path.join(__dirname, 'print-monitor.ps1');
+        this.process = spawn('powershell.exe', [
+            '-NoProfile',
+            '-ExecutionPolicy', 'Bypass',
+            '-File', scriptPath,
+            '-WatchFolder', this.watchFolder
+        ]);
+
+        this.process.stdout.on('data', (data) => {
+            console.log(`[PS Monitor] ${data.toString().trim()}`);
+        });
+
+        this.process.stderr.on('data', (data) => {
+            console.error(`[PS Monitor Error] ${data.toString().trim()}`);
+        });
+
+        this.process.on('close', (code) => {
+            console.log(`PowerShell monitor exited with code ${code}`);
+        });
+
+        // Watch for JSON files created by the monitor
+        this.watcher = chokidar.watch(`${this.watchFolder}\\*.json`, {
+            persistent: true,
+            ignoreInitial: true
+        });
+
+        this.watcher.on('add', (filePath) => {
+            console.log(`📄 New receipt JSON detected: ${path.basename(filePath)}`);
+            
+            try {
+                const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+                console.log('   Receipt data:', data);
+                
+                // Here you can process the receipt data and queue for upload
+                // to your Supabase backend
+                
+                // Move to processed folder or delete after upload
+                // fs.unlinkSync(filePath);
+            } catch (err) {
+                console.error('   Error processing receipt:', err.message);
+            }
+        });
+
+        console.log('✅ Print Job Monitor started successfully');
+        console.log(`   Watching for receipts in: ${this.watchFolder}`);
+    }
+
+    stop() {
+        if (this.process) {
+            this.process.kill();
+        }
+        if (this.watcher) {
+            this.watcher.close();
+        }
+    }
+}
+
+module.exports = PrintJobMonitor;
+
+// If run directly
+if (require.main === module) {
+    const monitor = new PrintJobMonitor();
+    monitor.start();
+    
+    process.on('SIGINT', () => {
+        monitor.stop();
+        process.exit();
+    });
+}
+```
+
+### 3. Update your main service to use the new monitor:
+
+**`index.js`** (update your existing file)
+```javascript
+// Add this at the top with other requires
+const PrintJobMonitor = require('./print-job-monitor');
+
+// In your main service initialization, replace or add:
+const printMonitor = new PrintJobMonitor(config.watchFolder);
+printMonitor.start();
+
+// When shutting down:
+process.on('SIGINT', () => {
+    printMonitor.stop();
+    // ... existing shutdown code
+});
+```
+
+### 4. Create a batch file to run the new monitor:
+
+**`start-print-monitor.bat`**
+```batch
+@echo off
+echo ========================================
+echo Starting TabezaConnect Print Job Monitor
+echo ========================================
+echo.
+
+cd /d C:\Projects\TabezaConnect\src\service
+
+echo Running with Administrator privileges...
+echo.
+
+node print-job-monitor.js
+
+pause
+```
+
+## How This Solution Works:
+
+1. **Uses Windows WMI** to monitor actual print jobs instead of spooler files
+2. **No file system access needed** for the spooler directory
+3. **Creates receipt files** in a folder your service can access normally
+4. **Works with any printer** that uses the Windows print spooler
+5. **No special permissions** needed beyond what you already have
+
+## To Implement:
+
+1. Save the PowerShell script as `print-monitor.ps1` in `C:\Projects\TabezaConnect\src\service\`
+2. Save the Node.js wrapper as `print-job-monitor.js`
+3. Run with Administrator privileges:
+   ```cmd
+   cd C:\Projects\TabezaConnect\src\service
+   node print-job-monitor.js
+   ```
+
+## Expected Output:
+
+When you print to EPSON L3210 Series, you'll see:
+```
+[PS Monitor] 📄 New print job detected: ID 123
+[PS Monitor]    Document: Test Page
+[PS Monitor]    Owner: username
+[PS Monitor]    Pages: 1
+[PS Monitor]    Size: 1024 bytes
+[PS Monitor] ✅ Receipt saved: C:\ProgramData\Tabeza\TabezaPrints\receipt_20240101_123456.txt
+📄 New receipt JSON detected: receipt_20240101_123456.json
+   Receipt data: { timestamp: '...', jobId: 123, ... }
+```
+
+This approach bypasses the Windows spooler directory restrictions entirely and should work reliably! 🚀

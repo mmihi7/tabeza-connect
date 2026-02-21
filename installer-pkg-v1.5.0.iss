@@ -1,14 +1,18 @@
-; Tabeza Connect Installer Script (PKG Version)
-; Version 1.0.0
+; Tabeza POS Connect Installer Script
+; Version 1.5.0 - SIMPLIFIED TERMS ACCEPTANCE
 ; Built with Inno Setup 6.x
 ;
-; This version uses a single compiled executable (TabezaService.exe)
-; instead of copying 15,000+ node_modules files.
+; CHANGES IN v1.5.0:
+; - Full terms embedded inline from TERMS_AND_PRIVACY.txt
+; - Simple checkbox (no scroll-to-enable complexity)
+; - NO external links - all terms are inline
+; - Terms acceptance logging
+; - Privacy policy is especially important
 
 [Setup]
 ; Application Information
 AppName=Tabeza POS Connect
-AppVersion=1.3.0
+AppVersion=1.5.0
 AppPublisher=Tabeza
 AppPublisherURL=https://tabeza.co.ke
 AppSupportURL=https://tabeza.co.ke/support
@@ -22,7 +26,7 @@ DisableProgramGroupPage=yes
 
 ; Output Configuration
 OutputDir=dist
-OutputBaseFilename=TabezaConnect-Setup-v1.3.0
+OutputBaseFilename=TabezaConnect-Setup-v1.5.0
 SetupIconFile=icon.ico
 UninstallDisplayIcon={app}\icon.ico
 
@@ -44,7 +48,6 @@ DisableDirPage=no
 ; Wizard Configuration
 WizardStyle=modern
 DisableWelcomePage=no
-LicenseFile=LICENSE.txt
 
 ; Uninstall Configuration
 UninstallDisplayName=Tabeza POS Connect
@@ -71,11 +74,7 @@ Name: "printer"; Description: "Virtual Printer Configuration"; Types: full custo
 Name: "docs"; Description: "Documentation"; Types: full custom
 
 [Files]
-; ============================================================================
-; PKG VERSION: Only copy the compiled executable (no node_modules!)
-; ============================================================================
-
-; Compiled Service Executable (single file, ~40-50 MB)
+; Compiled Service Executable
 Source: "TabezaConnect.exe"; DestDir: "{app}"; Flags: ignoreversion; Components: core
 
 ; PowerShell Scripts
@@ -84,15 +83,13 @@ Source: "src\installer\scripts\*"; DestDir: "{app}\scripts"; Flags: recursesubdi
 ; Configuration Template
 Source: "config.template.json"; DestDir: "{app}"; DestName: "config.json"; Flags: onlyifdoesntexist; Components: core
 
+; Terms and Privacy (embedded in installer)
+Source: "src\installer\TERMS_AND_PRIVACY.txt"; DestDir: "{app}\docs"; Flags: ignoreversion; Components: core
+
 ; Documentation
 Source: "Plan\README.txt"; DestDir: "{app}\docs"; Components: docs
 Source: "Plan\BEFORE-INSTALL.txt"; DestDir: "{app}\docs"; Components: docs
 Source: "Plan\AFTER-INSTALL.txt"; DestDir: "{app}\docs"; Components: docs
-
-; Diagnostic Tools (optional - comment out if files don't exist)
-; Source: "DIAGNOSE-SERVICE.bat"; DestDir: "{app}"; Components: core
-; Source: "VERIFY-INSTALLATION-IN-SANDBOX.bat"; DestDir: "{app}"; Components: core
-; Source: "MANUAL-SERVICE-SETUP.bat"; DestDir: "{app}"; Components: core
 
 ; Icon
 Source: "icon.ico"; DestDir: "{app}"; Components: core
@@ -101,7 +98,7 @@ Source: "icon.ico"; DestDir: "{app}"; Components: core
 Source: "LICENSE.txt"; DestDir: "{app}"; Components: core
 
 [Dirs]
-; Create application data directories in ProgramData (accessible to LocalSystem service)
+; Create application data directories in ProgramData
 Name: "{commonappdata}\Tabeza"; Permissions: users-modify
 Name: "{commonappdata}\Tabeza\logs"; Permissions: users-modify
 Name: "{commonappdata}\Tabeza\config"; Permissions: users-modify
@@ -117,66 +114,152 @@ var
   TermsPage: TOutputMsgMemoWizardPage;
   AcceptCheckbox: TNewCheckBox;
 
-{ Get safe temp directory with write permissions }
-function GetSafeTempDir(): String;
+{ Load terms from file }
+procedure LoadTermsFromFile(Memo: TRichEditViewer);
 var
-  TempDir: String;
+  TermsFile: String;
+  Lines: TArrayOfString;
+  I: Integer;
 begin
-  { Try system temp first }
-  TempDir := ExpandConstant('{tmp}');
+  TermsFile := ExpandConstant('{tmp}\TERMS_AND_PRIVACY.txt');
   
-  { Verify write access }
-  if DirExists(TempDir) and IsAdminInstallMode then
-    Result := TempDir
-  else
-    { Fallback to user temp }
-    Result := ExpandConstant('{usertmp}');
-end;
-
-{ Install file with retry logic to handle antivirus interference }
-function InstallFileWithRetry(SourceFile, DestFile: String): Boolean;
-var
-  Retry: Integer;
-  Success: Boolean;
-begin
-  Retry := 0;
-  Success := False;
-  
-  while (Retry < 3) and (not Success) do
+  { Try to load from extracted file }
+  if FileExists(TermsFile) and LoadStringsFromFile(TermsFile, Lines) then
   begin
-    try
-      FileCopy(SourceFile, DestFile, False);
-      Success := True;
-    except
-      Retry := Retry + 1;
-      if Retry < 3 then
-        Sleep(1000); { Wait 1 second before retry }
-    end;
+    for I := 0 to GetArrayLength(Lines) - 1 do
+      Memo.Lines.Add(Lines[I]);
+  end
+  else
+  begin
+    { Fallback: Add essential terms if file not found }
+    Memo.Lines.Add('TABEZA POS CONNECT - TERMS OF SERVICE AND PRIVACY POLICY');
+    Memo.Lines.Add('');
+    Memo.Lines.Add('Last Updated: February 20, 2026');
+    Memo.Lines.Add('Version 1.0');
+    Memo.Lines.Add('');
+    Memo.Lines.Add('BY INSTALLING TABEZA POS CONNECT, YOU AGREE TO THESE TERMS.');
+    Memo.Lines.Add('');
+    Memo.Lines.Add('================================================================================');
+    Memo.Lines.Add('1. SERVICE DESCRIPTION');
+    Memo.Lines.Add('================================================================================');
+    Memo.Lines.Add('');
+    Memo.Lines.Add('Tabeza POS Connect is a Windows background service that:');
+    Memo.Lines.Add('- Monitors your Windows print spooler for receipt data');
+    Memo.Lines.Add('- Captures receipt information AFTER printing completes');
+    Memo.Lines.Add('- Sends receipt data to Tabeza cloud services for digital receipt delivery');
+    Memo.Lines.Add('- Does NOT interfere with or delay your normal printing operations');
+    Memo.Lines.Add('');
+    Memo.Lines.Add('IMPORTANT: Your printer and POS system operate independently.');
+    Memo.Lines.Add('');
+    Memo.Lines.Add('================================================================================');
+    Memo.Lines.Add('2. DATA COLLECTION AND PRIVACY');
+    Memo.Lines.Add('================================================================================');
+    Memo.Lines.Add('');
+    Memo.Lines.Add('WHAT WE COLLECT:');
+    Memo.Lines.Add('- Receipt data: items, quantities, prices, totals, taxes');
+    Memo.Lines.Add('- Venue identifier (Bar ID)');
+    Memo.Lines.Add('- Timestamp of each transaction');
+    Memo.Lines.Add('- Device identifier (anonymous)');
+    Memo.Lines.Add('- Print job metadata');
+    Memo.Lines.Add('');
+    Memo.Lines.Add('WHAT WE DO NOT COLLECT:');
+    Memo.Lines.Add('- Customer names or personal information from receipts');
+    Memo.Lines.Add('- Credit card numbers or payment card data');
+    Memo.Lines.Add('- Employee personal information');
+    Memo.Lines.Add('- Any data unrelated to receipts');
+    Memo.Lines.Add('');
+    Memo.Lines.Add('HOW WE USE YOUR DATA:');
+    Memo.Lines.Add('- Provide digital receipts to your customers via the Tabeza app');
+    Memo.Lines.Add('- Enable customers to link receipts to their tabs');
+    Memo.Lines.Add('- Generate analytics and reports for your venue');
+    Memo.Lines.Add('- Improve receipt parsing accuracy');
+    Memo.Lines.Add('');
+    Memo.Lines.Add('DATA STORAGE AND SECURITY:');
+    Memo.Lines.Add('- Receipt data is encrypted during transmission (HTTPS/TLS)');
+    Memo.Lines.Add('- Data is stored securely on Supabase cloud infrastructure');
+    Memo.Lines.Add('- Access is restricted to authorized Tabeza systems and your venue staff');
+    Memo.Lines.Add('- We implement industry-standard security practices');
+    Memo.Lines.Add('');
+    Memo.Lines.Add('DATA RETENTION:');
+    Memo.Lines.Add('- Raw receipt data: Retained for 90 days');
+    Memo.Lines.Add('- Parsed receipt data: Retained for 1 year or as required by law');
+    Memo.Lines.Add('- You may request deletion of your venue data at any time');
+    Memo.Lines.Add('');
+    Memo.Lines.Add('DATA SHARING:');
+    Memo.Lines.Add('We do NOT sell your data. We may share data only:');
+    Memo.Lines.Add('- With your explicit consent');
+    Memo.Lines.Add('- With service providers who assist in operating Tabeza (under strict NDAs)');
+    Memo.Lines.Add('- When required by law or legal process');
+    Memo.Lines.Add('- To protect Tabeza rights or prevent fraud');
+    Memo.Lines.Add('');
+    Memo.Lines.Add('================================================================================');
+    Memo.Lines.Add('3. YOUR RESPONSIBILITIES');
+    Memo.Lines.Add('================================================================================');
+    Memo.Lines.Add('');
+    Memo.Lines.Add('You agree to:');
+    Memo.Lines.Add('- Provide accurate venue information during setup');
+    Memo.Lines.Add('- Maintain the security of your Bar ID and credentials');
+    Memo.Lines.Add('- Comply with all applicable laws regarding receipt data');
+    Memo.Lines.Add('- Notify customers that digital receipts are available via Tabeza');
+    Memo.Lines.Add('- Ensure you have the right to transmit receipt data from your POS system');
+    Memo.Lines.Add('');
+    Memo.Lines.Add('You must NOT:');
+    Memo.Lines.Add('- Attempt to reverse engineer or modify the software');
+    Memo.Lines.Add('- Use the service for any illegal purpose');
+    Memo.Lines.Add('- Transmit malicious code or interfere with the service');
+    Memo.Lines.Add('- Share your Bar ID with unauthorized parties');
+    Memo.Lines.Add('');
+    Memo.Lines.Add('================================================================================');
+    Memo.Lines.Add('4. LIMITATION OF LIABILITY');
+    Memo.Lines.Add('================================================================================');
+    Memo.Lines.Add('');
+    Memo.Lines.Add('TO THE MAXIMUM EXTENT PERMITTED BY LAW:');
+    Memo.Lines.Add('- Tabeza POS Connect is provided "AS IS" without warranties of any kind');
+    Memo.Lines.Add('- We are not liable for any indirect, incidental, or consequential damages');
+    Memo.Lines.Add('- Our total liability shall not exceed the amount you paid for the service');
+    Memo.Lines.Add('  in the 12 months preceding the claim');
+    Memo.Lines.Add('- We are not responsible for data loss, business interruption, or lost profits');
+    Memo.Lines.Add('');
+    Memo.Lines.Add('================================================================================');
+    Memo.Lines.Add('5. CONTACT INFORMATION');
+    Memo.Lines.Add('================================================================================');
+    Memo.Lines.Add('');
+    Memo.Lines.Add('For questions about these terms or privacy practices:');
+    Memo.Lines.Add('Email: support@tabeza.co.ke');
+    Memo.Lines.Add('Website: https://tabeza.co.ke');
+    Memo.Lines.Add('');
+    Memo.Lines.Add('For data protection inquiries:');
+    Memo.Lines.Add('Email: privacy@tabeza.co.ke');
+    Memo.Lines.Add('');
+    Memo.Lines.Add('© 2026 Tabeza. All rights reserved.');
   end;
-  
-  Result := Success;
 end;
 
-{ Custom page for Bar ID input }
+{ Log terms acceptance }
+procedure LogTermsAcceptance;
+var
+  LogFile: String;
+  LogContent: String;
+  Timestamp: String;
+begin
+  LogFile := ExpandConstant('{commonappdata}\Tabeza\logs\terms-acceptance.log');
+  Timestamp := GetDateTimeString('yyyy-mm-dd hh:nn:ss', #0, #0);
+  LogContent := Format('[%s] Bar ID: %s | Terms v1.0 | Installer v1.5.0 | Accepted', [Timestamp, BarId]);
+  SaveStringToFile(LogFile, LogContent + #13#10, True);
+end;
+
+{ Initialize wizard }
 procedure InitializeWizard;
 begin
   { Create terms page after welcome }
   TermsPage := CreateOutputMsgMemoPage(wpWelcome,
     'Terms of Service and Privacy Policy',
-    'Please review and accept the terms',
+    'Please read and accept the terms to continue',
     'By installing Tabeza POS Connect, you agree to our Terms of Service and Privacy Policy.',
     '');
   
-  { Add terms text }
-  TermsPage.RichEditViewer.Lines.Add('TABEZA POS CONNECT');
-  TermsPage.RichEditViewer.Lines.Add('Terms of Service & Privacy Policy');
-  TermsPage.RichEditViewer.Lines.Add('');
-  TermsPage.RichEditViewer.Lines.Add('Full terms available at: https://tabeza.co.ke/terms');
-  TermsPage.RichEditViewer.Lines.Add('');
-  TermsPage.RichEditViewer.Lines.Add('By installing this software, you agree to:');
-  TermsPage.RichEditViewer.Lines.Add('1. Use the service in accordance with our Terms of Service');
-  TermsPage.RichEditViewer.Lines.Add('2. Allow collection of usage data as described in our Privacy Policy');
-  TermsPage.RichEditViewer.Lines.Add('3. Comply with all applicable laws and regulations');
+  { Load full terms from file }
+  LoadTermsFromFile(TermsPage.RichEditViewer);
   
   { Add acceptance checkbox }
   AcceptCheckbox := TNewCheckBox.Create(TermsPage);
@@ -191,7 +274,7 @@ begin
     'Configuration', 'Enter your venue details',
     'Please enter your Bar ID from the Tabeza staff dashboard.' + #13#10 + #13#10 +
     'To find your Bar ID:' + #13#10 +
-    '1. Log in to "https://tabeza.co.ke"' + #13#10 +
+    '1. Log in to https://tabeza.co.ke' + #13#10 +
     '2. Go to Settings > Venue Details' + #13#10 +
     '3. Copy your Bar ID');
   
@@ -225,7 +308,7 @@ begin
   Result := True;
 end;
 
-{ Validate terms acceptance and Bar ID page }
+{ Validate terms acceptance and Bar ID }
 function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
@@ -264,6 +347,16 @@ begin
   end;
 end;
 
+{ Post-install actions }
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+  begin
+    { Log terms acceptance }
+    LogTermsAcceptance;
+  end;
+end;
+
 { Get Bar ID for use in scripts }
 function GetBarId(Param: String): String;
 begin
@@ -277,7 +370,7 @@ begin
 end;
 
 [Run]
-; Step 1: Create watch folders (use ProgramData for service access)
+; Step 1: Create watch folders
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\create-folders.ps1"" -WatchFolder ""C:\ProgramData\Tabeza\TabezaPrints"""; \
   StatusMsg: "Creating watch folders..."; \
@@ -287,11 +380,11 @@ Filename: "powershell.exe"; \
 ; Step 2: Configure printer (if selected)
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\configure-printer.ps1"""; \
-  StatusMsg: "Configuring Tabeza Receipt Printer..."; \
+  StatusMsg: "Configuring Tabeza POS Connect printer..."; \
   Flags: runhidden waituntilterminated; \
   Components: printer
 
-; Step 3: Register Windows service (PKG version uses TabezaService.exe)
+; Step 3: Register Windows service
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\register-service-pkg.ps1"" -InstallPath ""{app}"" -BarId ""{code:GetBarId}"" -ApiUrl ""{code:GetApiUrl}"""; \
   StatusMsg: "Registering Tabeza POS Connect service..."; \
@@ -333,14 +426,14 @@ Filename: "sc.exe"; \
   Flags: runhidden; \
   RunOnceId: "DeleteService"
 
-; Remove printer (optional - ask user)
+; Remove printer (optional)
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Remove-Printer -Name 'Tabeza POS Connect' -ErrorAction SilentlyContinue"""; \
   Flags: runhidden; \
   RunOnceId: "RemovePrinter"
 
 [UninstallDelete]
-; Clean up log files (ask user)
+; Clean up log files
 Name: "{commonappdata}\Tabeza\logs"; Type: filesandordirs
 Name: "{commonappdata}\Tabeza\TabezaPrints\processed"; Type: filesandordirs
 Name: "{commonappdata}\Tabeza\TabezaPrints\failed"; Type: filesandordirs
@@ -348,5 +441,6 @@ Name: "{commonappdata}\Tabeza\TabezaPrints\failed"; Type: filesandordirs
 [Registry]
 ; Store installation path for updates
 Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"; Flags: uninsdeletekey
-Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "Version"; ValueData: "1.3.0"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "Version"; ValueData: "1.5.0"; Flags: uninsdeletekey
 Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "BarId"; ValueData: "{code:GetBarId}"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Tabeza\Connect"; ValueType: string; ValueName: "TermsAccepted"; ValueData: "v1.0"; Flags: uninsdeletekey
