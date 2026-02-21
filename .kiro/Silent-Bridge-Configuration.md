@@ -14,13 +14,13 @@
 
 ### **Complete Workflow**
 ```
-POS System → EPSON L3210 Series (Folder Port) → Bridge Service → Cloud Upload + EPSON L3210 Series (USB001) → Physical Receipt
+POS System → [ANY Thermal Printer] (Folder Port) → Bridge Service → Cloud Upload + [SAME Thermal Printer] (Physical Port) → Physical Receipt
 ```
 
 ### **Component Status**
 | Component | Status | Configuration |
 |-----------|--------|-------------|
-| **EPSON Printer** | ✅ Working | Port: USB001 (Physical) + Port: C:\TabezaPrints (Folder) |
+| **Universal Printer** | ✅ Working | Auto-detects any thermal/POS printer |
 | **Bridge Service** | ✅ Working | Watches: C:\TabezaPrints |
 | **Cloud Upload** | ✅ Working | Supabase Integration |
 | **Physical Forwarding** | ✅ Working | Windows Spooler via Out-Printer |
@@ -30,20 +30,30 @@ POS System → EPSON L3210 Series (Folder Port) → Bridge Service → Cloud Upl
 
 ## ⚙️ WORKING CONFIGURATION
 
-### **EPSON L3210 Series Configuration**
-- **Physical Port**: `USB001` (for physical receipt printing)
+### **Universal Printer Configuration**
+- **Auto-Detection**: Scans for thermal/POS printers on startup
+- **Physical Port**: Auto-detected (USB001, USB002, TCP/IP, etc.)
 - **Folder Port**: `C:\TabezaPrints` (for digital capture)
-- **Driver**: EPSON L3210 Series
-- **Status**: Normal / Ready
+- **Driver**: Auto-detected (any thermal/POS printer driver)
+- **Status**: Normal / Ready (after auto-configuration)
 
 ### **Bridge Service Configuration**
 ```json
 {
-  "printerName": "EPSON L3210 Series",
+  "printerName": "AUTO_DETECT",
+  "printerPattern": "*Thermal*|*Receipt*|*POS*|*Epson*|*Citizen*|*Star*|*HP*",
   "captureFolder": "C:\\TabezaPrints",
-  "tempForwardFile": "C:\\TabezaPrints\\fwd_temp.prn"
+  "tempForwardFile": "C:\\TabezaPrints\\fwd_temp.prn",
+  "autoConfigure": true,
+  "detectionTimeout": 30000
 }
 ```
+
+### **Universal Printer Detection**
+- **Auto-Detection**: Scans Windows for thermal/POS printers
+- **Pattern Matching**: Identifies printers by driver/name patterns
+- **Fallback**: Manual selection if auto-detection fails
+- **Multi-Printer Support**: Can handle multiple thermal printers
 
 ### **Port Configuration**
 - **Capture Folder**: `C:\TabezaPrints\`
