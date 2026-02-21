@@ -35,10 +35,15 @@ I want to accept terms and conditions during installation
 So that I understand my rights and responsibilities
 
 **Acceptance Criteria:**
-- Installer displays a combined terms and conditions checkbox
-- Checkbox includes link to full terms at tabeza.co.ke
-- Installation cannot proceed without accepting terms
+- Installer displays full terms and privacy policy text embedded within the installer
+- Terms text is loaded from a local file (not fetched from internet)
+- Terms are displayed in a scrollable area with clear formatting
+- Acceptance checkbox is initially disabled (grayed out)
+- Checkbox becomes enabled only after scrolling to the bottom of terms
+- Installation cannot proceed without checking the enabled checkbox
 - Acceptance is logged for compliance purposes
+- User must actively engage with terms (scroll + check) to proceed
+- No internet connection required to view terms
 
 ### 3. As a venue owner
 I want to see "Tabeza POS Connect" (with space) in all user-facing contexts
@@ -75,16 +80,30 @@ So that I can install without technical support
 - Handle antivirus-locked directories gracefully
 
 ### 2. Terms and Conditions
-**Requirement 2.1**: Installer must display terms and conditions acceptance
+**Requirement 2.1**: Installer must display terms and conditions acceptance with scroll-to-enable behavior
+- Display full terms and privacy policy text embedded within the installer (not external link)
+- Terms text must be loaded from `TabezaConnect/src/installer/TERMS_AND_PRIVACY.txt`
+- Terms content must be specific to TabezaConnect service (not general Tabeza platform terms)
+- Show terms in a scrollable text area with proper formatting
 - Show checkbox with text: "I accept the Terms of Service and Privacy Policy"
-- Include clickable link to https://tabeza.co.ke/terms
-- Checkbox must be unchecked by default
+- Checkbox must be initially disabled (grayed out) and unchecked
+- Checkbox becomes enabled only after user scrolls to the bottom of the terms text
 - Next/Install button disabled until checkbox is checked
+- User cannot proceed without both scrolling to bottom AND checking the box
+- Terms version must be clearly indicated in the text (e.g., "Version 1.0 - February 2026")
 
 **Requirement 2.2**: Terms acceptance must be logged
 - Record acceptance timestamp in installation log
 - Store Bar ID associated with acceptance
 - Include version of terms accepted (e.g., "v1.0")
+
+**Requirement 2.3**: Scroll-to-enable implementation
+- Use Inno Setup's TRichEditViewer or TMemo component for scrollable text
+- Implement OnChange event handler to detect scroll position
+- Calculate when scroll position reaches bottom (ScrollPos + ClientHeight >= ContentHeight)
+- Enable checkbox only when bottom is reached
+- Checkbox remains enabled even if user scrolls back up
+- Provide visual feedback (grayed out checkbox with tooltip explaining scroll requirement)
 
 ### 3. Branding Consistency
 **Requirement 3.1**: User-facing names must use "Tabeza POS Connect" (with space)

@@ -1,0 +1,10 @@
+{
+  "projectId": "d4bd1c6d-f8a7-4576-a0b0-8257108bd8c7",
+  "createdAt": 1771516240924,
+  "version": "1.0",
+  "startupCommands": [
+    "pushd C:\\Projects\\Tabz; pnpm install; pnpm dev:staff",
+    "pushd C:\\Projects\\Tabz; pnpm dev:customer"
+  ],
+  "templateId": "any"
+}
