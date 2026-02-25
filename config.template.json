@@ -1,19 +1,19 @@
 {
-  "barId": "",
-  "apiUrl": "https://tabeza.co.ke",
-  "watchFolder": "%USERPROFILE%\\TabezaPrints",
-  "logLevel": "info",
-  "logPath": "%APPDATA%\\Tabeza\\logs",
+  "barId": "YOUR_BAR_ID_HERE",
+  "apiUrl": "https://bkaigyrrzsqbfscyznzw.supabase.co",
+  "bridge": {
+    "enabled": true,
+    "printerName": "AUTO_DETECT",
+    "originalPort": "USB001",
+    "captureFolder": "C:\\TabezaPrints",
+    "tempFolder": "C:\\TabezaPrints\\temp",
+    "autoConfigure": true
+  },
   "service": {
     "name": "TabezaConnect",
-    "displayName": "Tabeza Connect Service",
+    "displayName": "Tabeza POS Connect",
     "description": "Captures receipt data from POS and syncs with Tabeza staff app",
     "port": 8765
-  },
-  "printer": {
-    "name": "Tabeza Receipt Printer",
-    "port": "FILE:",
-    "outputPath": "%USERPROFILE%\\TabezaPrints\\pending"
   },
   "sync": {
     "intervalSeconds": 30,

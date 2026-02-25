@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Printer Settings - Tabeza Connect</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f5f7fa;
+      color: #2d3748;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .header {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      color: #2563eb;
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      color: #64748b;
+      font-size: 16px;
+    }
+
+    .alert {
+      padding: 16px 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: none;
+      animation: slideIn 0.3s ease-out;
+    }
+
+    .alert.show {
+      display: block;
+    }
+
+    .alert.success {
+      background: #d1fae5;
+      border-left: 4px solid #10b981;
+      color: #065f46;
+    }
+
+    .alert.error {
+      background: #fee2e2;
+      border-left: 4px solid #ef4444;
+      color: #991b1b;
+    }
+
+    .alert.warning {
+      background: #fef3c7;
+      border-left: 4px solid #f59e0b;
+      color: #92400e;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .section {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    .section h2 {
+      color: #1e293b;
+      font-size: 24px;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+
+    .printer-card {
+      background: #f8fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .printer-info {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+
+    .info-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .info-label {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 5px;
+    }
+
+    .info-value {
+      font-size: 16px;
+      color: #1e293b;
+      font-weight: 500;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .status-badge.running {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .status-badge.stopped {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .status-badge.offline {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .help-text {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      color: #1e40af;
+      font-size: 14px;
+    }
+
+    select {
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      background: white;
+      color: #1e293b;
+      cursor: pointer;
+      margin-bottom: 15px;
+      transition: border-color 0.2s;
+    }
+
+    select:hover {
+      border-color: #cbd5e1;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #2563eb;
+    }
+
+    button {
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: 500;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    button.primary {
+      background: #2563eb;
+      color: white;
+    }
+
+    button.primary:hover {
+      background: #1d4ed8;
+    }
+
+    button.secondary {
+      background: #64748b;
+      color: white;
+    }
+
+    button.secondary:hover {
+      background: #475569;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid #f3f4f6;
+      border-top: 3px solid #2563eb;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 10px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .back-link {
+      display: inline-block;
+      color: #2563eb;
+      text-decoration: none;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 10px;
+      }
+
+      .header, .section {
+        padding: 20px;
+      }
+
+      .header h1 {
+        font-size: 24px;
+      }
+
+      .printer-info {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/configure.html" class="back-link">← Back to Configuration</a>
+
+    <div class="header">
+      <h1>🖨️ Printer Settings</h1>
+      <p>Manage your physical printer configuration</p>
+    </div>
+
+    <div id="alert" class="alert"></div>
+
+    <!-- Current Configuration -->
+    <div class="section">
+      <h2>Current Configuration</h2>
+      <div class="printer-card" id="currentPrinter">
+        <div class="loading"></div> Loading printer information...
+      </div>
+    </div>
+
+    <!-- Change Printer -->
+    <div class="section">
+      <h2>Change Physical Printer</h2>
+      <div class="help-text">
+        Select a different printer if you've replaced your hardware.
+        <strong>Your POS will continue printing to "Tabeza POS Connect"</strong> - no POS changes needed.
+      </div>
+
+      <select id="printerSelect">
+        <option value="">Loading printers...</option>
+      </select>
+
+      <button class="primary" onclick="updatePrinter()">Update Printer</button>
+      <button class="secondary" onclick="testPrint()">Send Test Print</button>
+    </div>
+
+    <!-- Bridge Status -->
+    <div class="section">
+      <h2>Bridge Status</h2>
+      <div id="bridgeStatus">
+        <div class="loading"></div> Loading bridge status...
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentConfig = null;
+
+    // Show alert message
+    function showAlert(message, type = 'success') {
+      const alert = document.getElementById('alert');
+      alert.textContent = message;
+      alert.className = `alert ${type} show`;
+      
+      setTimeout(() => {
+        alert.classList.remove('show');
+      }, 5000);
+    }
+
+    // Load current status
+    async function loadStatus() {
+      try {
+        const response = await fetch('/api/status');
+        const data = await response.json();
+        
+        currentConfig = data;
+        
+        // Update current printer display
+        updateCurrentPrinter(data.bridge);
+        
+        // Update bridge status
+        updateBridgeStatus(data.bridge);
+      } catch (error) {
+        console.error('Failed to load status:', error);
+        showAlert('Failed to load printer status', 'error');
+      }
+    }
+
+    // Update current printer display
+    function updateCurrentPrinter(bridge) {
+      const container = document.getElementById('currentPrinter');
+      
+      if (!bridge || !bridge.enabled) {
+        container.innerHTML = `
+          <div style="color: #64748b;">
+            Bridge not configured. Please configure the bridge first.
+          </div>
+        `;
+        return;
+      }
+
+      const statusClass = bridge.status === 'running' ? 'running' : 'stopped';
+      const statusText = bridge.status === 'running' ? '✅ Running' : '❌ Stopped';
+      
+      const lastActivity = bridge.lastActivity 
+        ? new Date(bridge.lastActivity).toLocaleString()
+        : 'Never';
+
+      container.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <h3 style="font-size: 20px; color: #1e293b;">${bridge.printerName}</h3>
+          <span class="status-badge ${statusClass}">${statusText}</span>
+        </div>
+        <div class="printer-info">
+          <div class="info-item">
+            <span class="info-label">Capture Folder</span>
+            <span class="info-value">${bridge.captureFolder}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Last Activity</span>
+            <span class="info-value">${lastActivity}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Files Processed</span>
+            <span class="info-value">${bridge.filesProcessed || 0}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    // Update bridge status
+    function updateBridgeStatus(bridge) {
+      const container = document.getElementById('bridgeStatus');
+      
+      if (!bridge || !bridge.enabled) {
+        container.innerHTML = `
+          <div style="color: #64748b;">
+            Bridge not enabled. Please enable the bridge in configuration.
+          </div>
+        `;
+        return;
+      }
+
+      const statusClass = bridge.status === 'running' ? 'running' : 'stopped';
+      const statusText = bridge.status === 'running' ? 'Running' : 'Stopped';
+
+      container.innerHTML = `
+        <div class="printer-info">
+          <div class="info-item">
+            <span class="info-label">Status</span>
+            <span class="status-badge ${statusClass}">${statusText}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Printer</span>
+            <span class="info-value">${bridge.printerName}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Files Processed</span>
+            <span class="info-value">${bridge.filesProcessed || 0}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    // Load available printers
+    async function loadPrinters() {
+      try {
+        const response = await fetch('/api/printers/list');
+        const data = await response.json();
+        
+        const select = document.getElementById('printerSelect');
+        select.innerHTML = '<option value="">-- Select a printer --</option>';
+        
+        if (data.success && data.printers && data.printers.length > 0) {
+          data.printers.forEach(printer => {
+            const option = document.createElement('option');
+            option.value = printer.name;
+            option.textContent = `${printer.name} (${printer.status})`;
+            select.appendChild(option);
+          });
+        } else {
+          select.innerHTML = '<option value="">No printers found</option>';
+        }
+      } catch (error) {
+        console.error('Failed to load printers:', error);
+        const select = document.getElementById('printerSelect');
+        select.innerHTML = '<option value="">Error loading printers</option>';
+      }
+    }
+
+    // Update printer configuration
+    async function updatePrinter() {
+      const printerName = document.getElementById('printerSelect').value;
+      
+      if (!printerName) {
+        showAlert('Please select a printer', 'warning');
+        return;
+      }
+      
+      // Confirm change
+      if (!confirm(`Change printer to: ${printerName}?\n\nYour POS configuration will not change.`)) {
+        return;
+      }
+      
+      try {
+        const response = await fetch('/api/printers/set-physical', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ printerName })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          showAlert('✅ Printer updated successfully!', 'success');
+          loadStatus(); // Refresh display
+        } else {
+          showAlert('❌ ' + data.error, 'error');
+        }
+      } catch (error) {
+        console.error('Failed to update printer:', error);
+        showAlert('❌ Failed to update printer', 'error');
+      }
+    }
+
+    // Send test print
+    async function testPrint() {
+      try {
+        const response = await fetch('/api/printers/test', {
+          method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          showAlert('✅ Test print sent! Check your printer.', 'success');
+        } else {
+          showAlert('❌ ' + data.error, 'error');
+        }
+      } catch (error) {
+        console.error('Failed to send test print:', error);
+        showAlert('❌ Failed to send test print', 'error');
+      }
+    }
+
+    // Initialize
+    loadStatus();
+    loadPrinters();
+    
+    // Auto-refresh every 5 seconds
+    setInterval(loadStatus, 5000);
+  </script>
+</body>
+</html>

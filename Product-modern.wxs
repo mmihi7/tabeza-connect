@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  
+  <!-- Product Definition -->
+  <Product Id="*" 
+           Name="Tabeza POS Connect" 
+           Language="1033" 
+           Version="1.1.1.0" 
+           Manufacturer="Tabeza" 
+           UpgradeCode="12345678-1234-1234-1234-123456789012">
+    
+    <!-- Package Information -->
+    <Package InstallerVersion="200" 
+             Compressed="yes" 
+             InstallScope="perMachine" 
+             Description="Tabeza POS Connect Installer" 
+             Summary="POS Integration Bridge" 
+             Platform="x86" />
+    
+    <!-- Media -->
+    <MediaTemplate EmbedCab="yes" />
+    
+    <!-- Major Upgrade -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    
+    <!-- Features -->
+    <Feature Id="ProductFeature" Title="Tabeza POS Connect" Level="1">
+      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="Shortcuts" />
+      <ComponentRef Id="RegistryEntries" />
+    </Feature>
+    
+    <!-- Directory Structure -->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="TabezaConnect" />
+      </Directory>
+    </Directory>
+    
+    <!-- Main Component - Download Script -->
+    <Component Id="MainExecutable" Guid="*">
+      <!-- Download Script as VBScript -->
+      <Binary Id="DownloadScript" SourceFile="download.vbs" />
+      
+      <!-- Execute Download Script -->
+      <CustomAction Id="DownloadApp" 
+                   BinaryKey="DownloadScript" 
+                   VBScriptCall="DownloadMainApp" 
+                   Execute="immediate" 
+                   Return="check" />
+      
+      <!-- Install Sequence -->
+      <InstallExecuteSequence>
+        <Custom Action="DownloadApp" Before="InstallFiles" />
+      </InstallExecuteSequence>
+      
+      <!-- Placeholder file (will be replaced by download) -->
+      <File Id="TabezaConnect.exe" 
+            Source="placeholder.txt" 
+            KeyPath="yes" />
+    </Component>
+    
+    <!-- Shortcuts Component -->
+    <Component Id="Shortcuts" Guid="*">
+      <!-- Desktop Shortcut -->
+      <Shortcut Id="DesktopShortcut" 
+               Directory="DesktopFolder" 
+               Name="Tabeza POS Connect" 
+               Description="Launch Tabeza POS Connect" 
+               Target="[#TabezaConnect.exe]" 
+               WorkingDirectory="INSTALLFOLDER" />
+      
+      <!-- Start Menu Shortcut -->
+      <Shortcut Id="StartMenuShortcut" 
+               Directory="ProgramMenuFolder" 
+               Name="Tabeza POS Connect" 
+               Description="Launch Tabeza POS Connect" 
+               Target="[#TabezaConnect.exe]" 
+               WorkingDirectory="INSTALLFOLDER" />
+      
+      <!-- Remove Shortcuts on Uninstall -->
+      <RemoveFolder Id="DesktopFolder" On="uninstall" />
+      <RemoveFolder Id="ProgramMenuFolder" On="uninstall" />
+    </Component>
+    
+    <!-- Registry Entries Component -->
+    <Component Id="RegistryEntries" Guid="*">
+      <!-- Auto-start Registry Entry -->
+      <RegistryKey Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Run">
+        <RegistryValue Name="Tabeza POS Connect" 
+                     Type="string" 
+                     Value="[INSTALLFOLDER]TabezaConnect.exe" />
+      </RegistryKey>
+      
+      <!-- Uninstall Information -->
+      <RegistryKey Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\Uninstall\Tabeza POS Connect">
+        <RegistryValue Name="DisplayName" Type="string" Value="Tabeza POS Connect" />
+        <RegistryValue Name="UninstallString" Type="string" Value="[System64Folder]msiexec.exe /x [ProductCode]" />
+        <RegistryValue Name="DisplayIcon" Type="string" Value="[INSTALLFOLDER]TabezaConnect.exe" />
+        <RegistryValue Name="Publisher" Type="string" Value="Tabeza" />
+        <RegistryValue Name="DisplayVersion" Type="string" Value="1.1.1" />
+      </RegistryKey>
+    </Component>
+    
+    <!-- Modern UI - Windows 11 Style, Backward Compatible -->
+    <UIRef Id="WixUI_InstallDir" />
+    <UIRef Id="WixUI_ErrorProgressText" />
+    <UIRef Id="WixUI_Advanced" />
+    
+    <!-- Tabeza Theme Colors for Modern UI -->
+    <WixVariable Id="WixUIBannerBmp" Value="banner-tabeza.txt" />
+    <WixVariable Id="WixUIDialogBmp" Value="dialog-tabeza.txt" />
+    
+    <!-- Modern Text Styles with Tabeza Colors -->
+    <TextStyle Id="WixUI_Font_Normal" Face="Segoe UI Variable" Size="9" Red="51" Green="209" Blue="153" />
+    <TextStyle Id="WixUI_Font_Bigger" Face="Segoe UI Variable" Size="12" Red="51" Green="209" Blue="153" Bold="yes" />
+    <TextStyle Id="WixUI_Font_Title" Face="Segoe UI Variable" Size="15" Red="51" Green="209" Blue="153" Bold="yes" />
+    
+    <!-- Modern Progress Bar with Tabeza Colors -->
+    <WixVariable Id="WixUI_ProgressBar" Value="Green" />
+    
+    <!-- License -->
+    <WixVariable Id="WixUILicenseRtf" Value="LICENSE.rtf" />
+    
+  </Product>
+  
+</Wix>

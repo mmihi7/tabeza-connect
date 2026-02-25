@@ -1,0 +1,614 @@
+/**
+ * Tabeza POS Connect Tray Application Wrapper
+ *
+ * CORE TRUTH: Manual service always exists.
+ * Digital authority is singular.
+ * Tabeza adapts to the venue — never the reverse.
+ *
+ * Manages:
+ *  - System tray icon (green / grey states - 2-state system)
+ *  - Status window (BrowserWindow, show on double-click, hide on close)
+ *  - IPC between renderer (status-window.html) and main process
+ *  - Context menu
+ *  - Service health monitoring via /api/status polling
+ *  - Graceful shutdown
+ *
+ * Requirements covered: 2.1 – 2.8, 3.x (--minimized), 6.x (state machine), 9.x (shutdown)
+ */
+
+'use strict';
+
+const { app, Tray, Menu, BrowserWindow, nativeImage, ipcMain, shell, dialog } = require('electron');
+const path  = require('path');
+const fs    = require('fs');
+const { exec } = require('child_process');
+
+// ── Application state enum ───────────────────────────────────────────────────
+const ApplicationState = {
+  STARTING:     'starting',
+  CONNECTED:    'connected',
+  UNCONFIGURED: 'unconfigured',
+  DISCONNECTED: 'disconnected',
+  ERROR:        'error',
+  SHUTTING_DOWN:'shutting_down',
+};
+
+// ── Valid state transitions ───────────────────────────────────────────────────
+const VALID_TRANSITIONS = {
+  [ApplicationState.STARTING]:     ['connected','unconfigured','error','shutting_down'],
+  [ApplicationState.CONNECTED]:    ['disconnected','error','shutting_down'],
+  [ApplicationState.UNCONFIGURED]: ['connected','error','shutting_down'],
+  [ApplicationState.DISCONNECTED]: ['connected','error','shutting_down'],
+  [ApplicationState.ERROR]:        ['connected','unconfigured','starting','shutting_down'],
+  [ApplicationState.SHUTTING_DOWN]: [],
+};
+
+// ── Icon paths (using full-size icons; Windows will downscale for tray) ─────
+const ICON_PATHS = {
+  green: path.join(__dirname, '../../assets/icon-green.ico'),
+  grey:  path.join(__dirname, '../../assets/icon-grey.ico'),
+};
+
+// ── State → icon / tooltip mapping ───────────────────────────────────────────
+const STATE_CONFIG = {
+  [ApplicationState.STARTING]:     { icon: 'grey',  tooltip: 'Tabeza POS Connect - Starting...' },
+  [ApplicationState.CONNECTED]:    { icon: 'green', tooltip: 'Tabeza POS Connect - Connected' },
+  [ApplicationState.UNCONFIGURED]: { icon: 'grey',  tooltip: 'Tabeza POS Connect - Configuration required' },
+  [ApplicationState.DISCONNECTED]: { icon: 'grey',  tooltip: 'Tabeza POS Connect - Cloud disconnected' },
+  [ApplicationState.ERROR]:        { icon: 'grey',  tooltip: 'Tabeza POS Connect - Error' },
+  [ApplicationState.SHUTTING_DOWN]:{ icon: 'grey',  tooltip: 'Tabeza POS Connect - Shutting down...' },
+};
+
+// ── Status polling interval (ms) ──────────────────────────────────────────────
+const MONITOR_INTERVAL_MS  = 10_000;
+const MONITOR_INITIAL_MS   =  3_000;
+
+class TrayApp {
+  constructor(options = {}) {
+    this.minimized = options.minimized || false;
+
+    this.tray   = null;
+    this.window = null;           // BrowserWindow for status popup
+
+    this.state        = ApplicationState.STARTING;
+    this.barId        = null;
+    this.errorMessage = null;
+
+    this.monitorTimer = null;
+
+    // Cached status for IPC replies
+    this._lastStatus = null;
+
+    console.log('[TrayApp] Initialized. minimized =', this.minimized);
+  }
+
+  // ── Public entry point ────────────────────────────────────────────────────
+  async start() {
+    await app.whenReady();
+
+    this._registerIPC();
+    this._createTrayIcon();
+    this._createStatusWindow();   // create window now, hidden
+
+    // Show the window unless --minimized was passed
+    if (!this.minimized) {
+      this._showWindow();
+    }
+
+    // Start polling
+    setTimeout(() => this._pollStatus(), MONITOR_INITIAL_MS);
+    this.monitorTimer = setInterval(() => this._pollStatus(), MONITOR_INTERVAL_MS);
+
+    console.log('[TrayApp] Started');
+  }
+
+  // ── Tray icon ─────────────────────────────────────────────────────────────
+  _createTrayIcon() {
+    this._verifyIcons();
+
+    const icon = nativeImage.createFromPath(ICON_PATHS.grey);
+    if (icon.isEmpty()) throw new Error(`Cannot load icon: ${ICON_PATHS.grey}`);
+
+    this.tray = new Tray(icon);
+    this.tray.setToolTip('Tabeza POS Connect - Starting...');
+
+    // Double-click → show window (Req 2.3)
+    this.tray.on('double-click', () => this._showWindow());
+
+    this._rebuildContextMenu();
+    console.log('[TrayApp] Tray icon created');
+  }
+
+  _updateTrayIcon(state) {
+    if (!this.tray) return;
+
+    const cfg = STATE_CONFIG[state] || STATE_CONFIG[ApplicationState.STARTING];
+    const iconPath = ICON_PATHS[cfg.icon];
+    const icon = nativeImage.createFromPath(iconPath);
+
+    if (!icon.isEmpty()) {
+      this.tray.setImage(icon);
+    } else {
+      console.warn('[TrayApp] Icon empty:', iconPath);
+    }
+
+    let tooltip = cfg.tooltip;
+    if (state === ApplicationState.CONNECTED && this.barId) {
+      tooltip = `Tabeza POS Connect - Connected (Bar: ${this.barId})`;
+    }
+    if (state === ApplicationState.ERROR && this.errorMessage) {
+      tooltip = `Tabeza POS Connect - Error: ${this.errorMessage}`;
+    }
+    this.tray.setToolTip(tooltip);
+  }
+
+  // ── Status window (BrowserWindow) ─────────────────────────────────────────
+  _createStatusWindow() {
+    this.window = new BrowserWindow({
+      width:           500,
+      height:          420,
+      resizable:       false,
+      maximizable:     false,
+      fullscreenable:  false,
+      show:            false,           // start hidden
+      skipTaskbar:     true,            // don't appear in taskbar
+      title:           'Tabeza POS Connect',
+      icon:            path.join(__dirname, '../../assets/icon-green.ico'),
+      webPreferences: {
+        nodeIntegration:   true,        // needed for ipcRenderer in renderer
+        contextIsolation:  false,
+      },
+    });
+
+    this.window.loadFile(path.join(__dirname, 'status-window.html'));
+
+    // Minimise-to-tray instead of closing (Req 2.4)
+    this.window.on('close', (e) => {
+      if (this.state !== ApplicationState.SHUTTING_DOWN) {
+        e.preventDefault();
+        this.window.hide();
+      }
+    });
+
+    // When the renderer finishes loading, push the current status
+    this.window.webContents.on('did-finish-load', () => {
+      if (this._lastStatus) {
+        this.window.webContents.send('status-update', this._lastStatus);
+      }
+    });
+
+    // Remove the default menu bar
+    this.window.setMenuBarVisibility(false);
+
+    console.log('[TrayApp] Status window created (hidden)');
+  }
+
+  _showWindow() {
+    if (!this.window) return;
+    if (!this.window.isVisible()) {
+      this.window.show();
+    }
+    this.window.focus();
+  }
+
+  _hideWindow() {
+    if (this.window && this.window.isVisible()) {
+      this.window.hide();
+    }
+  }
+
+  // Public alias used by main.js second-instance handler
+  showWindow() { this._showWindow(); }
+
+  // ── IPC handlers ─────────────────────────────────────────────────────────
+  _registerIPC() {
+    // Renderer asks for current status
+    ipcMain.on('get-status', (event) => {
+      event.reply('status-reply', this._buildStatusPayload());
+    });
+
+    // Renderer "Open Configuration" button
+    ipcMain.on('open-config', () => this._openConfiguration());
+
+    // Renderer "Test Print" button
+    ipcMain.on('test-print', () => this._testPrint());
+
+    // Renderer "OK" button → hide window
+    ipcMain.on('hide-window', () => this._hideWindow());
+  }
+
+  // ── Context menu ─────────────────────────────────────────────────────────
+  _rebuildContextMenu() {
+    const shutting  = this.state === ApplicationState.SHUTTING_DOWN;
+    const configured= !!(this.barId && this.barId !== 'NOT_CONFIGURED');
+
+    let statusLabel;
+    switch (this.state) {
+      case ApplicationState.CONNECTED:    statusLabel = '● Connected';           break;
+      case ApplicationState.DISCONNECTED: statusLabel = '○ Disconnected';        break;
+      case ApplicationState.ERROR:        statusLabel = '✕ Error';               break;
+      case ApplicationState.UNCONFIGURED: statusLabel = '⚠ Not configured';      break;
+      case ApplicationState.STARTING:     statusLabel = '⟳ Starting...';         break;
+      case ApplicationState.SHUTTING_DOWN:statusLabel = '⟳ Shutting down...';    break;
+      default:                            statusLabel = 'Unknown';
+    }
+
+    const menu = Menu.buildFromTemplate([
+      { label: 'Tabeza POS Connect',                 enabled: false },
+      { label: configured ? `Bar: ${this.barId}` : 'Bar: Not configured', enabled: false },
+      { label: `Status: ${statusLabel}`,              enabled: false },
+      { type: 'separator' },
+      {
+        label:   'Show Status Window',
+        enabled: !shutting,
+        click:   () => this._showWindow(),
+      },
+      { type: 'separator' },
+      {
+        label:   'Open Configuration',
+        enabled: !shutting,
+        click:   () => this._openConfiguration(),
+      },
+      {
+        label:   'Open Staff Dashboard',
+        enabled: !shutting && configured,
+        click:   () => this._openStaffDashboard(),
+      },
+      { type: 'separator' },
+      {
+        label:   'Test Print',
+        enabled: !shutting && configured,
+        click:   () => this._testPrint(),
+      },
+      {
+        label:   'View Logs',
+        enabled: !shutting,
+        click:   () => this._viewLogs(),
+      },
+      { type: 'separator' },
+      {
+        label:   'Restart Service',
+        enabled: !shutting,
+        click:   () => this._restartService(),
+      },
+      {
+        label:   'About',
+        enabled: !shutting,
+        click:   () => this._showAbout(),
+      },
+      { type: 'separator' },
+      {
+        label:   'Exit',
+        enabled: !shutting,
+        click:   () => this.handleExit(),
+      },
+    ]);
+
+    this.tray.setContextMenu(menu);
+  }
+
+  // ── State machine ─────────────────────────────────────────────────────────
+  setState(newState, reason = '', errorMsg = null) {
+    const valid = Object.values(ApplicationState);
+    if (!valid.includes(newState)) {
+      console.warn(`[TrayApp] Unknown state: ${newState}`);
+      return false;
+    }
+
+    const allowed = VALID_TRANSITIONS[this.state] || [];
+    if (!allowed.includes(newState)) {
+      console.warn(`[TrayApp] Invalid transition ${this.state} → ${newState}`);
+      return false;
+    }
+
+    console.log(`[TrayApp] State: ${this.state} → ${newState}${reason ? ' (' + reason + ')' : ''}`);
+
+    this.state = newState;
+    if (errorMsg) this.errorMessage = errorMsg;
+
+    this._updateTrayIcon(newState);
+    this._rebuildContextMenu();
+
+    // Push update to open window
+    if (this.window && !this.window.isDestroyed()) {
+      this.window.webContents.send('status-update', this._buildStatusPayload());
+    }
+
+    return true;
+  }
+
+  // ── Status polling ────────────────────────────────────────────────────────
+  async _pollStatus() {
+    if (this.state === ApplicationState.SHUTTING_DOWN) return;
+
+    try {
+      const res = await fetch('http://localhost:8765/api/status', {
+        signal: AbortSignal.timeout(4000),
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = await res.json();
+
+      // Merge into cached status
+      this._lastStatus = this._buildStatusPayload(data);
+
+      // Update barId from live data
+      if (data.barId && data.barId !== this.barId) {
+        this.barId = data.barId;
+      }
+
+      // Determine desired app state
+      if (!data.barId || data.barId === 'NOT_CONFIGURED') {
+        if (this.state !== ApplicationState.UNCONFIGURED) {
+          this.setState(ApplicationState.UNCONFIGURED, 'Bar ID not configured');
+        }
+      } else if (this.state !== ApplicationState.CONNECTED) {
+        this.setState(ApplicationState.CONNECTED, 'Service healthy');
+      } else {
+        // Already connected — just refresh the menu/icon in case barId changed
+        this._rebuildContextMenu();
+        if (this.window && !this.window.isDestroyed()) {
+          this.window.webContents.send('status-update', this._lastStatus);
+        }
+      }
+
+    } catch {
+      if (
+        this.state !== ApplicationState.ERROR &&
+        this.state !== ApplicationState.SHUTTING_DOWN
+      ) {
+        this.setState(ApplicationState.ERROR, 'Service unreachable', 'Cannot connect to service');
+      }
+    }
+  }
+
+  // ── Build status payload for the renderer ────────────────────────────────
+  _buildStatusPayload(liveData = null) {
+    let version = '1.1.0';
+    try {
+      const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf8'));
+      version = pkg.version || version;
+    } catch { /* ignore */ }
+
+    const base = {
+      appState:           this.state,
+      barId:              this.barId || (liveData?.barId) || null,
+      apiUrl:             liveData?.apiUrl                || null,
+      driverId:           liveData?.driverId              || null,
+      lastActivity:       liveData?.bridge?.lastActivity  || null,
+      receiptsProcessed:  liveData?.bridge?.filesProcessed|| 0,
+      port:               8765,
+      captureMode:        liveData?.captureMode           || null,
+      watchFolder:        liveData?.watchFolder           || null,
+      printerName:        liveData?.bridge?.printerName   || liveData?.printerName || null,
+      version,
+    };
+
+    if (liveData) Object.assign(base, { barId: liveData.barId || base.barId });
+    return base;
+  }
+
+  // ── Menu actions ─────────────────────────────────────────────────────────
+  _openConfiguration() {
+    shell.openExternal('http://localhost:8765/configure.html').catch(err => {
+      dialog.showErrorBox('Cannot Open Configuration',
+        `Failed to open configuration page.\nNavigate manually to: http://localhost:8765/configure.html\n\n${err.message}`);
+    });
+  }
+
+  async _openStaffDashboard() {
+    try {
+      const res = await fetch('http://localhost:8765/api/status', {
+        signal: AbortSignal.timeout(5000),
+      });
+      const data = res.ok ? await res.json() : null;
+      const url  = data?.apiUrl || 'https://tabeza.co.ke';
+      shell.openExternal(url).catch(() => {});
+    } catch {
+      dialog.showErrorBox('Cannot Open Dashboard',
+        'Could not retrieve API URL from service.\nPlease ensure the service is running.');
+    }
+  }
+
+  async _testPrint() {
+    try {
+      const res = await fetch('http://localhost:8765/api/test-print', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+        signal: AbortSignal.timeout(10_000),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+
+      dialog.showMessageBox({
+        type:    'info',
+        title:   'Test Print',
+        message: 'Test print sent successfully',
+        detail:  'Check your printer and cloud dashboard for the test receipt.',
+        buttons: ['OK'],
+      });
+    } catch (err) {
+      dialog.showErrorBox('Test Print Failed',
+        `Failed to send test print.\n\nError: ${err.message}`);
+    }
+  }
+
+  _viewLogs() {
+    const logPath = 'C:\\ProgramData\\Tabeza\\logs\\tabezaconnect.log';
+    if (!fs.existsSync(logPath)) {
+      dialog.showMessageBox({
+        type:    'warning',
+        title:   'Log File Not Found',
+        message: 'Log file does not exist yet.',
+        detail:  `Expected location:\n${logPath}`,
+        buttons: ['OK'],
+      });
+      return;
+    }
+    exec(`start "" "${logPath}"`, (err) => {
+      if (err) dialog.showErrorBox('Cannot Open Log File', err.message);
+    });
+  }
+
+  async _restartService() {
+    this.setState(ApplicationState.STARTING, 'User requested restart');
+
+    try {
+      const res = await fetch('http://localhost:8765/api/restart', {
+        method: 'POST',
+        signal: AbortSignal.timeout(5000),
+      }).catch(() => null);
+
+      if (res && res.ok) {
+        dialog.showMessageBox({
+          type:    'info',
+          title:   'Service Restart',
+          message: 'Service is restarting...',
+          buttons: ['OK'],
+        });
+      } else {
+        const choice = dialog.showMessageBoxSync({
+          type:      'question',
+          title:     'Restart Service',
+          message:   'Restart requires a full application restart.',
+          detail:    'Exit and restart Tabeza POS Connect now?',
+          buttons:   ['Restart Now', 'Cancel'],
+          defaultId: 0,
+          cancelId:  1,
+        });
+        if (choice === 0) await this.handleExit();
+      }
+    } catch (err) {
+      dialog.showErrorBox('Restart Failed', err.message);
+    }
+  }
+
+  _showAbout() {
+    let version = '1.1.0';
+    try {
+      const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf8'));
+      version = pkg.version || version;
+    } catch { /* ignore */ }
+
+    dialog.showMessageBox({
+      type:    'info',
+      title:   'About Tabeza POS Connect',
+      message: `Tabeza POS Connect v${version}`,
+      detail:
+        'POS Printer Bridge Application\n\n' +
+        'Copyright © 2024 Tabeza\nAll rights reserved.\n\n' +
+        'Website: https://tabeza.co.ke\n' +
+        'Support: support@tabeza.co.ke',
+      buttons: ['OK'],
+    });
+  }
+
+  // ── Graceful shutdown ────────────────────────────────────────────────────
+  async handleExit() {
+    console.log('[TrayApp] Graceful exit...');
+
+    this.setState(ApplicationState.SHUTTING_DOWN, 'User requested exit');
+
+    // Stop polling
+    if (this.monitorTimer) {
+      clearInterval(this.monitorTimer);
+      this.monitorTimer = null;
+    }
+
+    // 5-second hard-exit safety net
+    const timer = setTimeout(() => {
+      console.warn('[TrayApp] Shutdown timeout, forcing exit');
+      app.exit(0);
+    }, 5000);
+
+    try {
+      // Ask service to shut down gracefully
+      const serviceModule = require.cache[require.resolve('../service/index.js')];
+      if (serviceModule?.exports?.shutdown) {
+        await serviceModule.exports.shutdown();
+        console.log('[TrayApp] Service shutdown OK');
+      }
+    } catch (err) {
+      console.warn('[TrayApp] Service shutdown error:', err.message);
+    }
+
+    clearTimeout(timer);
+
+    // Destroy window without triggering close-to-tray handler
+    if (this.window && !this.window.isDestroyed()) {
+      this.window.destroy();
+      this.window = null;
+    }
+
+    if (this.tray) {
+      this.tray.destroy();
+      this.tray = null;
+    }
+
+    app.quit();
+  }
+
+  // ── External event hooks (called by main.js) ──────────────────────────────
+  onServiceReady(config) {
+    if (config?.barId && config.barId !== 'NOT_CONFIGURED') {
+      this.barId = config.barId;
+      this.setState(ApplicationState.CONNECTED, 'Service started');
+    } else {
+      this.setState(ApplicationState.UNCONFIGURED, 'Service started but not configured');
+    }
+  }
+
+  onServiceError(error) {
+    let msg = 'Service error';
+    if (error?.code === 'EADDRINUSE')     msg = 'Port 8765 already in use';
+    else if (error?.message)              msg = error.message.substring(0, 60);
+    this.setState(ApplicationState.ERROR, 'Service error', msg);
+  }
+
+  onConfigurationChanged(config) {
+    if (config?.barId && config.barId !== 'NOT_CONFIGURED') {
+      this.barId = config.barId;
+      if (this.state === ApplicationState.UNCONFIGURED)
+        this.setState(ApplicationState.CONNECTED, 'Configuration completed');
+    } else {
+      if (this.state === ApplicationState.CONNECTED)
+        this.setState(ApplicationState.UNCONFIGURED, 'Configuration cleared');
+    }
+  }
+
+  onHeartbeatFailure() {
+    if (this.state === ApplicationState.CONNECTED)
+      this.setState(ApplicationState.DISCONNECTED, 'Cloud connection lost');
+  }
+
+  onHeartbeatSuccess() {
+    if (this.state === ApplicationState.DISCONNECTED)
+      this.setState(ApplicationState.CONNECTED, 'Cloud connection restored');
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  _verifyIcons() {
+    for (const [color, p] of Object.entries(ICON_PATHS)) {
+      if (!fs.existsSync(p)) {
+        console.warn(`[TrayApp] Missing icon (${color}): ${p}`);
+      }
+    }
+    // Also verify the large window icon (already covered if green is same)
+  }
+
+  // ── Legacy public API aliases ─────────────────────────────────────────────
+  setBarId(barId) {
+    this.barId = barId;
+    if (this.state === ApplicationState.CONNECTED) this._updateTrayIcon(ApplicationState.CONNECTED);
+    this._rebuildContextMenu();
+  }
+}
+
+module.exports = TrayApp;
+module.exports.ApplicationState  = ApplicationState;
+module.exports.VALID_TRANSITIONS = VALID_TRANSITIONS;

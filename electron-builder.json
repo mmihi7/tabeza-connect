@@ -1,0 +1,47 @@
+{
+  "appId": "com.tabeza.connect",
+  "productName": "TabezaConnect",
+  "directories": {
+    "output": "dist-tray"
+  },
+  "files": [
+    "src/tray/**/*",
+    "src/service/**/*",
+    "assets/**/*",
+    "node_modules/chokidar/**/*",
+    "node_modules/cors/**/*",
+    "node_modules/express/**/*",
+    "node_modules/fs-extra/**/*",
+    "node_modules/node-machine-id/**/*",
+    "node_modules/readdirp/**/*",
+    "node_modules/winreg/**/*",
+    "node_modules/ws/**/*",
+    "node_modules/electron/**/*",
+    "package.json"
+  ],
+  "extraFiles": [
+    {
+      "from": "src/installer",
+      "to": "installer",
+      "filter": ["**/*"]
+    }
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "assets/icon.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "TabezaConnect",
+    "include": "installer-tray.nsh"
+  },
+  "publish": null
+}

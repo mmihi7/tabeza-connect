@@ -1,0 +1,9 @@
+{
+  "projectId": "5e7695de-9e86-4ce3-8e84-597e322a0dc0",
+  "createdAt": 1771779544200,
+  "version": "1.0",
+  "startupCommands": [
+    "Start-Process node -ArgumentList 'C:\\Projects\\TabezaConnect\\src\\service\\index.js' -WorkingDirectory 'C:\\Projects\\TabezaConnect\\src\\service' -WindowStyle Hidden"
+  ],
+  "templateId": "any"
+}

@@ -1,9 +1,9 @@
-# Register Tabeza Connect as Windows Service (PKG Version - FIXED)
+# Register Tabeza Connect as Windows Service (PKG Version - v1.6.0)
 # Configures automatic startup and recovery settings
-# Uses compiled TabezaService.exe directly (no wrapper needed)
+# Uses compiled TabezaConnect.exe directly (no wrapper needed)
 
 param(
-    [string]$InstallPath = "C:\Program Files\Tabeza",
+    [string]$InstallPath = "C:\Program Files\TabezaConnect",
     [string]$BarId,
     [string]$ApiUrl = "https://tabeza.co.ke",
     [switch]$Uninstall
@@ -22,9 +22,9 @@ if (-not $isAdmin) {
     exit 1
 }
 
-$serviceName = "TabezaConnectService"
-$displayName = "Tabeza POS Connect Service"
-$description = "Bridges POS system with Tabeza cloud for digital receipts and customer engagement"
+$serviceName = "TabezaConnect"
+$displayName = "Tabeza POS Connect"
+$description = "Captures receipt data from POS and syncs with Tabeza staff app"
 
 # Check if service exists
 $existingService = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
@@ -53,11 +53,11 @@ if (-not $BarId) {
     exit 1
 }
 
-# Validate install path - PKG version uses TabezaService.exe
-$exePath = Join-Path $InstallPath "TabezaService.exe"
+# Validate install path - PKG version uses TabezaConnect.exe
+$exePath = Join-Path $InstallPath "TabezaConnect.exe"
 
 if (-not (Test-Path $exePath)) {
-    Write-Host "[ERROR] TabezaService.exe not found at: $exePath" -ForegroundColor Red
+    Write-Host "[ERROR] TabezaConnect.exe not found at: $exePath" -ForegroundColor Red
     Write-Host ""
     Write-Host "Please ensure Tabeza Connect is installed correctly." -ForegroundColor Yellow
     exit 1
@@ -65,18 +65,30 @@ if (-not (Test-Path $exePath)) {
 
 Write-Host "Configuration:" -ForegroundColor Cyan
 Write-Host "  Install Path: $InstallPath" -ForegroundColor White
-Write-Host "  Executable: TabezaService.exe" -ForegroundColor White
+Write-Host "  Executable: TabezaConnect.exe" -ForegroundColor White
 Write-Host "  Bar ID: $BarId" -ForegroundColor White
 Write-Host "  API URL: $ApiUrl" -ForegroundColor White
 Write-Host ""
 
-# Remove existing service if it exists
+# Remove existing service if it exists (defensive - may have been removed by installer)
 if ($existingService) {
-    Write-Host "Removing existing service..." -ForegroundColor Yellow
-    Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
+    Write-Host "Existing service found, ensuring clean removal..." -ForegroundColor Yellow
+    
+    # Stop service if running
+    if ($existingService.Status -eq 'Running') {
+        Write-Host "  Stopping service..." -ForegroundColor Gray
+        Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+    }
+    
+    # Delete service registration
+    Write-Host "  Removing service registration..." -ForegroundColor Gray
+    sc.exe delete $serviceName | Out-Null
     Start-Sleep -Seconds 2
-    sc.exe delete $serviceName
-    Start-Sleep -Seconds 2
+    
+    Write-Host "  [SUCCESS] Old service removed" -ForegroundColor Green
+} else {
+    Write-Host "No existing service found (clean installation or already removed)" -ForegroundColor Gray
 }
 
 Write-Host "Creating Windows service..." -ForegroundColor Cyan
@@ -122,33 +134,21 @@ if (Test-Path $regPath) {
     
     New-ItemProperty -Path $envPath -Name "TABEZA_BAR_ID" -Value $BarId -PropertyType String -Force | Out-Null
     New-ItemProperty -Path $envPath -Name "TABEZA_API_URL" -Value $ApiUrl -PropertyType String -Force | Out-Null
-    New-ItemProperty -Path $envPath -Name "TABEZA_WATCH_FOLDER" -Value "C:\ProgramData\Tabeza\TabezaPrints" -PropertyType String -Force | Out-Null
+    New-ItemProperty -Path $envPath -Name "TABEZA_WATCH_FOLDER" -Value "C:\TabezaPrints" -PropertyType String -Force | Out-Null
     
     Write-Host "  [SUCCESS] Environment variables configured" -ForegroundColor Green
 }
 
-# Start the service
+# Service will be started by installer after all configuration is complete
 Write-Host ""
-Write-Host "Starting service..." -ForegroundColor Cyan
-
-try {
-    Start-Service -Name $serviceName -ErrorAction Stop
-    Start-Sleep -Seconds 3
-    
-    $service = Get-Service -Name $serviceName
-    if ($service.Status -eq 'Running') {
-        Write-Host "[SUCCESS] Service started successfully" -ForegroundColor Green
-    } else {
-        Write-Host "[WARNING] Service created but not running" -ForegroundColor Yellow
-    }
-} catch {
-    Write-Host "[WARNING] Service created but failed to start: $_" -ForegroundColor Yellow
-}
-
+Write-Host "Service registration complete - service will be started after configuration" -ForegroundColor Gray
 Write-Host ""
 Write-Host "===============================================" -ForegroundColor Green
 Write-Host "  Service Registration Complete!" -ForegroundColor Green
 Write-Host "===============================================" -ForegroundColor Green
 Write-Host ""
+
+# Write status
+& "$PSScriptRoot\write-status.ps1" -StepNumber 4 -StepName "Service registered" -Success $true -Details "Service: $serviceName"
 
 exit 0

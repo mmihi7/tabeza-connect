@@ -99,4 +99,7 @@ Write-Host ""
 Write-Host "Location: $WatchFolder" -ForegroundColor Cyan
 Write-Host ""
 
+# Write status
+& "$PSScriptRoot\write-status.ps1" -StepNumber 1 -StepName "Folders created" -Success $true -Details "Location: $WatchFolder"
+
 exit 0

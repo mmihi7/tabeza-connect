@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="Tabeza POS Connect" 
+           Language="1033" 
+           Version="$(var.Version)" 
+           Manufacturer="Tabeza" 
+           UpgradeCode="12345678-1234-1234-1234-123456789012"
+           ProductCode="*"
+           Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Tabeza POS Connect is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- LAUNCH CONDITIONS -->
+    <Launch Condition="VersionNT64" Message="This installer requires 64-bit Windows." />
+
+    <!-- REMOVED: Property Id="WIXUI_INSTALLDIR" - this is now set by WixUI element below -->
+    
+    <!-- Directories -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="TabezaConnect" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+    <StandardDirectory Id="ProgramMenuFolder" />
+
+    <!-- Custom Actions - Download from GitHub Releases + Systray Setup -->
+    <Binary Id="DownloadScript" SourceFile="download.vbs" />
+    <CustomAction Id="DownloadApp" 
+                  BinaryRef="DownloadScript" 
+                  VBScriptCall="DownloadMainApp" 
+                  Execute="immediate" 
+                  Return="check" />
+    
+    <!-- Launch systray app after installation -->
+    <CustomAction Id="LaunchSystray" 
+                  Directory="INSTALLFOLDER" 
+                  ExeCommand="&quot;[INSTALLFOLDER]TabezaConnect.exe&quot;" 
+                  Execute="immediate" 
+                  Return="asyncNoWait" />
+    
+    <InstallExecuteSequence>
+      <!-- Download during install -->
+      <Custom Action="DownloadApp" Before="InstallFiles" Condition="NOT Installed" />
+      
+      <!-- Launch systray app after installation -->
+      <Custom Action="LaunchSystray" After="InstallFinalize" Condition="NOT Installed" />
+    </InstallExecuteSequence>
+
+    <!-- Features -->
+    <Feature Id="ProductFeature" Title="Tabeza POS Connect" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+
+      <!-- Main Application Component -->
+      <Component Id="MainApp" Guid="*">
+        <File Id="TabezaConnect.exe" 
+              Source="placeholder.txt" 
+              KeyPath="yes" />
+      </Component>
+
+      <!-- Shortcuts Component -->
+      <Component Id="ShortcutsComponent" Guid="*">
+        <RegistryValue Root="HKCU" 
+                       Key="Software\Tabeza\TabezaConnect" 
+                       Name="Installed" 
+                       Type="integer" 
+                       Value="1" 
+                       KeyPath="yes" />
+        
+        <Shortcut Id="DesktopShortcut" 
+                  Directory="DesktopFolder" 
+                  Name="Tabeza POS Connect" 
+                  Target="[#TabezaConnect.exe]" 
+                  WorkingDirectory="INSTALLFOLDER" />
+        
+        <Shortcut Id="StartMenuShortcut" 
+                  Directory="ProgramMenuFolder" 
+                  Name="Tabeza POS Connect" 
+                  Target="[#TabezaConnect.exe]" 
+                  WorkingDirectory="INSTALLFOLDER" />
+      </Component>
+
+      <!-- Startup Registry Component -->
+      <Component Id="StartupComponent" Guid="*">
+        <RegistryKey Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Run">
+          <RegistryValue Name="Tabeza POS Connect" 
+                         Type="string" 
+                         Value="&quot;[#TabezaConnect.exe]&quot;" />
+        </RegistryKey>
+        <RegistryValue Root="HKCU" 
+                       Key="Software\Tabeza\TabezaConnect" 
+                       Name="Startup" 
+                       Type="integer" 
+                       Value="1" 
+                       KeyPath="yes" />
+      </Component>
+
+      <!-- Uninstall Registry Component -->
+      <Component Id="UninstallComponent" Guid="*">
+        <RegistryKey Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\Uninstall\Tabeza POS Connect">
+          <RegistryValue Name="DisplayName" Type="string" Value="Tabeza POS Connect" />
+          <RegistryValue Name="UninstallString" Type="string" Value="&quot;[System64Folder]msiexec.exe&quot; /x [ProductCode]" />
+          <RegistryValue Name="DisplayIcon" Type="string" Value="[#TabezaConnect.exe]" />
+          <RegistryValue Name="Publisher" Type="string" Value="Tabeza" />
+          <RegistryValue Name="DisplayVersion" Type="string" Value="$(var.Version)" />
+          <RegistryValue Name="InstallLocation" Type="string" Value="[INSTALLFOLDER]" />
+          <RegistryValue Name="NoModify" Type="integer" Value="1" />
+          <RegistryValue Name="NoRepair" Type="integer" Value="1" />
+        </RegistryKey>
+        <RegistryValue Root="HKLM" 
+                       Key="Software\Tabeza\TabezaConnect" 
+                       Name="Uninstall" 
+                       Type="integer" 
+                       Value="1" 
+                       KeyPath="yes" />
+      </Component>
+
+    </ComponentGroup>
+
+    <!-- UI - Using WixUI element with proper namespace prefix -->
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+
+    <!-- Theme Variables -->
+    <WixVariable Id="WixUIBannerBmp" Value="banner-tabeza.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="dialog-tabeza.bmp" />
+    <WixVariable Id="WixUILicenseRtf" Value="LICENSE.rtf" />
+
+  </Package>
+
+</Wix>

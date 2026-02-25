@@ -293,6 +293,9 @@ let spoolMonitor = null;
 let localQueue = null;
 let uploadWorker = null;
 
+// Print bridge for silent bridge mode
+let printBridge = null;
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -302,17 +305,32 @@ app.use(express.raw({ type: 'application/octet-stream', limit: '10mb' }));
 app.get('/api/status', (req, res) => {
   const spoolStats = spoolMonitor ? spoolMonitor.getStats() : null;
   
+  // Get bridge stats if bridge is running
+  const bridgeStats = printBridge ? {
+    enabled: true,
+    printerName: config.bridge?.printerName || 'Not configured',
+    captureFolder: config.bridge?.captureFolder || config.watchFolder,
+    lastActivity: printBridge.lastActivity || null,
+    status: printBridge.isRunning ? 'running' : 'stopped',
+    filesProcessed: printBridge.filesProcessed || 0
+  } : {
+    enabled: false,
+    status: 'not configured'
+  };
+  
   res.json({
     status: 'running',
-    version: '1.0.0',
+    version: '1.6.0',
     printerName: 'Tabeza POS Connect',
     timestamp: new Date().toISOString(),
     barId: config.barId,
+    apiUrl: config.apiUrl,  
     driverId: config.driverId,
     watchFolder: config.watchFolder,
     captureMode: config.captureMode || 'folder',
     configured: !!config.barId,
     spoolMonitor: spoolStats,
+    bridge: bridgeStats,
     ssl: {
       issuesDetected: sslIssuesDetected,
       lastError: lastSSLError,
@@ -709,6 +727,159 @@ app.post('/api/print-job', async (req, res) => {
   }
 });
 
+// NEW: List available printers
+app.get('/api/printers/list', async (req, res) => {
+  try {
+    const { execSync } = require('child_process');
+    
+    // Get all printers via PowerShell
+    const psCommand = `
+      Get-Printer | Where-Object { 
+        $_.Name -notmatch "Microsoft|OneNote|Fax|PDF|AnyDesk|XPS|Send To|Adobe" 
+      } | Select-Object Name, PortName, PrinterStatus, DriverName | ConvertTo-Json
+    `;
+    
+    const result = execSync(`powershell -Command "${psCommand}"`, {
+      encoding: 'utf8',
+      windowsHide: true
+    });
+    
+    const printers = JSON.parse(result);
+    const printerList = Array.isArray(printers) ? printers : [printers];
+    
+    res.json({
+      success: true,
+      printers: printerList.map(p => ({
+        name: p.Name,
+        port: p.PortName,
+        status: p.PrinterStatus,
+        driver: p.DriverName
+      }))
+    });
+  } catch (error) {
+    console.error('Failed to list printers:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// NEW: Update physical printer
+app.post('/api/printers/set-physical', async (req, res) => {
+  try {
+    const { printerName } = req.body;
+    
+    if (!printerName) {
+      return res.status(400).json({
+        success: false,
+        error: 'printerName is required'
+      });
+    }
+    
+    // Verify printer exists
+    const { execSync } = require('child_process');
+    try {
+      execSync(`powershell -Command "Get-Printer -Name '${printerName}'"`, {
+        windowsHide: true
+      });
+    } catch (err) {
+      return res.status(400).json({
+        success: false,
+        error: `Printer not found: ${printerName}`
+      });
+    }
+    
+    // Update config
+    if (!config.bridge) {
+      config.bridge = {};
+    }
+    
+    const oldPrinter = config.bridge.printerName;
+    config.bridge.printerName = printerName;
+    
+    // Save to file
+    saveConfig(config);
+    
+    console.log(`🔄 Printer changed: ${oldPrinter} → ${printerName}`);
+    
+    // Restart bridge if running
+    if (printBridge) {
+      console.log('🔄 Restarting bridge with new printer...');
+      printBridge.restart(printerName);
+      console.log('✅ Bridge restarted successfully');
+    }
+    
+    res.json({
+      success: true,
+      message: `Physical printer updated to: ${printerName}`,
+      oldPrinter,
+      newPrinter: printerName
+    });
+  } catch (error) {
+    console.error('Failed to update printer:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// NEW: Send test print
+app.post('/api/printers/test', async (req, res) => {
+  try {
+    if (!config.bridge || !config.bridge.enabled) {
+      return res.status(400).json({
+        success: false,
+        error: 'Bridge not enabled'
+      });
+    }
+    
+    // Create test receipt
+    const now = new Date();
+    const testReceipt = `
+========================================
+       TABEZA TEST PRINT
+========================================
+Date: ${now.toLocaleString()}
+Printer: ${config.bridge.printerName}
+
+This is a test print to verify your
+printer configuration is working.
+
+If you can read this, your printer
+is configured correctly!
+
+========================================
+    Powered by Tabeza
+========================================
+    `;
+    
+    // Write to capture folder
+    const testFile = path.join(
+      config.bridge.captureFolder,
+      `test_${Date.now()}.prn`
+    );
+    
+    fs.writeFileSync(testFile, testReceipt);
+    
+    console.log('📄 Test print sent to bridge');
+    console.log(`   File: ${testFile}`);
+    
+    res.json({
+      success: true,
+      message: 'Test print sent successfully',
+      file: path.basename(testFile)
+    });
+  } catch (error) {
+    console.error('Test print failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // NEW: Send print job to physical printer
 app.post('/api/print-to-physical', async (req, res) => {
   try {
@@ -916,7 +1087,7 @@ async function startWatcher() {
     console.log('   Physical printing requires this service to stay running!');
     console.log('');
     
-    const printBridge = new PrintBridge();
+    printBridge = new PrintBridge();
     printBridge.start();
     
   } else {
@@ -1244,7 +1415,7 @@ async function start() {
   // Start heartbeat service
   startHeartbeat();
   
-  app.listen(PORT, async () => {
+  server = app.listen(PORT, async () => {
     console.clear();
     console.log(`
 ╔═══════════════════════════════════════════════════════════╗
@@ -1322,21 +1493,102 @@ Press Ctrl+C to stop the service
   });
 }
 
+// Server instance for shutdown
+let server = null;
+
+// Graceful shutdown function
+async function shutdown() {
+  console.log('\n👋 Shutting down Tabeza Connect...');
+  
+  const shutdownTimeout = setTimeout(() => {
+    console.warn('⚠️  Shutdown timeout reached (5s), forcing exit...');
+    process.exit(0);
+  }, 5000);
+  
+  try {
+    // Stop heartbeat service
+    stopHeartbeat();
+    console.log('✅ Heartbeat stopped');
+    
+    // Stop cloud polling
+    if (pollInterval) {
+      clearInterval(pollInterval);
+      pollInterval = null;
+      console.log('✅ Cloud polling stopped');
+    }
+    
+    // Stop spooler monitor
+    if (spoolMonitor) {
+      await spoolMonitor.stop();
+      spoolMonitor = null;
+      console.log('✅ Spooler monitor stopped');
+    }
+    
+    // Stop print bridge
+    if (printBridge) {
+      await printBridge.stop();
+      printBridge = null;
+      console.log('✅ Print bridge stopped');
+    }
+    
+    // Stop upload worker (flushes pending uploads)
+    if (uploadWorker) {
+      await uploadWorker.stop();
+      uploadWorker = null;
+      console.log('✅ Upload worker stopped (pending uploads flushed)');
+    }
+    
+    // Close local queue
+    if (localQueue) {
+      await localQueue.close();
+      localQueue = null;
+      console.log('✅ Local queue closed');
+    }
+    
+    // Stop folder watcher (legacy mode)
+    if (watcher) {
+      await watcher.stop();
+      watcher = null;
+      console.log('✅ Folder watcher stopped');
+    }
+    
+    // Close Express server
+    if (server) {
+      await new Promise((resolve) => {
+        server.close(() => {
+          console.log('✅ Express server stopped');
+          resolve();
+        });
+      });
+      server = null;
+    }
+    
+    clearTimeout(shutdownTimeout);
+    console.log('✅ Graceful shutdown completed');
+    
+  } catch (error) {
+    console.error('❌ Error during shutdown:', error);
+    clearTimeout(shutdownTimeout);
+  }
+}
+
 // Handle shutdown
 process.on('SIGINT', async () => {
-  console.log('\n👋 Shutting down Tabeza Connect...');
-  if (watcher) {
-    await watcher.stop();
-  }
-  if (uploadWorker) {
-    await uploadWorker.stop();
-  }
-  if (pollInterval) {
-    clearInterval(pollInterval);
-  }
-  stopHeartbeat();
+  await shutdown();
   process.exit(0);
 });
+
+process.on('SIGTERM', async () => {
+  await shutdown();
+  process.exit(0);
+});
+
+// Export shutdown function for tray app
+module.exports = {
+  shutdown,
+  getConfig: () => config,
+  getServer: () => server,
+};
 
 // Start the service
 start();
