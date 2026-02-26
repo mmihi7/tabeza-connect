@@ -84,7 +84,7 @@ TabezaConnect passively observes the print stream without being in the critical 
 #### Configuration
 ```json
 {
-  "captureMode": "spooler",
+  "captureMode": "pooling",
   "watchFolder": "C:\\Windows\\System32\\spool\\PRINTERS"
 }
 ```
@@ -114,7 +114,7 @@ CAPTURE_MODE=spooler
 
 2. **Update configuration**
    - Set `CAPTURE_MODE=spooler` in environment variables, OR
-   - Update `config.json`: `"captureMode": "spooler"`
+   - Update `config.json`: `"captureMode": "pooling"`
 
 3. **Restart TabezaConnect service**
    ```bash
@@ -128,7 +128,7 @@ CAPTURE_MODE=spooler
 4. **Verify spooler mode is active**
    ```bash
    curl http://localhost:8765/api/status
-   # Should show: "captureMode": "spooler"
+   # Should show: "captureMode": "pooling"
    ```
 
 5. **Test print from POS**

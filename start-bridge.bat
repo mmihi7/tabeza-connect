@@ -21,7 +21,7 @@ if %errorlevel% equ 0 (
     echo Starting TabezaConnect with Silent Bridge...
     echo.
     echo 🌉 BRIDGE MODE ENABLED:
-    echo    - Digital capture: File port monitoring
+    echo    - Digital capture: Local Port monitoring
     echo    - Physical printing: Direct port forwarding
     echo    - Parallel operation: Yes
     echo    - Service criticality: HIGH
@@ -35,7 +35,7 @@ if %errorlevel% equ 0 (
     echo.
     echo Silent Bridge mode requires Administrator privileges to:
     echo - Access printer ports for physical forwarding
-    echo - Monitor file port for digital capture
+    echo - Monitor Local Port for digital capture
     echo.
     echo Please right-click this file and select "Run as administrator"
     pause

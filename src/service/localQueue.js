@@ -424,7 +424,7 @@ class LocalQueue {
    * @throws {Error} - If validation fails
    */
   validateReceipt(receipt) {
-    const required = ['barId', 'deviceId', 'timestamp', 'text'];
+    const required = ['barId', 'deviceId', 'timestamp'];
     
     for (const field of required) {
       if (!receipt[field]) {
@@ -437,9 +437,17 @@ class LocalQueue {
       throw new Error('Invalid timestamp format (must be ISO 8601)');
     }
     
-    // Validate text is not empty
-    if (typeof receipt.text !== 'string' || receipt.text.trim().length === 0) {
-      throw new Error('Receipt text cannot be empty');
+    // Validate that either text or escposBytes is provided
+    // In pooling mode, text can be null if escposBytes is provided (cloud will parse)
+    if (!receipt.text && !receipt.escposBytes) {
+      throw new Error('Receipt must have either text or escposBytes');
+    }
+    
+    // Validate text is not empty if provided
+    if (receipt.text !== null && receipt.text !== undefined) {
+      if (typeof receipt.text !== 'string' || receipt.text.trim().length === 0) {
+        throw new Error('Receipt text cannot be empty string');
+      }
     }
   }
   

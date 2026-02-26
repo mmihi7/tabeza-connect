@@ -371,15 +371,34 @@ class TrayApp {
       version = pkg.version || version;
     } catch { /* ignore */ }
 
+    // Determine which mode is active and extract appropriate stats
+    const captureMode = liveData?.captureMode || null;
+    let lastActivity = null;
+    let receiptsProcessed = 0;
+
+    if (captureMode === 'pooling' && liveData?.pooling) {
+      // Pooling (pause‑copy) mode uses pooling stats
+      lastActivity = liveData.pooling.lastCapture || null;
+      receiptsProcessed = liveData.pooling.jobsCaptured || 0;
+    } else if (captureMode === 'bridge' && liveData?.bridge) {
+      // Bridge mode (folder-based)
+      lastActivity = liveData.bridge.lastActivity || null;
+      receiptsProcessed = liveData.bridge.filesProcessed || 0;
+    } else if (captureMode === 'spooler' && liveData?.spoolMonitor) {
+      // Legacy passive spooler monitor
+      lastActivity = liveData.spoolMonitor.lastDetection || null;
+      receiptsProcessed = liveData.spoolMonitor.filesProcessed || 0;
+    }
+
     const base = {
       appState:           this.state,
       barId:              this.barId || (liveData?.barId) || null,
       apiUrl:             liveData?.apiUrl                || null,
       driverId:           liveData?.driverId              || null,
-      lastActivity:       liveData?.bridge?.lastActivity  || null,
-      receiptsProcessed:  liveData?.bridge?.filesProcessed|| 0,
+      lastActivity:       lastActivity,
+      receiptsProcessed:  receiptsProcessed,
       port:               8765,
-      captureMode:        liveData?.captureMode           || null,
+      captureMode:        captureMode,
       watchFolder:        liveData?.watchFolder           || null,
       printerName:        liveData?.bridge?.printerName   || liveData?.printerName || null,
       version,

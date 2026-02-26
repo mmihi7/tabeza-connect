@@ -69,7 +69,7 @@ echo ✅ FOLDER PORT SETUP COMPLETE!
 echo ========================================
 echo.
 echo What changed:
-echo   - Single file port → Folder port
+echo   - Single Local Port → Folder port
 echo   - Each print job = separate file
 echo   - No more file accumulation
 echo   - No more EBUSY errors

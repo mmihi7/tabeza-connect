@@ -92,11 +92,6 @@ Tabeza POS Connect is a Windows application that bridges your existing POS syste
 - **Technical Support**: https://tabeza.co.ke/support
 - **Printer Compatibility**: https://tabeza.co.ke/compatibility
 
-**Community:**
-- **User Forum**: https://tabeza.co.ke/community
-- **Feature Requests**: https://tabeza.co.ke/feedback
-- **Issue Reporting**: https://github.com/billoapp/TabezaConnect/issues
-
 ### 🎉 Why This Matters
 
 **Before Tabeza POS Connect:**
@@ -221,15 +216,8 @@ Tabeza POS Connect is a Windows application that bridges your existing POS syste
 ### 📞 Support & Resources
 
 **Need Help?**
-- **Setup Guide**: https://tabeza.co.ke/setup-guide
-- **POS Integration**: https://tabeza.co.ke/pos-integration
-- **Technical Support**: https://tabeza.co.ke/support
-- **Printer Compatibility**: https://tabeza.co.ke/compatibility
+- **Setup Guide**: https://tabeza.co.ke/download
 
-**Community:**
-- **User Forum**: https://tabeza.co.ke/community
-- **Feature Requests**: https://tabeza.co.ke/feedback
-- **Issue Reporting**: https://github.com/billoapp/TabezaConnect/issues
 
 ### 🎉 Why This Matters
 

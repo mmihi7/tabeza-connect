@@ -8,7 +8,7 @@ Updated the `configure-printer.ps1` script to install a virtual printer that wor
 
 ### Before (File-based)
 - Printer name: "Tabeza Virtual Printer"
-- Port: Custom file port (`TabezaPrintPort`)
+- Port: Custom Local Port (`TabezaPrintPort`)
 - Output: Wrote to `C:\TabezaPrints\print_output.prn`
 - **Problem**: TabezaConnect monitors Windows spooler, not files
 
@@ -106,7 +106,7 @@ notepad /p test.txt
 ## Files Modified
 
 1. `src/installer/scripts/configure-printer.ps1`
-   - Changed port from custom file port to NULL port
+   - Changed port from custom Local Port to NULL port
    - Updated printer name
    - Added comments explaining spooler integration
 

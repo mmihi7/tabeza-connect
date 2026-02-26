@@ -262,26 +262,27 @@ class UploadWorker extends EventEmitter {
     
     // Prepare request payload
     const payload = {
+      driverId: this.deviceId,  // Rename deviceId → driverId
       barId: this.barId,
-      deviceId: this.deviceId,
       timestamp: receipt.timestamp,
-      escposBytes: receipt.escposBytes,
-      text: receipt.text,
+      rawData: receipt.escposBytes,  // Rename escposBytes → rawData
+      printerName: receipt.metadata?.printerName || 'Tabeza POS Connect',
+      documentName: receipt.metadata?.fileName || 'Receipt',
       metadata: {
         ...receipt.metadata,
-        source: 'spool-monitor',
+        source: 'pooling-capture',
         enqueuedAt: receipt.enqueuedAt,
         uploadAttempts: receipt.uploadAttempts || 0,
       },
     };
+
     
     // Make HTTP request with timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.uploadTimeout);
     
     try {
-      const response = await fetch(`${this.apiEndpoint}/api/receipts/ingest`, {
-        method: 'POST',
+      const response = await fetch(`${this.apiEndpoint}/api/printer/relay`, {        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },

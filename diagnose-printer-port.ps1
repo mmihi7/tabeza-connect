@@ -21,10 +21,10 @@ foreach ($printer in $printers) {
     Write-Host "  Driver: $($printer.DriverName)" -ForegroundColor Gray
     Write-Host ""
     
-    # Check if port is a file port (problematic)
+    # Check if port is a Local Port (correct setup)
     if ($printer.PortName -like "*TabezaPrints*" -or $printer.PortName -like "*.prn") {
-        Write-Host "  ⚠️  WARNING: Printer is using a FILE port!" -ForegroundColor Red
-        Write-Host "  This will cause communication errors." -ForegroundColor Red
+        Write-Host "  ⚠️  WARNING: Printer is using a Local Port!" -ForegroundColor Yellow
+        Write-Host "  This is the correct setup for Tabeza Bridge." -ForegroundColor Green
         Write-Host ""
     }
     
@@ -59,7 +59,7 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  Recommended Fix" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "If printer is using a FILE port:" -ForegroundColor Yellow
+Write-Host "If printer is NOT using a Local Port:" -ForegroundColor Yellow
 Write-Host "1. Run: fix-printer-port.ps1" -ForegroundColor White
-Write-Host "2. This will restore the original USB/network port" -ForegroundColor White
+Write-Host "2. This will configure the Local Port" -ForegroundColor White
 Write-Host ""

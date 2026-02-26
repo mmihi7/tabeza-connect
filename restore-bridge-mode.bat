@@ -5,21 +5,21 @@ echo ========================================
 echo.
 
 echo This will set up the complete bridge:
-echo - POS prints to EPSON (file port)
+echo - POS prints to EPSON (Local Port)
 echo - Bridge captures and uploads to cloud
 echo - Bridge forwards to physical printer
 echo - Customer gets physical receipt
 echo - Restaurant gets digital receipt
 echo.
 
-echo Step 1: Set EPSON to file port
-echo Setting EPSON L3210 Series to file port...
+echo Step 1: Set EPSON to Local Port
+echo Setting EPSON L3210 Series to Local Port...
 
 powershell -Command "Set-Printer -Name 'EPSON L3210 Series' -PortName 'C:\ProgramData\Tabeza\capture.prn'"
 if %errorlevel% equ 0 (
-    echo ✅ EPSON set to file port
+    echo ✅ EPSON set to Local Port
 ) else (
-    echo ❌ Failed to set file port
+    echo ❌ Failed to set Local Port
 )
 
 echo.
@@ -51,7 +51,7 @@ echo SILENT BRIDGE RESTORED
 echo ========================================
 echo.
 echo The complete system is now ready:
-echo 1. POS prints to EPSON (file port)
+echo 1. POS prints to EPSON (Local Port)
 echo 2. Bridge captures digital data
 echo 3. Bridge uploads to cloud
 echo 4. Bridge forwards to physical printer

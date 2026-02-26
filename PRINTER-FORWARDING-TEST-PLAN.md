@@ -119,7 +119,7 @@ Get-Content "C:\ProgramData\Tabeza\config.json" | ConvertFrom-Json | Select-Obje
    ```
 
 **Expected Results**:
-- ✅ Print dialog shows printer with file port
+- ✅ Print dialog shows printer with Local Port
 - ✅ Print completes without errors
 - ✅ New file appears in C:\TabezaPrints\
 - ✅ File contains print job data (may be binary/ESC/POS format)

@@ -6,17 +6,12 @@
  * Digital authority is singular. 
  * Tabeza adapts to the venue — never the reverse.
  * 
- * This service operates in spooler mode controlled by CAPTURE_MODE environment variable:
+ * This service operates in one of two capture modes controlled by CAPTURE_MODE:
  * 
- * NEW MODE (captureMode='spooler'):
- *    - Monitors Windows print spooler (C:\Windows\System32\spool\PRINTERS)
- *    - Passive capture - POS prints directly to printer with zero latency
- *    - POS → Printer (instant) + TabezaConnect watches spooler (passive)
- *    - Printer never knows Tabeza exists. POS never knows Tabeza exists.
- *    - This is why it's called a "driver" - it integrates at the OS print layer
+ * MODE 'spooler':   (active capture) – Pauses printer, copies .SPL/.SHD files, resumes printer.
+ *                    Introduces ~200‑500ms latency, but guarantees capture even if spool files are deleted quickly.
  * 
- * The new mode transforms TabezaConnect from a blocking intermediary to a 
- * passive receipt capture system. Printing never depends on Tabeza.
+ * MODE 'bridge':    (legacy) – Silent Bridge for parallel + physical printing (via folder port)
  */
 
 const express = require('express');
@@ -29,8 +24,9 @@ const { execSync } = require('child_process');
 // Add Windows registry reading
 const winreg = require('winreg');
 
-// Import spool monitor for passive receipt capture
-const SpoolMonitor = require('./spoolMonitor');
+// Import active pause‑copy capture (replaces passive spool monitor)
+const WindowsSpoolCapture = require('./windowsSpoolCapture');
+const SimpleCapture = require('./simpleCapture');
 const LocalQueue = require('./localQueue');
 const UploadWorker = require('./uploadWorker');
 const PrintBridge = require('./final-bridge');
@@ -93,7 +89,7 @@ global.fetch = async function(url, options = {}) {
   }
 };
 
-// Generate unique driver ID (moved to top to avoid crash)
+// Generate unique driver ID
 function generateDriverId() {
   const { hostname } = require('os');
   return `driver-${hostname()}`;
@@ -118,12 +114,14 @@ function loadConfig() {
   const envBarId = process.env.TABEZA_BAR_ID;
   const envApiUrl = process.env.TABEZA_API_URL;
   const envWatchFolder = process.env.TABEZA_WATCH_FOLDER;
+  const envPrinterName = process.env.TABEZA_PRINTER_NAME;
   const envVercelBypassToken = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || process.env.VERCEL_BYPASS_TOKEN;
-  const envCaptureMode = process.env.CAPTURE_MODE || 'spooler'; // 'folder' (legacy) or 'spooler' (new)
+  const envCaptureMode = process.env.CAPTURE_MODE || 'pooling'; // 'spooler' or 'bridge'
   
   console.log('  TABEZA_BAR_ID:', envBarId || '(not set)');
   console.log('  TABEZA_API_URL:', envApiUrl || '(not set)');
   console.log('  TABEZA_WATCH_FOLDER:', envWatchFolder || '(not set)');
+  console.log('  TABEZA_PRINTER_NAME:', envPrinterName || '(not set)');
   console.log('  CAPTURE_MODE:', envCaptureMode);
   console.log('');
   
@@ -132,11 +130,13 @@ function loadConfig() {
     console.log('   Bar ID:', envBarId);
     console.log('   API URL:', envApiUrl);
     console.log('   Watch Folder:', envWatchFolder || 'C:\\ProgramData\\Tabeza\\TabezaPrints');
+    console.log('   Printer Name:', envPrinterName || '(default will be used)');
     console.log('   Capture Mode:', envCaptureMode);
     console.log('');
     return {
       barId: envBarId,
       apiUrl: envApiUrl,
+      printerName: envPrinterName || null,
       vercelBypassToken: envVercelBypassToken || '',
       driverId: generateDriverId(),
       watchFolder: envWatchFolder || 'C:\\ProgramData\\Tabeza\\TabezaPrints',
@@ -146,11 +146,13 @@ function loadConfig() {
   
   // Try to read from Windows Registry (second priority)
   console.log('🔍 Checking Windows Registry for configuration...');
+  let registryBarId = null;
+  let registryPrinterName = null;
+  let registryCaptureMode = 'pooling'; // default
   try {
     const { execSync } = require('child_process');
     
     // Read Bar ID from registry
-    let registryBarId = null;
     try {
       const regResult = execSync(
         'reg query "HKLM\\SOFTWARE\\Tabeza\\TabezaConnect" /v BarID',
@@ -165,8 +167,22 @@ function loadConfig() {
       console.log('  BarID not found in registry');
     }
     
+    // Read Printer Name from registry
+    try {
+      const printerResult = execSync(
+        'reg query "HKLM\\SOFTWARE\\Tabeza\\TabezaConnect" /v PrinterName',
+        { encoding: 'utf8', windowsHide: true }
+      );
+      const match = printerResult.match(/PrinterName\s+REG_SZ\s+(.+)/);
+      if (match && match[1]) {
+        registryPrinterName = match[1].trim();
+        console.log('  Found PrinterName in registry:', registryPrinterName);
+      }
+    } catch (regError) {
+      console.log('  PrinterName not found in registry');
+    }
+    
     // Read CaptureMode from registry
-    let registryCaptureMode = 'spooler'; // Default to spooler
     try {
       const captureResult = execSync(
         'reg query "HKLM\\SOFTWARE\\Tabeza\\TabezaConnect" /v CaptureMode',
@@ -178,7 +194,7 @@ function loadConfig() {
         console.log('  Found CaptureMode in registry:', registryCaptureMode);
       }
     } catch (captureError) {
-      console.log('  CaptureMode not found in registry, using default spooler');
+      console.log('  CaptureMode not found in registry, using default pooling');
     }
     
     // Read API URL from registry (default if not found)
@@ -187,6 +203,7 @@ function loadConfig() {
     if (registryBarId && registryBarId !== 'YOUR_BAR_ID_HERE') {
       console.log('✅ Using configuration from Windows Registry');
       console.log('   Bar ID:', registryBarId);
+      console.log('   Printer Name:', registryPrinterName || '(not set)');
       console.log('   API URL:', defaultApiUrl);
       console.log('   Watch Folder: C:\\ProgramData\\Tabeza\\TabezaPrints');
       console.log('   Capture Mode:', registryCaptureMode);
@@ -194,6 +211,7 @@ function loadConfig() {
       return {
         barId: registryBarId,
         apiUrl: defaultApiUrl,
+        printerName: registryPrinterName || null,
         vercelBypassToken: '',
         driverId: generateDriverId(),
         watchFolder: 'C:\\ProgramData\\Tabeza\\TabezaPrints',
@@ -233,14 +251,20 @@ function loadConfig() {
         config.driverId = generateDriverId();
       }
       
-      // Add captureMode if not present (default to legacy folder mode)
+      // Add captureMode if not present (default to spooler)
       if (!config.captureMode) {
-        config.captureMode = 'folder';
+        config.captureMode = 'pooling';
+      }
+      
+      // Ensure printerName is present (maybe from bridge object or top-level)
+      if (!config.printerName && config.bridge && config.bridge.printerName) {
+        config.printerName = config.bridge.printerName;
       }
       
       console.log('✅ Loaded configuration from config.json');
       console.log('   Bar ID:', config.barId);
       console.log('   API URL:', config.apiUrl);
+      console.log('   Printer Name:', config.printerName || '(not set, will use default)');
       console.log('   Watch Folder:', config.watchFolder);
       console.log('   Capture Mode:', config.captureMode);
       return config;
@@ -252,7 +276,7 @@ function loadConfig() {
   }
   
   // No valid config found
-  if (!registryBarId && !config) {
+  if (!registryBarId) {
     console.error('');
     console.error('╔═══════════════════════════════════════════════════════════╗');
     console.error('║                                                           ║');
@@ -283,11 +307,14 @@ if (!fs.existsSync(config.watchFolder)) {
   fs.mkdirSync(config.watchFolder, { recursive: true });
 }
 
-// File watcher
+// File watcher (legacy, used only in bridge mode)
 let watcher = null;
 
-// Spool monitor for passive receipt capture
+// Spool capture instance (active pause‑copy)
 let spoolMonitor = null;
+
+// Simple capture instance (pooling mode)
+let simpleCapture = null;
 
 // Local queue and upload worker
 let localQueue = null;
@@ -305,10 +332,13 @@ app.use(express.raw({ type: 'application/octet-stream', limit: '10mb' }));
 app.get('/api/status', (req, res) => {
   const spoolStats = spoolMonitor ? spoolMonitor.getStats() : null;
   
+  // Get pooling stats if pooling mode is active
+  const poolingStats = simpleCapture ? simpleCapture.getStats() : null;
+  
   // Get bridge stats if bridge is running
   const bridgeStats = printBridge ? {
     enabled: true,
-    printerName: config.bridge?.printerName || 'Not configured',
+    printerName: config.bridge?.printerName || config.printerName || 'Not configured',
     captureFolder: config.bridge?.captureFolder || config.watchFolder,
     lastActivity: printBridge.lastActivity || null,
     status: printBridge.isRunning ? 'running' : 'stopped',
@@ -321,15 +351,17 @@ app.get('/api/status', (req, res) => {
   res.json({
     status: 'running',
     version: '1.6.0',
-    printerName: 'Tabeza POS Connect',
+    printerName: config.printerName || config.bridge?.printerName || 'Tabeza POS Connect',
     timestamp: new Date().toISOString(),
     barId: config.barId,
     apiUrl: config.apiUrl,  
+    vercelBypassToken: config.vercelBypassToken ? '[configured]' : '[not set]',
     driverId: config.driverId,
     watchFolder: config.watchFolder,
-    captureMode: config.captureMode || 'folder',
+    captureMode: config.captureMode || 'spooler',
     configured: !!config.barId,
     spoolMonitor: spoolStats,
+    pooling: poolingStats,
     bridge: bridgeStats,
     ssl: {
       issuesDetected: sslIssuesDetected,
@@ -350,7 +382,8 @@ app.get('/api/diagnostics', async (req, res) => {
       barId: config.barId || 'not configured',
       driverId: config.driverId,
       watchFolder: config.watchFolder,
-      captureMode: config.captureMode || 'folder',
+      captureMode: config.captureMode || 'spooler',
+      printerName: config.printerName || config.bridge?.printerName || 'not set',
     },
     ssl: {
       nodeOptions: process.env.NODE_OPTIONS || 'not set',
@@ -622,7 +655,6 @@ app.get('/troubleshoot', (req, res) => {
 app.post('/api/test-print', async (req, res) => {
   const { testMessage } = req.body;
   
-  // ✅ FIX #3: Validate service is configured before test print
   if (!config.barId) {
     console.log('❌ Test print failed: Service not configured');
     return res.status(400).json({
@@ -663,13 +695,14 @@ app.post('/api/test-print', async (req, res) => {
 
 // Configure endpoint
 app.post('/api/configure', (req, res) => {
-  const { barId, apiUrl, watchFolder, captureMode } = req.body;
+  const { barId, apiUrl, watchFolder, captureMode, printerName } = req.body;
   
   const wasConfigured = !!config.barId;
   
   if (barId) config.barId = barId;
   if (apiUrl) config.apiUrl = apiUrl;
-  if (captureMode && ['folder', 'spooler'].includes(captureMode)) {
+  if (printerName) config.printerName = printerName;
+  if (captureMode && ['spooler', 'bridge'].includes(captureMode)) {
     config.captureMode = captureMode;
     console.log(`🔄 Capture mode changed to: ${captureMode}`);
   }
@@ -685,7 +718,6 @@ app.post('/api/configure', (req, res) => {
   // Save config to file
   saveConfig(config);
   
-  // ✅ FIX: Restart heartbeat if Bar ID was just configured
   if (!wasConfigured && config.barId) {
     console.log('🔄 Bar ID configured - starting heartbeat service...');
     stopHeartbeat();
@@ -697,9 +729,10 @@ app.post('/api/configure', (req, res) => {
     config: {
       barId: config.barId,
       apiUrl: config.apiUrl,
+      printerName: config.printerName,
       driverId: config.driverId,
       watchFolder: config.watchFolder,
-      captureMode: config.captureMode || 'folder',
+      captureMode: config.captureMode || 'spooler',
     },
   });
 });
@@ -711,7 +744,6 @@ app.post('/api/print-job', async (req, res) => {
     
     console.log(`🖨️ Print job received (${printData.length} bytes)`);
     
-    // Parse and send to cloud
     const jobId = await processPrintJob(printData);
     
     res.json({
@@ -727,12 +759,11 @@ app.post('/api/print-job', async (req, res) => {
   }
 });
 
-// NEW: List available printers
+// List available printers
 app.get('/api/printers/list', async (req, res) => {
   try {
     const { execSync } = require('child_process');
     
-    // Get all printers via PowerShell
     const psCommand = `
       Get-Printer | Where-Object { 
         $_.Name -notmatch "Microsoft|OneNote|Fax|PDF|AnyDesk|XPS|Send To|Adobe" 
@@ -765,7 +796,7 @@ app.get('/api/printers/list', async (req, res) => {
   }
 });
 
-// NEW: Update physical printer
+// Update physical printer
 app.post('/api/printers/set-physical', async (req, res) => {
   try {
     const { printerName } = req.body;
@@ -777,7 +808,6 @@ app.post('/api/printers/set-physical', async (req, res) => {
       });
     }
     
-    // Verify printer exists
     const { execSync } = require('child_process');
     try {
       execSync(`powershell -Command "Get-Printer -Name '${printerName}'"`, {
@@ -790,20 +820,18 @@ app.post('/api/printers/set-physical', async (req, res) => {
       });
     }
     
-    // Update config
     if (!config.bridge) {
       config.bridge = {};
     }
     
     const oldPrinter = config.bridge.printerName;
     config.bridge.printerName = printerName;
+    config.printerName = printerName; // also set top-level for pause-copy
     
-    // Save to file
     saveConfig(config);
     
     console.log(`🔄 Printer changed: ${oldPrinter} → ${printerName}`);
     
-    // Restart bridge if running
     if (printBridge) {
       console.log('🔄 Restarting bridge with new printer...');
       printBridge.restart(printerName);
@@ -825,7 +853,7 @@ app.post('/api/printers/set-physical', async (req, res) => {
   }
 });
 
-// NEW: Send test print
+// Send test print (to physical printer via bridge)
 app.post('/api/printers/test', async (req, res) => {
   try {
     if (!config.bridge || !config.bridge.enabled) {
@@ -835,7 +863,6 @@ app.post('/api/printers/test', async (req, res) => {
       });
     }
     
-    // Create test receipt
     const now = new Date();
     const testReceipt = `
 ========================================
@@ -855,7 +882,6 @@ is configured correctly!
 ========================================
     `;
     
-    // Write to capture folder
     const testFile = path.join(
       config.bridge.captureFolder,
       `test_${Date.now()}.prn`
@@ -880,7 +906,7 @@ is configured correctly!
   }
 });
 
-// NEW: Send print job to physical printer
+// Send print job to physical printer (via folder)
 app.post('/api/print-to-physical', async (req, res) => {
   try {
     const { rawData, printerName } = req.body;
@@ -894,10 +920,8 @@ app.post('/api/print-to-physical', async (req, res) => {
     
     console.log(`🖨️ Sending print job to physical printer...`);
     
-    // Decode base64 data
     const printBuffer = Buffer.from(rawData, 'base64');
     
-    // Save to output folder for physical printer to pick up
     const outputFolder = path.join(config.watchFolder, 'output');
     if (!fs.existsSync(outputFolder)) {
       fs.mkdirSync(outputFolder, { recursive: true });
@@ -934,7 +958,6 @@ function startCloudPolling() {
   
   console.log('🔄 Starting cloud polling for print jobs...');
   
-  // Build headers with Vercel bypass token if configured
   const headers = {
     'Content-Type': 'application/json',
   };
@@ -943,13 +966,11 @@ function startCloudPolling() {
     headers['x-vercel-protection-bypass'] = config.vercelBypassToken;
   }
   
-  // Poll every 5 seconds
   pollInterval = setInterval(async () => {
     try {
       const response = await fetch(`${config.apiUrl}/api/printer/pending-prints?barId=${config.barId}&driverId=${config.driverId}`, { headers });
       
       if (!response.ok) {
-        // Silently fail - don't spam logs
         return;
       }
       
@@ -960,7 +981,6 @@ function startCloudPolling() {
         
         for (const print of prints) {
           try {
-            // Decode and save to output folder
             const printBuffer = Buffer.from(print.rawData, 'base64');
             const outputFolder = path.join(config.watchFolder, 'output');
             if (!fs.existsSync(outputFolder)) {
@@ -972,7 +992,6 @@ function startCloudPolling() {
             
             console.log(`✅ Cloud print job saved: ${outputFile}`);
             
-            // Acknowledge receipt
             await fetch(`${config.apiUrl}/api/printer/acknowledge-print`, {
               method: 'POST',
               headers,
@@ -987,24 +1006,21 @@ function startCloudPolling() {
         }
       }
     } catch (error) {
-      // Silently fail - network issues are common
+      // Silently fail
     }
-  }, 5000); // Poll every 5 seconds
+  }, 5000);
 }
 
 // Initialize local queue and upload worker
 async function initializeQueue() {
   console.log('🗂️  Initializing local queue and upload worker...');
   
-  // Create local queue
   localQueue = new LocalQueue({
     queuePath: 'C:\\ProgramData\\Tabeza\\queue',
   });
   
-  // Initialize queue
   await localQueue.initialize();
   
-  // Create upload worker
   uploadWorker = new UploadWorker({
     localQueue,
     apiEndpoint: config.apiUrl,
@@ -1012,74 +1028,139 @@ async function initializeQueue() {
     deviceId: config.driverId,
   });
   
-  // Start upload worker
   await uploadWorker.start();
   
   console.log('✅ Queue and upload worker initialized');
 }
 
-// Start spooler monitoring
-function startSpoolerMonitoring() {
-  console.log('🚀 Starting Windows spooler monitor...');
+/**
+ * Start the active pause‑copy spool capture (replaces passive monitor)
+ */
+function startActiveSpoolerCapture() {
+  console.log('🚀 Starting active spool capture (pause‑copy)...');
   
-  // Create SpoolMonitor instance
-  const monitor = new SpoolMonitor({
+  // Determine printer name to use
+  const printerName = config.printerName || config.bridge?.printerName || 'EPSON L3210 Series';
+  console.log(`   Printer: ${printerName}`);
+  
+  // Create a dedicated capture folder inside watchFolder
+  const captureFolder = path.join(config.watchFolder, 'spool_captures');
+  if (!fs.existsSync(captureFolder)) {
+    fs.mkdirSync(captureFolder, { recursive: true });
+  }
+  console.log(`   Capture folder: ${captureFolder}`);
+  
+  const capture = new WindowsSpoolCapture({
+    printerName: printerName,
+    captureFolder: captureFolder,
     spoolPath: 'C:\\Windows\\System32\\spool\\PRINTERS',
-    fileTypes: ['.SPL', '.SHD'],
   });
   
-  // Handle file detection events
-  monitor.on('file-detected', async (filePath, receiptData) => {
-    console.log('📄 Receipt detected from spooler');
+  capture.on('job-captured', async ({ jobId, files }) => {
+    console.log(`📄 Job ${jobId} captured, files: ${files.join(', ')}`);
+    
+    // Find the .SPL file (contains raw print data)
+    const splFile = files.find(f => f.endsWith('.SPL'));
+    if (!splFile) {
+      console.warn(`⚠️ No .SPL file found for job ${jobId}`);
+      return;
+    }
     
     try {
-      // Enqueue receipt for upload
+      const splPath = path.join(captureFolder, splFile);
+      const data = await fs.promises.readFile(splPath);
+      
       await localQueue.enqueue({
         barId: config.barId,
         deviceId: config.driverId,
         timestamp: new Date().toISOString(),
-        escposBytes: receiptData.escposBytes,
-        text: receiptData.text,
+        escposBytes: data.toString('base64'),
+        text: null, // raw data; cloud will parse
         metadata: {
-          source: 'spooler',
-          fileName: path.basename(filePath),
-          fileSize: receiptData.metadata.fileSize,
-          lineCount: receiptData.metadata.lineCount,
-          isESCPOS: receiptData.isESCPOS,
+          source: 'spooler-active',
+          jobId,
+          fileName: splFile,
+          printerName,
         },
       });
       
-      console.log('✅ Receipt enqueued for upload');
-    } catch (error) {
-      console.error('❌ Error queuing receipt:', error.message);
+      console.log(`✅ Job ${jobId} enqueued for upload (${data.length} bytes)`);
+    } catch (err) {
+      console.error(`❌ Failed to enqueue job ${jobId}:`, err.message);
     }
   });
   
-  monitor.on('error', (error) => {
-    console.error('❌ Spooler monitor error:', error.message);
+  capture.on('error', (error) => {
+    console.error('❌ Active spool capture error:', error.message);
   });
   
-  // Start monitoring
-  monitor.start();
+  capture.start();
   
-  return monitor;
+  return capture;
+}
+
+/**
+ * Start the pooling capture mode (SimpleCapture)
+ * Monitors a single capture file written by a Windows printer pool
+ */
+async function startPoolingCapture() {
+  console.log('🔄 Starting pooling capture mode...');
+  
+  // Read captureFile path from config with default
+  const captureFile = config.pooling?.captureFile || 
+                      path.join(config.watchFolder || 'C:\\TabezaPrints', 'order.prn');
+  
+  // Read tempFolder path from config with default
+  const tempFolder = config.pooling?.tempFolder || 
+                     path.join(config.watchFolder || 'C:\\TabezaPrints', 'captures');
+  
+  console.log(`   Capture file: ${captureFile}`);
+  console.log(`   Temp folder: ${tempFolder}`);
+  
+  // Initialize SimpleCapture with config values
+  const capture = new SimpleCapture({
+    captureFile: captureFile,
+    tempFolder: tempFolder,
+    localQueue: localQueue,
+    barId: config.barId,
+    deviceId: config.driverId,
+    stabilityChecks: config.pooling?.stabilityChecks || 3,
+    stabilityDelay: config.pooling?.stabilityDelay || 100,
+  });
+  
+  // Register event handler for 'file-captured' event
+  capture.on('file-captured', (receiptId) => {
+    console.log(`✅ Pooling capture: Receipt ${receiptId} captured and enqueued`);
+  });
+  
+  // Register event handler for 'error' event
+  capture.on('error', (error) => {
+    console.error('❌ Pooling capture error:', error.message);
+  });
+  
+  // Start the capture service
+  await capture.start();
+  
+  console.log('✅ Pooling capture started successfully');
+  
+  return capture;
 }
 
 // Start monitoring based on capture mode
 async function startWatcher() {
   console.log(`👀 Starting capture service...`);
-  console.log(`   Mode: ${config.captureMode === 'spooler' ? 'NEW (Passive Spooler Monitor)' : config.captureMode === 'bridge' ? 'SILENT BRIDGE (Parallel + Physical)' : 'UNKNOWN'}`);
+  console.log(`   Mode: ${config.captureMode === 'spooler' ? 'Active Pause‑Copy' : config.captureMode === 'pooling' ? 'Printer Pooling' : 'Silent Bridge'}`);
   console.log('');
   
   if (config.captureMode === 'spooler') {
-    // Initialize queue and upload worker first
     await initializeQueue();
+    spoolMonitor = startActiveSpoolerCapture();
     
-    // NEW MODE: Monitor Windows spooler (non-blocking)
-    spoolMonitor = startSpoolerMonitoring();
+  } else if (config.captureMode === 'pooling') {
+    await initializeQueue();
+    simpleCapture = await startPoolingCapture();
     
   } else if (config.captureMode === 'bridge') {
-    // BRIDGE MODE: Silent Bridge for parallel + physical printing
     await initializeQueue();
     
     console.log('🌉 Starting Silent Bridge Mode... (FINAL VERSION)');
@@ -1091,13 +1172,12 @@ async function startWatcher() {
     printBridge.start();
     
   } else {
-    console.error('❌ Invalid capture mode. Please set "captureMode": "spooler" or "bridge" in config.json');
+    console.error('❌ Invalid capture mode. Please set "captureMode": "pooling", "pooling", or "bridge" in config.json');
     process.exit(1);
   }
 }
 
 // Process print job and send to cloud
-// Cloud will handle receipt parsing using DeepSeek API
 async function processPrintJob(printData, fileName = 'receipt.prn') {
   const jobId = `job-${Date.now()}`;
   
@@ -1105,16 +1185,14 @@ async function processPrintJob(printData, fileName = 'receipt.prn') {
     throw new Error('Service not configured - Bar ID missing');
   }
   
-  // Convert to base64
   const base64Data = Buffer.from(printData).toString('base64');
   
-  // Send raw data to cloud - parsing will be done cloud-side
   await sendToCloud({
     driverId: config.driverId,
     barId: config.barId,
     timestamp: new Date().toISOString(),
     rawData: base64Data,
-    printerName: 'Tabeza POS Connect',
+    printerName: config.printerName || config.bridge?.printerName || 'Tabeza POS Connect',
     documentName: fileName,
     metadata: {
       jobId,
@@ -1132,7 +1210,6 @@ async function sendToCloud(payload) {
   
   console.log(`📤 Sending to cloud: ${url}`);
   
-  // Build headers with Vercel bypass token if configured
   const headers = {
     'Content-Type': 'application/json',
   };
@@ -1155,16 +1232,9 @@ async function sendToCloud(payload) {
   return await response.json();
 }
 
-// Generate unique driver ID
-function generateDriverId() {
-  const { hostname } = require('os');
-  return `driver-${hostname()}`;
-}
-
 // Send heartbeat to cloud
 async function sendHeartbeat(attempt = 1) {
   try {
-    // Build heartbeat payload
     const payload = {
       barId: config.barId,
       driverId: config.driverId,
@@ -1177,7 +1247,6 @@ async function sendHeartbeat(attempt = 1) {
       },
     };
     
-    // Build headers with Vercel bypass token if configured
     const headers = {
       'Content-Type': 'application/json',
     };
@@ -1186,7 +1255,6 @@ async function sendHeartbeat(attempt = 1) {
       headers['x-vercel-protection-bypass'] = config.vercelBypassToken;
     }
     
-    // Send to production app (primary)
     const productionUrl = config.apiUrl;
     console.log(`💓 Sending heartbeat to production: ${productionUrl}`);
     
@@ -1200,7 +1268,6 @@ async function sendHeartbeat(attempt = 1) {
       throw new Error(`Production heartbeat failed: ${productionResponse.status}`);
     }
     
-    // Also send to local staff app for development (if different from production)
     const localUrl = 'http://localhost:3003';
     if (productionUrl !== localUrl) {
       console.log(`💓 Also sending heartbeat to local: ${localUrl}`);
@@ -1222,19 +1289,16 @@ async function sendHeartbeat(attempt = 1) {
       }
     }
     
-    // Reset failure count on success
     if (heartbeatFailures > 0) {
       console.log('✅ Heartbeat connection restored');
       heartbeatFailures = 0;
     }
     
   } catch (error) {
-    // Track failure count and log errors
     heartbeatFailures++;
     
     console.error(`❌ Heartbeat failed (attempt ${attempt}/${HEARTBEAT_RETRY_ATTEMPTS}):`, error.message);
     
-    // Add retry logic with exponential backoff
     if (attempt < HEARTBEAT_RETRY_ATTEMPTS) {
       const delay = HEARTBEAT_RETRY_DELAY * Math.pow(2, attempt - 1);
       console.log(`   Retrying in ${delay / 1000}s...`);
@@ -1257,10 +1321,8 @@ function startHeartbeat() {
   
   console.log('💓 Starting heartbeat service...');
   
-  // Send initial heartbeat immediately
   sendHeartbeat();
   
-  // Then send every 30 seconds
   heartbeatInterval = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
 }
 
@@ -1278,7 +1340,6 @@ function createTestReceipt(message) {
   const now = new Date();
   const receiptNumber = `RCP-${now.getTime().toString().slice(-6)}`;
   
-  // Realistic test items with quantities and prices
   const items = [
     { qty: 2, name: 'Tusker Lager 500ml', price: 250.00 },
     { qty: 1, name: 'Nyama Choma (Half Kg)', price: 800.00 },
@@ -1287,12 +1348,10 @@ function createTestReceipt(message) {
     { qty: 2, name: 'Soda (Coke)', price: 80.00 },
   ];
   
-  // Calculate totals
   const subtotal = items.reduce((sum, item) => sum + (item.qty * item.price), 0);
-  const tax = subtotal * 0.16; // 16% VAT
+  const tax = subtotal * 0.16;
   const total = subtotal + tax;
   
-  // Format receipt with proper spacing and alignment
   const testData = `
 ========================================
          TABEZA TEST RECEIPT
@@ -1348,10 +1407,24 @@ Visit us again soon.
 }
 
 // Save config to file
+// Save config to file
 function saveConfig(cfg) {
-  const configPath = path.join(__dirname, 'config.json');
-  fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2));
+  // Use the same path logic as loadConfig()
+  const configPath = process.pkg 
+    ? path.join(path.dirname(process.execPath), 'config.json')
+    : path.join(__dirname, '..', '..', 'config.json');
+  
+  console.log('💾 Saving configuration to:', configPath);
+  
+  try {
+    fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2));
+    console.log('✅ Configuration saved successfully');
+  } catch (error) {
+    console.error('❌ Failed to save configuration:', error.message);
+    throw error;
+  }
 }
+
 
 // Check if port is available
 function checkPort(port) {
@@ -1376,7 +1449,6 @@ function checkPort(port) {
 
 // Start server
 async function start() {
-  // Check if port is available
   const portAvailable = await checkPort(PORT);
   if (!portAvailable) {
     console.error(`
@@ -1396,23 +1468,17 @@ async function start() {
     process.exit(1);
   }
   
-  // Load configuration (environment variables take priority)
   config = loadConfig();
   
-  // Save config to persist driver_id
   try {
     saveConfig(config);
   } catch (error) {
     console.warn('⚠️ Could not save config file:', error.message);
   }
   
-  // Start file watcher
   await startWatcher();
   
-  // Start cloud polling (for receiving print jobs from cloud)
   startCloudPolling();
-  
-  // Start heartbeat service
   startHeartbeat();
   
   server = app.listen(PORT, async () => {
@@ -1433,8 +1499,9 @@ async function start() {
    • Driver ID: ${config.driverId.substring(0, 30)}...
    • Bar ID: ${config.barId || '⚠️  NOT CONFIGURED'}
    • API URL: ${config.apiUrl}
+   • Printer Name: ${config.printerName || config.bridge?.printerName || '(default)'}
    • Watch Folder: ${config.watchFolder}
-   • Capture Mode: ${config.captureMode || 'folder'} ${config.captureMode === 'spooler' ? '(NEW - Passive Capture)' : '(LEGACY - Folder Watch)'}
+   • Capture Mode: ${config.captureMode || 'spooler'} 
    • Config Source: ${process.env.TABEZA_BAR_ID ? 'Environment Variables' : 'Config File'}
 
 ${config.barId ? `
@@ -1443,15 +1510,8 @@ ${config.barId ? `
 Your printer service is monitoring for print jobs.
 
 📋 POS Setup Instructions:
-   1. In your POS system, add a new printer
-   2. Choose "Generic / Text Only" printer driver
-   3. Set printer port to: FILE
-   4. Set output folder to: ${config.watchFolder}
-   5. Test print from your POS
-
-   OR use Windows "Microsoft Print to PDF" printer:
-   - Print to PDF
-   - Save files to: ${config.watchFolder}
+   • Your POS prints normally; we briefly pause the printer to capture receipts.
+   • No special POS configuration needed – just print to your usual thermal printer.
 
 🔗 Quick Links:
    • Service Status: http://localhost:${PORT}/api/status
@@ -1481,8 +1541,7 @@ To connect this service to your Tabeza account:
    • Service Status: http://localhost:${PORT}/api/status
 
 💡 IMPORTANT: Keep this window open - service must run continuously!
-   After configuration, set up your POS to print to:
-   ${config.watchFolder}
+   After configuration, your POS will continue printing normally; we'll capture receipts automatically.
 `}
 
 ═══════════════════════════════════════════════════════════
@@ -1506,53 +1565,51 @@ async function shutdown() {
   }, 5000);
   
   try {
-    // Stop heartbeat service
     stopHeartbeat();
     console.log('✅ Heartbeat stopped');
     
-    // Stop cloud polling
     if (pollInterval) {
       clearInterval(pollInterval);
       pollInterval = null;
       console.log('✅ Cloud polling stopped');
     }
     
-    // Stop spooler monitor
     if (spoolMonitor) {
       await spoolMonitor.stop();
       spoolMonitor = null;
-      console.log('✅ Spooler monitor stopped');
+      console.log('✅ Active spool capture stopped');
     }
     
-    // Stop print bridge
+    if (simpleCapture) {
+      await simpleCapture.stop();
+      simpleCapture = null;
+      console.log('✅ Pooling capture stopped');
+    }
+    
     if (printBridge) {
       await printBridge.stop();
       printBridge = null;
       console.log('✅ Print bridge stopped');
     }
     
-    // Stop upload worker (flushes pending uploads)
     if (uploadWorker) {
       await uploadWorker.stop();
       uploadWorker = null;
       console.log('✅ Upload worker stopped (pending uploads flushed)');
     }
     
-    // Close local queue
     if (localQueue) {
       await localQueue.close();
       localQueue = null;
       console.log('✅ Local queue closed');
     }
     
-    // Stop folder watcher (legacy mode)
     if (watcher) {
       await watcher.stop();
       watcher = null;
       console.log('✅ Folder watcher stopped');
     }
     
-    // Close Express server
     if (server) {
       await new Promise((resolve) => {
         server.close(() => {

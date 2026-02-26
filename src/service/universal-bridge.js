@@ -2,7 +2,7 @@
  * Tabeza Universal POS Bridge v3.0
  * 
  * Universal Architecture:
- * POS → File Port → Bridge → Cloud + Windows Spooler → Physical Printer
+ * POS → Local Port → Bridge → Cloud + Windows Spooler → Physical Printer
  * 
  * Works with ANY printer: USB, Network, Bluetooth, Virtual
  */

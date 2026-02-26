@@ -52,7 +52,7 @@ class PrintBridge extends EventEmitter {
         this.watcher = chokidar.watch(this.config.captureFile, {
             persistent: true,
             ignoreInitial: true,
-            usePolling: true, // Critical for file port reliability
+            usePolling: true, // Critical for Local Port reliability
             interval: 500, // Check every 500ms for low latency
         });
 

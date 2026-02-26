@@ -138,7 +138,7 @@ Response includes spool monitor statistics:
 ```json
 {
   "status": "running",
-  "captureMode": "spooler",
+  "captureMode": "pooling",
   "spoolMonitor": {
     "filesDetected": 42,
     "filesProcessed": 42,

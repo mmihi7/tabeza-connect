@@ -52,7 +52,7 @@ Write-Host ""
 Write-Host "🌉 Bridge Configuration Complete!" -ForegroundColor Green
 Write-Host ""
 Write-Host "How it works:" -ForegroundColor Cyan
-Write-Host "1. POS prints to '$PrinterName' (now File Port)" -ForegroundColor White
+Write-Host "1. POS prints to '$PrinterName' (now Local Port)" -ForegroundColor White
 Write-Host "2. Windows saves raw data to: $CaptureFile" -ForegroundColor White
 Write-Host "3. Tabeza Service detects file change" -ForegroundColor White
 Write-Host "4. Service forwards data to physical port: $originalPort" -ForegroundColor White

@@ -54,7 +54,7 @@ npm run build
 Tabeza Connect consists of three components:
 
 1. **Printer Service**: Node.js service that monitors watch folder
-2. **Virtual Printer**: Generic/Text Only printer with FILE: port
+2. **Virtual Printer**: Generic/Text Only printer with Local Port
 3. **Installer**: Automated setup with bundled Node.js runtime
 
 See [Architecture Documentation](docs/ARCHITECTURE.md) for details.

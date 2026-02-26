@@ -8,7 +8,7 @@ echo Current printer configuration:
 powershell -Command "Get-Printer -Name 'EPSON L3210 Series' | Select-Object Name,PortName,DriverName"
 
 echo.
-echo The EPSON printer is currently pointing to FILE PORT
+echo The EPSON printer is currently pointing to LOCAL PORT
 echo We need to restore it to USB001 for physical printing
 echo.
 

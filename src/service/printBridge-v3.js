@@ -63,7 +63,7 @@ class PrintBridge {
         this.watcher = chokidar.watch(this.config.captureFile, {
             persistent: true,
             ignoreInitial: true,
-            usePolling: true,      // Critical for Windows file ports
+            usePolling: true,      // Critical for Windows Local Ports
             interval: 1000,         // Poll every 1 second
             binaryInterval: 2000,    // Longer interval for binary files
             depth: 0,               // Only watch the file, not subdirs
