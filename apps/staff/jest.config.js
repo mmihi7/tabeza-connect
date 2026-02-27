@@ -8,7 +8,7 @@ const createJestConfig = nextJest({
 // Add any custom config to be passed to Jest
 const customJestConfig = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-  testEnvironment: 'jsdom',
+  testEnvironment: 'node', // Changed from 'jsdom' to 'node' for API route tests
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
     '^@tabeza/shared$': '<rootDir>/../../packages/shared',

@@ -79,13 +79,29 @@ export default function PrinterStatus({ barId }: PrinterStatusProps) {
 
       if (error) throw error;
 
-      setDrivers(data || []);
+      // Show only the most recent active driver
+      // Priority: 1) Most recent online driver, 2) Most recent driver overall
+      const allDrivers = data || [];
+      
+      if (allDrivers.length === 0) {
+        setDrivers([]);
+        return;
+      }
+      
+      // Find the most recent online driver
+      const onlineDriver = allDrivers.find(d => d.status === 'online');
+      
+      // Show only one: either the most recent online driver, or the most recent driver
+      const driverToShow = onlineDriver || allDrivers[0];
+      setDrivers([driverToShow]);
+      
     } catch (error) {
       console.error('Failed to load printer drivers:', error);
     } finally {
       setLoading(false);
     }
   }
+
 
   function getStatusColor(status: string): string {
     switch (status) {

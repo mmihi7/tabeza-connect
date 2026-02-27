@@ -43,6 +43,8 @@ export default function CaptainsOrders({ barId }: CaptainsOrdersProps) {
   const [selectedTab, setSelectedTab] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [deletingAll, setDeletingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
 
@@ -143,6 +145,72 @@ export default function CaptainsOrders({ barId }: CaptainsOrdersProps) {
     }
   }
 
+  async function deleteOrder(orderId: string) {
+    try {
+      setDeleting(orderId);
+      setError(null);
+
+      const response = await fetch('/api/printer/delete-receipt', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          printJobId: orderId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete receipt');
+      }
+
+      // Success - refresh data
+      await fetchData();
+    } catch (err) {
+      console.error('Failed to delete receipt:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete receipt');
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  async function deleteAllOrders() {
+    const count = captainsOrders.length;
+    
+    if (!confirm(`Delete all ${count} receipt${count !== 1 ? 's' : ''}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setDeletingAll(true);
+      setError(null);
+
+      // Delete all receipts in parallel
+      const deletePromises = captainsOrders.map(order =>
+        fetch('/api/printer/delete-receipt', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ printJobId: order.id }),
+        })
+      );
+
+      const results = await Promise.allSettled(deletePromises);
+      
+      // Check for failures
+      const failures = results.filter(r => r.status === 'rejected');
+      if (failures.length > 0) {
+        throw new Error(`Failed to delete ${failures.length} receipt(s)`);
+      }
+
+      // Success - refresh data
+      await fetchData();
+    } catch (err) {
+      console.error('Failed to delete all receipts:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete all receipts');
+    } finally {
+      setDeletingAll(false);
+    }
+  }
+
   // Extract items from order (reusable function)
   function extractItemsFromOrder(order: PrintJob): string[] {
     let itemsList: string[] = [];
@@ -226,9 +294,19 @@ export default function CaptainsOrders({ barId }: CaptainsOrdersProps) {
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">⚓ Captain's Orders</h2>
-          <span className="bg-orange-100 text-orange-800 text-sm font-medium px-3 py-1 rounded-full">
-            {captainsOrders.length} waiting
-          </span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={deleteAllOrders}
+              disabled={deletingAll || captainsOrders.length === 0}
+              className="text-xs text-red-600 hover:text-red-700 font-medium disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+              title="Delete all receipts"
+            >
+              {deletingAll ? 'Deleting...' : 'Delete All'}
+            </button>
+            <span className="bg-orange-100 text-orange-800 text-sm font-medium px-3 py-1 rounded-full">
+              {captainsOrders.length} waiting
+            </span>
+          </div>
         </div>
 
         {error && (
@@ -275,15 +353,30 @@ export default function CaptainsOrders({ barId }: CaptainsOrdersProps) {
                       {new Date(order.received_at).toLocaleTimeString()}
                     </div>
                   </div>
-                  <button
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedOrder(order);
-                    }}
-                  >
-                    Assign Tab
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm('Delete this receipt? This action cannot be undone.')) {
+                          deleteOrder(order.id);
+                        }
+                      }}
+                      disabled={deleting === order.id}
+                      title="Delete receipt (for non-Tabeza customers)"
+                    >
+                      {deleting === order.id ? 'Deleting...' : 'Delete'}
+                    </button>
+                    <button
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedOrder(order);
+                      }}
+                    >
+                      Assign Tab
+                    </button>
+                  </div>
                 </div>
               </div>
             );

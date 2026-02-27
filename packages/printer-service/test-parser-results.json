@@ -1,0 +1,63 @@
+{
+  "totalReceipts": 1,
+  "parsedReceipts": [
+    {
+      "index": 1,
+      "confidence": "high",
+      "fieldsExtracted": {
+        "receiptNumber": true,
+        "timestamp": true,
+        "items": 5,
+        "subtotal": true,
+        "tax": true,
+        "total": true
+      },
+      "parsedData": {
+        "receiptNumber": "RCP-2024-001234",
+        "timestamp": "12/15/2024 8:45:30 PM",
+        "items": [
+          {
+            "name": "Tusker Lager 500ml",
+            "quantity": 2,
+            "price": 500
+          },
+          {
+            "name": "Nyama Choma (Half Kg)",
+            "quantity": 1,
+            "price": 800
+          },
+          {
+            "name": "Pilsner 500ml",
+            "quantity": 3,
+            "price": 600
+          },
+          {
+            "name": "Chips Masala",
+            "quantity": 1,
+            "price": 150
+          },
+          {
+            "name": "Soda (Coke)",
+            "quantity": 2,
+            "price": 160
+          }
+        ],
+        "subtotal": 2210,
+        "tax": 353.6,
+        "total": 2563.6
+      }
+    }
+  ],
+  "statistics": {
+    "high": 1,
+    "medium": 0,
+    "low": 0,
+    "successRate": "100.0%",
+    "confidenceDistribution": {
+      "high": "100.0%",
+      "medium": "0.0%",
+      "low": "0.0%"
+    }
+  },
+  "templateUsed": "default"
+}

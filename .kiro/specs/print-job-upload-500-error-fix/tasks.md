@@ -1,0 +1,143 @@
+# Implementation Plan
+
+- [x] 1. Write bug condition exploration test
+  - **Property 1: Fault Condition** - Receipt Upload Returns HTTP 500
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate the bug exists
+  - **Scoped PBT Approach**: Scope the property to concrete failing cases (valid barId, valid rawData, bar exists in database)
+  - Test that POST /api/printer/relay with valid receipt payload returns HTTP 200 with success response
+  - Test that print_jobs record is created with status 'no_match'
+  - Test that receipt appears in Captain's Orders query results
+  - The test assertions should match the Expected Behavior Properties from design:
+    - HTTP 200 response status
+    - Response body contains `{success: true, jobId, message}`
+    - Database contains print_jobs record with correct barId, status='no_match', and parsed data
+  - Run test on UNFIXED code
+  - **EXPECTED OUTCOME**: Test FAILS (this is correct - it proves the bug exists)
+  - Document counterexamples found:
+    - Which operation fails (JSON parsing, base64 decoding, receipt parsing, database insert)
+    - Exact error message from logs
+    - Whether root cause matches hypothesis (constraint violation, encoding issue, API timeout, missing config)
+  - Mark task complete when test is written, run, and failure is documented
+  - _Requirements: 2.1, 2.2, 2.3, 2.7_
+
+- [x] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - Error Handling and Logging Behavior
+  - **IMPORTANT**: Follow observation-first methodology
+  - Observe behavior on UNFIXED code for non-buggy inputs:
+    - Requests with missing barId return HTTP 400
+    - Requests with missing rawData return HTTP 400
+    - Parsing failures still create print_jobs records with low confidence
+    - Service role client bypasses RLS policies
+    - Parsing confidence logic (high, medium, low) works correctly
+    - Heartbeat mechanism continues to work
+    - Test receipt delivery HTML page accepts test receipts
+  - Write property-based tests capturing observed behavior patterns:
+    - For all requests with missing required fields, endpoint returns HTTP 400
+    - For all parsing failures, print_jobs record is created with low confidence (foundational rule)
+    - For all valid receipts, parsing confidence is determined correctly
+    - For all database operations, service role client bypasses RLS
+  - Property-based testing generates many test cases for stronger guarantees
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8_
+
+- [x] 3. Fix for HTTP 500 error on receipt upload
+
+  - [x] 3.1 Implement enhanced error logging
+    - Add try-catch blocks around JSON parsing with specific error logging
+    - Add try-catch blocks around base64 decoding with data length and sample logging
+    - Add try-catch blocks around receipt parsing with error details
+    - Add try-catch blocks around database insert with complete Supabase error object
+    - Include operation name, error type, error message, stack trace in all logs
+    - Log sanitized payload details (no sensitive data)
+    - _Bug_Condition: isBugCondition(input) where input.barId IS NOT NULL AND input.rawData IS valid base64 AND bar exists in database AND endpoint returns HTTP 500_
+    - _Expected_Behavior: Successful database insert with status 'no_match' and HTTP 200 response with {success: true, jobId, message}_
+    - _Preservation: HTTP 400 responses for invalid requests, parsing confidence logic, foundational rule "Never reject a receipt"_
+    - _Requirements: 2.1, 2.2, 2.3, 2.7, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8_
+
+  - [x] 3.2 Add base64 decoding validation
+    - Validate rawData is valid base64 string using regex before decoding
+    - Log rawData length and first 100 characters if decoding fails
+    - Catch decoding errors separately from parsing errors
+    - Return structured error response for base64 decoding failures
+    - _Bug_Condition: isBugCondition(input) where base64 decoding may fail_
+    - _Expected_Behavior: Detailed error logging with data sample for debugging_
+    - _Preservation: Foundational rule - still create print_jobs record even if decoding fails_
+    - _Requirements: 2.1, 2.2, 3.1, 3.2_
+
+  - [x] 3.3 Improve receipt parsing error handling
+    - Wrap parseReceipt() call in try-catch with detailed logging
+    - Log DeepSeek API errors separately from regex parsing errors
+    - Ensure parsing failures still result in print_jobs record creation (low confidence)
+    - Log parsing confidence determination logic
+    - _Bug_Condition: isBugCondition(input) where receipt parsing may throw exceptions_
+    - _Expected_Behavior: Parsing failures logged but print_jobs record still created_
+    - _Preservation: Foundational rule "Never reject a receipt", parsing confidence logic_
+    - _Requirements: 2.2, 2.3, 3.3, 3.4, 3.5_
+
+  - [x] 3.4 Enhance database insert error logging
+    - Log complete Supabase error object (code, message, details, hint)
+    - Log the printJobData object being inserted (sanitized)
+    - Check for foreign key violations and log bar_id validation
+    - Check for constraint violations and log which constraint failed
+    - Return structured error response with error category
+    - _Bug_Condition: isBugCondition(input) where database insert may fail due to constraints_
+    - _Expected_Behavior: Detailed error logging identifying exact constraint violation_
+    - _Preservation: Service role client bypassing RLS, existing constraint validation_
+    - _Requirements: 2.3, 2.7, 3.6, 3.7_
+
+  - [x] 3.5 Add environment variable validation
+    - Check for SUPABASE_SECRET_KEY before processing requests
+    - Check for NEXT_PUBLIC_SUPABASE_URL
+    - Log environment variable status on endpoint initialization
+    - Return HTTP 503 if required variables are missing
+    - _Bug_Condition: isBugCondition(input) where missing env vars cause unexpected behavior_
+    - _Expected_Behavior: Clear error message if environment variables missing_
+    - _Preservation: Existing service role client creation logic_
+    - _Requirements: 2.1, 3.8_
+
+  - [x] 3.6 Implement structured error response format
+    - Include error category (validation, decoding, parsing, database)
+    - Include operation that failed
+    - Include sanitized error details (no sensitive data)
+    - Maintain HTTP 500 for server errors, HTTP 400 for client errors
+    - _Bug_Condition: isBugCondition(input) where error responses lack diagnostic information_
+    - _Expected_Behavior: Structured error response with category and operation details_
+    - _Preservation: HTTP 400 for validation errors, HTTP 500 for server errors_
+    - _Requirements: 2.1, 2.2, 2.3, 3.1, 3.2_
+
+  - [x] 3.7 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - Receipt Upload Returns HTTP 200
+    - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
+    - The test from task 1 encodes the expected behavior
+    - When this test passes, it confirms the expected behavior is satisfied
+    - Run bug condition exploration test from step 1
+    - **EXPECTED OUTCOME**: Test PASSES (confirms bug is fixed)
+    - Verify HTTP 200 response with success body
+    - Verify print_jobs record created with status 'no_match'
+    - Verify receipt appears in Captain's Orders
+    - _Requirements: 2.1, 2.2, 2.3, 2.7_
+
+  - [x] 3.8 Verify preservation tests still pass
+    - **Property 2: Preservation** - Error Handling and Logging Behavior
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation property tests from step 2
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+    - Confirm HTTP 400 responses for invalid requests still work
+    - Confirm parsing confidence logic unchanged
+    - Confirm foundational rule "Never reject a receipt" still enforced
+    - Confirm service role client still bypasses RLS
+    - Confirm all tests still pass after fix (no regressions)
+    - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8_
+
+- [x] 4. Checkpoint - Ensure all tests pass
+  - Run all unit tests for base64 decoding, receipt parsing, database insert
+  - Run all property-based tests for valid and invalid payloads
+  - Run integration tests for full flow from TabezaConnect to Captain's Orders
+  - Verify enhanced logging provides sufficient diagnostic information
+  - Verify test receipt delivery HTML page continues to work
+  - Ensure all tests pass, ask the user if questions arise

@@ -1,0 +1,186 @@
+{
+  "timestamp": "2026-02-26T09:19:51.674Z",
+  "totalReceipts": 5,
+  "receipts": [
+    {
+      "name": "captain-orders-receipt.txt",
+      "confidence": "high",
+      "fieldsExtracted": {
+        "receiptNumber": true,
+        "timestamp": true,
+        "items": 3,
+        "subtotal": true,
+        "tax": true,
+        "total": true
+      },
+      "parsedData": {
+        "receiptNumber": "CO-789456",
+        "timestamp": "12/20/2024 10:15 PM",
+        "items": [
+          {
+            "name": "Tusker Malt 500ml",
+            "quantity": 4,
+            "price": 800
+          },
+          {
+            "name": "Chicken Wings",
+            "quantity": 2,
+            "price": 600
+          },
+          {
+            "name": "Beef Samosa",
+            "quantity": 1,
+            "price": 50
+          }
+        ],
+        "subtotal": 1450,
+        "tax": 232,
+        "total": 1682
+      }
+    },
+    {
+      "name": "empty-receipt.txt",
+      "confidence": "low",
+      "fieldsExtracted": {
+        "receiptNumber": false,
+        "timestamp": false,
+        "items": 0,
+        "subtotal": false,
+        "tax": true,
+        "total": false
+      },
+      "parsedData": {
+        "receiptNumber": null,
+        "timestamp": null,
+        "items": [],
+        "subtotal": 0,
+        "tax": 0,
+        "total": 0
+      }
+    },
+    {
+      "name": "malformed-receipt.txt",
+      "confidence": "low",
+      "fieldsExtracted": {
+        "receiptNumber": true,
+        "timestamp": false,
+        "items": 0,
+        "subtotal": false,
+        "tax": true,
+        "total": false
+      },
+      "parsedData": {
+        "receiptNumber": "========================================",
+        "timestamp": null,
+        "items": [],
+        "subtotal": 0,
+        "tax": 0,
+        "total": 0
+      }
+    },
+    {
+      "name": "minimal-receipt.txt",
+      "confidence": "low",
+      "fieldsExtracted": {
+        "receiptNumber": true,
+        "timestamp": true,
+        "items": 0,
+        "subtotal": false,
+        "tax": true,
+        "total": false
+      },
+      "parsedData": {
+        "receiptNumber": "Date:",
+        "timestamp": "1/5/2024 2:30 PM",
+        "items": [],
+        "subtotal": 0,
+        "tax": 0,
+        "total": 0
+      }
+    },
+    {
+      "name": "tusker-test-receipt.txt",
+      "confidence": "high",
+      "fieldsExtracted": {
+        "receiptNumber": true,
+        "timestamp": true,
+        "items": 5,
+        "subtotal": true,
+        "tax": true,
+        "total": true
+      },
+      "parsedData": {
+        "receiptNumber": "RCP-2024-001234",
+        "timestamp": "12/15/2024 8:45:30 PM",
+        "items": [
+          {
+            "name": "Tusker Lager 500ml",
+            "quantity": 2,
+            "price": 500
+          },
+          {
+            "name": "Nyama Choma (Half Kg)",
+            "quantity": 1,
+            "price": 800
+          },
+          {
+            "name": "Pilsner 500ml",
+            "quantity": 3,
+            "price": 600
+          },
+          {
+            "name": "Chips Masala",
+            "quantity": 1,
+            "price": 150
+          },
+          {
+            "name": "Soda (Coke)",
+            "quantity": 2,
+            "price": 160
+          }
+        ],
+        "subtotal": 2210,
+        "tax": 353.6,
+        "total": 2563.6
+      }
+    }
+  ],
+  "roundTripTests": [
+    {
+      "name": "captain-orders-receipt.txt",
+      "success": true,
+      "error": null,
+      "discrepancies": []
+    },
+    {
+      "name": "empty-receipt.txt",
+      "success": false,
+      "error": "Original parsing returned low confidence, skipping round-trip test",
+      "discrepancies": []
+    },
+    {
+      "name": "malformed-receipt.txt",
+      "success": false,
+      "error": "Original parsing returned low confidence, skipping round-trip test",
+      "discrepancies": []
+    },
+    {
+      "name": "minimal-receipt.txt",
+      "success": false,
+      "error": "Original parsing returned low confidence, skipping round-trip test",
+      "discrepancies": []
+    },
+    {
+      "name": "tusker-test-receipt.txt",
+      "success": true,
+      "error": null,
+      "discrepancies": []
+    }
+  ],
+  "statistics": {
+    "high": 2,
+    "medium": 0,
+    "low": 3,
+    "successRate": "40.0%"
+  }
+}

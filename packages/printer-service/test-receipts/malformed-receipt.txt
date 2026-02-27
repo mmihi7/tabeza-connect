@@ -1,0 +1,26 @@
+========================================
+BROKEN BAR RECEIPT
+========================================
+
+Receipt #: INVALID-FORMAT
+
+QTY  ITEM                      AMOUNT
+----------------------------------------
+2    Tusker Lager              NOT_A_NUMBER
+1    Nyama Choma               PRICE_MISSING
+3    Pilsner                   
+----------------------------------------
+
+Subtotal:                     INVALID
+VAT:                          
+========================================
+TOTAL:                        
+========================================
+
+This receipt has intentional formatting errors:
+- Invalid price formats (text instead of numbers)
+- Missing prices
+- Empty total field
+- Malformed structure
+
+Expected parsing result: Low confidence with minimal extraction

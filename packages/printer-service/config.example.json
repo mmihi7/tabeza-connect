@@ -2,5 +2,18 @@
   "barId": "YOUR_BAR_ID_HERE",
   "apiUrl": "https://tabz-kikao.vercel.app",
   "driverId": "driver-GENERATED-AUTOMATICALLY",
-  "watchFolder": "C:\\Users\\YourUsername\\TabezaPrints"
+  "watchFolder": "C:\\Users\\YourUsername\\TabezaPrints",
+  "parsingTemplate": {
+    "receiptNumber": "Receipt\\s*#?:?\\s*(\\S+)",
+    "timestamp": "(\\d{1,2}/\\d{1,2}/\\d{4}\\s+\\d{1,2}:\\d{2}(?::\\d{2})?(?:\\s*[AP]M)?)",
+    "items": {
+      "pattern": "^(\\d+)\\s+(.+?)\\s{2,}(\\d+(?:,\\d{3})*\\.\\d{2})\\s*$",
+      "multiline": true,
+      "startMarker": "QTY\\s+ITEM\\s+AMOUNT",
+      "endMarker": "^-{3,}|Subtotal|Total"
+    },
+    "subtotal": "Subtotal:?\\s*(\\d+(?:,\\d{3})*\\.\\d{2})",
+    "tax": "(?:VAT|Tax)(?:\\s*\\(\\d+%\\))?:?\\s*(\\d+(?:,\\d{3})*\\.\\d{2})",
+    "total": "^\\s*TOTAL:?\\s*(\\d+(?:,\\d{3})*\\.\\d{2})"
+  }
 }

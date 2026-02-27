@@ -262,7 +262,11 @@ function startWatcher() {
 }
 
 // Process print job and send to cloud
-// Cloud will handle receipt parsing using DeepSeek API
+// CORE TRUTH: Manual service always exists. Digital authority is singular.
+// Tabeza adapts to the venue — never the reverse.
+//
+// This function now parses receipts locally before uploading to eliminate
+// null byte errors and reduce bandwidth usage.
 async function processPrintJob(printData, fileName = 'receipt.prn') {
   const jobId = `job-${Date.now()}`;
   
@@ -270,21 +274,51 @@ async function processPrintJob(printData, fileName = 'receipt.prn') {
     throw new Error('Service not configured - Bar ID missing');
   }
   
-  // Convert to base64
+  // Convert bytes to text (simple UTF-8 conversion)
+  // ESC/POS commands are filtered out by converting to string
+  let receiptText = '';
+  try {
+    receiptText = Buffer.from(printData).toString('utf8')
+      .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Remove control characters
+      .trim();
+  } catch (error) {
+    console.error('[Capture] Error converting bytes to text:', error.message);
+    receiptText = '';
+  }
+  
+  // Parse receipt text using Receipt_Parser
+  const { parseReceipt, loadTemplateFromConfig } = require('./lib/receiptParser');
+  const template = loadTemplateFromConfig(config);
+  const parsedData = parseReceipt(receiptText, template);
+  
+  console.log(`[Capture] Parsed receipt with confidence: ${parsedData.confidence}`);
+  
+  // Convert to base64 for optional debugging/fallback
   const base64Data = Buffer.from(printData).toString('base64');
   
-  // Send raw data to cloud - parsing will be done cloud-side
+  // Send parsed data to cloud as primary field
   await sendToCloud({
     driverId: config.driverId,
     barId: config.barId,
     timestamp: new Date().toISOString(),
-    rawData: base64Data,
+    parsedData: {
+      items: parsedData.items,
+      total: parsedData.total,
+      subtotal: parsedData.subtotal,
+      tax: parsedData.tax,
+      receiptNumber: parsedData.receiptNumber,
+      timestamp: parsedData.timestamp,
+      rawText: parsedData.rawText
+    },
+    rawData: base64Data, // Optional: for debugging/fallback
     printerName: 'Tabeza Receipt Printer',
     documentName: fileName,
     metadata: {
       jobId,
       source: 'file-watcher',
       fileSize: printData.length,
+      confidence: parsedData.confidence,
+      parsingMethod: 'local'
     },
   });
   
@@ -495,10 +529,26 @@ Visit us again soon.
 ========================================
   `.trim();
   
+  // Parse the test receipt using Receipt_Parser
+  const { parseReceipt, loadTemplateFromConfig } = require('./lib/receiptParser');
+  const template = loadTemplateFromConfig(config);
+  const parsedData = parseReceipt(testData, template);
+  
+  console.log(`[Test Receipt] Parsed with confidence: ${parsedData.confidence}`);
+  
   return {
     driverId: config.driverId,
     barId: config.barId,
     timestamp: new Date().toISOString(),
+    parsedData: {
+      items: parsedData.items,
+      total: parsedData.total,
+      subtotal: parsedData.subtotal,
+      tax: parsedData.tax,
+      receiptNumber: parsedData.receiptNumber,
+      timestamp: parsedData.timestamp,
+      rawText: parsedData.rawText
+    },
     rawData: Buffer.from(testData).toString('base64'),
     printerName: 'Tabeza Receipt Printer',
     documentName: `Test Receipt ${receiptNumber}`,
@@ -508,6 +558,8 @@ Visit us again soon.
       receiptNumber,
       itemCount: items.length,
       totalAmount: total,
+      confidence: parsedData.confidence,
+      parsingMethod: 'local'
     },
   };
 }

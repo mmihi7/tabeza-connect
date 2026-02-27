@@ -1512,12 +1512,6 @@ export default function SettingsPage() {
                 {isNewUser ? 'Set up your restaurant to get started' : 'Manage your restaurant configuration and preferences'}
               </p>
             </div>
-            {!isNewUser && (
-              <div className="mt-4 sm:mt-0 flex items-center gap-2 text-sm">
-                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                <span className="text-orange-100">System Active</span>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -1877,260 +1871,104 @@ export default function SettingsPage() {
           {/* Venue Configuration Tab Content */}
           {!isNewUser && activeTab === 'venue' && (
             <>
-              <div className="mb-8">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">Venue Configuration</h2>
-                <p className="text-gray-600 mb-6">
-                  Your current venue mode and operational settings. Changes to these settings may affect how your venue operates.
-                </p>
-                
-                <div className="bg-gray-100 p-6 rounded-lg mb-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-2">Current Configuration</h3>
-                  <div className="space-y-2 text-sm text-gray-600">
-                    <p><strong>Venue Mode:</strong> {venueMode}</p>
-                    <p><strong>Authority Mode:</strong> {authorityMode}</p>
-                    <p><strong>POS Integration:</strong> {posIntegrationEnabled ? 'Enabled' : 'Disabled'}</p>
-                    <p><strong>Printer Required:</strong> {printerRequired ? 'Yes' : 'No'}</p>
-                    <p><strong>Onboarding Completed:</strong> {onboardingCompleted ? 'Yes' : 'No'}</p>
+              {/* Printer Status Section - Show if printer is required */}
+              {printerRequired && (
+                <div className="bg-white rounded-xl shadow-sm p-4">
+                  <PrinterStatus 
+                    barId={barInfo.id}
+                    venueMode={venueMode}
+                    authorityMode={authorityMode}
+                    compact={false}
+                  />
+                </div>
+              )}
+
+              {/* Receipt Capture Section */}
+              <div className="bg-white rounded-xl shadow-sm p-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-indigo-100 rounded-lg">
+                    <Settings size={20} className="text-indigo-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-800">Receipt Capture - Generate Template</h3>
+                    <p className="text-sm text-gray-500">Create AI-powered parsing templates for your POS receipts</p>
                   </div>
                 </div>
 
-                {/* Printer Status Section - Show if printer is required */}
-                {printerRequired && (
-                  <div className="mb-6">
-                    <PrinterStatus 
-                      barId={barInfo.id}
-                      venueMode={venueMode}
-                      authorityMode={authorityMode}
-                      compact={false}
-                    />
-                  </div>
-                )}
+                <div className="space-y-4">
+                  {/* Template Generation Content */}
+                  <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+                    <h4 className="font-medium text-indigo-800 mb-2">Template Generation</h4>
+                    <p className="text-sm text-indigo-700 mb-4">
+                      Generate parsing templates for your POS receipts using AI-powered analysis.
+                    </p>
 
-                {/* Receipt Capture Section */}
-                <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-indigo-100 rounded-lg">
-                      <Settings size={20} className="text-indigo-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-gray-800">Receipt Capture - Generate Template</h3>
-                      <p className="text-sm text-gray-500">Create AI-powered parsing templates for your POS receipts</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    {/* Template Generation Content */}
-                    <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
-                      <h4 className="font-medium text-indigo-800 mb-2">Template Generation</h4>
-                      <p className="text-sm text-indigo-700 mb-4">
-                        Generate parsing templates for your POS receipts using AI-powered analysis.
-                      </p>
-                      <div className="space-y-3">
-                        <div className="bg-white p-3 rounded border border-indigo-200">
-                          <p className="text-sm text-gray-700 mb-2">
-                            <strong>How it works:</strong>
-                          </p>
-                          <ul className="text-xs text-gray-600 space-y-1">
-                            <li>• Print test receipts from your POS system</li>
-                            <li>• TabezaConnect captures them automatically</li>
-                            <li>• AI analyzes and creates parsing templates</li>
-                            <li>• Templates extract order data for customer tabs</li>
-                          </ul>
-                        </div>
-                        <button className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition text-sm font-medium">
-                          Open Receipt Capture → Generate Template
-                        </button>
+                    <div className="space-y-3">
+                      <div className="bg-white p-3 rounded border border-indigo-200">
+                        <p className="text-sm text-gray-700 mb-2">
+                          <strong>How it works:</strong>
+                        </p>
+                        <ul className="text-xs text-gray-600 space-y-1">
+                          <li>• Print test receipts from your POS system</li>
+                          <li>• TabezaConnect captures them automatically</li>
+                          <li>• AI analyzes and creates parsing templates</li>
+                          <li>• Templates extract order data for customer tabs</li>
+                        </ul>
                       </div>
-                    </div>
-
-                    {/* Quick Actions */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <button className="p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition text-left">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Settings size={16} className="text-indigo-600" />
-                          <span className="text-sm font-medium text-gray-800">Templates</span>
-                        </div>
-                        <p className="text-xs text-gray-600">Manage parsing templates</p>
-                      </button>
-                      <button className="p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition text-left">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Grid3X3 size={16} className="text-teal-600" />
-                          <span className="text-sm font-medium text-gray-800">Assignments</span>
-                        </div>
-                        <p className="text-xs text-gray-600">Assign receipts to tabs</p>
+                      <button className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition text-sm font-medium">
+                        Open Receipt Capture → Generate Template
                       </button>
                     </div>
-
-                    {/* Status Information */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <div className="flex items-start gap-2">
-                        <AlertCircle size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
-                        <div className="text-sm text-blue-800">
-                          <p className="font-medium mb-1">Receipt Capture Status</p>
-                          <ul className="text-xs space-y-1">
-                            <li>• TabezaConnect: Ready for setup</li>
-                            <li>• Template Engine: Available</li>
-                            <li>• AI Parsing: DeepSeek integration active</li>
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
                   </div>
 
-                  <button
-                    onClick={() => window.open('/receipt-capture', '_blank')}
-                    className="w-full mt-4 bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 flex items-center justify-center gap-2"
-                  >
-                    <Settings size={20} />
-                    Open Receipt Capture Dashboard
-                  </button>
-                </div>
-
-                <div className="bg-white border border-gray-200 p-6 rounded-lg mb-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-800 mb-2">Change Configuration</h3>
-                      <p className="text-gray-600 text-sm">
-                        Modify your venue mode and authority settings. Note: Changing from Basic to Venue mode will affect printer requirements.
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setShowVenueModeModal(true)}
-                      className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition"
-                    >
-                      Change Settings
+                  {/* Quick Actions */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <button className="p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition text-left">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Settings size={16} className="text-indigo-600" />
+                        <span className="text-sm font-medium text-gray-800">Templates</span>
+                      </div>
+                      <p className="text-xs text-gray-600">Manage parsing templates</p>
+                    </button>
+                    <button className="p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition text-left">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Grid3X3 size={16} className="text-teal-600" />
+                        <span className="text-sm font-medium text-gray-800">Assignments</span>
+                      </div>
+                      <p className="text-xs text-gray-600">Assign receipts to tabs</p>
                     </button>
                   </div>
-                </div>
 
-                {/* Configuration History */}
-                <div className="bg-gray-50 p-6 rounded-lg mb-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Configuration History</h3>
-                  <ConfigurationHistory barId={barInfo.id} />
-                </div>
-
-                {/* POS Setup Section */}
-                <div className="bg-white rounded-xl shadow-sm p-4">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-teal-100 rounded-lg">
-                      <Grid3X3 size={20} className="text-teal-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-gray-800">POS Setup</h3>
-                      <p className="text-sm text-gray-500">Configure your POS integration and receipt capture</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    {/* Enable Table Setup Toggle */}
-                    <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition">
-                      <div className="flex items-center gap-3">
-                        <Grid3X3 size={18} className="text-teal-600" />
-                        <div>
-                          <span className="text-sm font-medium text-gray-700">Require Table Selection</span>
-                          <p className="text-xs text-gray-500">Customers must select their table before ordering</p>
-                        </div>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={tableSettings.table_setup_enabled}
-                        onChange={(e) => setTableSettings({
-                          ...tableSettings, 
-                          table_setup_enabled: e.target.checked
-                        })}
-                        className="w-5 h-5 text-teal-500 rounded focus:ring-teal-500"
-                      />
-                    </label>
-
-                    {/* Table Count Configuration */}
-                    {tableSettings.table_setup_enabled && (
-                      <div className="p-4 bg-teal-50 border border-teal-200 rounded-lg">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Number of Tables
-                        </label>
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="number"
-                            min="1"
-                            max="100"
-                            value={tableSettings.table_count}
-                            onChange={(e) => setTableSettings({
-                              ...tableSettings, 
-                              table_count: parseInt(e.target.value) || 1
-                            })}
-                            className="w-24 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none text-center font-medium"
-                          />
-                          <div className="flex-1">
-                            <p className="text-sm text-gray-600">
-                              Tables will be numbered 1 to {tableSettings.table_count}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              Range: 1-100 tables
-                            </p>
-                          </div>
-                        </div>
-                        
-                        {/* Preview */}
-                        <div className="mt-3 p-3 bg-white border border-teal-200 rounded-lg">
-                          <p className="text-xs font-medium text-gray-700 mb-2">Preview:</p>
-                          <div className="grid grid-cols-6 gap-1">
-                            {Array.from({ length: Math.min(tableSettings.table_count, 12) }, (_, i) => (
-                              <div
-                                key={i + 1}
-                                className="w-8 h-8 bg-teal-100 border border-teal-300 rounded flex items-center justify-center text-xs font-medium text-teal-700"
-                              >
-                                {i + 1}
-                              </div>
-                            ))}
-                            {tableSettings.table_count > 12 && (
-                              <div className="w-8 h-8 bg-gray-100 border border-gray-300 rounded flex items-center justify-center text-xs text-gray-500">
-                                ...
-                              </div>
-                            )}
-                          </div>
-                          {tableSettings.table_count > 12 && (
-                            <p className="text-xs text-gray-500 mt-2">
-                              Showing first 12 of {tableSettings.table_count} tables
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Information Box */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <div className="flex items-start gap-2">
-                        <AlertCircle size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
-                        <div className="text-sm text-blue-800">
-                          <p className="font-medium mb-1">How Table Setup Works:</p>
-                          <ul className="text-xs space-y-1 ml-2">
-                            <li>• When enabled, customers must select their table number before ordering</li>
-                            <li>• Orders will be linked to the selected table for easy identification</li>
-                            <li>• Staff can see which table each order came from</li>
-                            <li>• When disabled, customers can order without table selection</li>
-                          </ul>
-                        </div>
+                  {/* Status Information */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm text-blue-800">
+                        <p className="font-medium mb-1">Receipt Capture Status</p>
+                        <ul className="text-xs space-y-1">
+                          <li>• TabezaConnect: Ready for setup</li>
+                          <li>• Template Engine: Available</li>
+                          <li>• AI Parsing: DeepSeek integration active</li>
+                        </ul>
                       </div>
                     </div>
                   </div>
-
-                  <button
-                    onClick={handleSaveTableSettings}
-                    disabled={savingTableSettings}
-                    className="w-full mt-4 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 flex items-center justify-center gap-2"
-                  >
-                    <Save size={20} />
-                    {savingTableSettings ? 'Saving...' : 'Save Table Settings'}
-                  </button>
                 </div>
               </div>
+
+              <button
+                onClick={() => window.open('/receipt-capture', '_blank')}
+                className="w-full mt-4 bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 flex items-center justify-center gap-2"
+              >
+                <Settings size={20} />
+                Open Receipt Capture Dashboard
+              </button>
             </>
           )}
 
           {/* Payments Tab Content */}
           {!isNewUser && activeTab === 'payments' && (
             <>
-
               {/* Payment Settings Section */}
               <div className="bg-white rounded-xl shadow-sm p-4">
                 <div className="flex items-center gap-3 mb-4">
@@ -2585,7 +2423,6 @@ export default function SettingsPage() {
           {/* Notifications Tab Content */}
           {!isNewUser && activeTab === 'notifications' && (
             <>
-
               {/* Notifications Section */}
               <div className="bg-white rounded-xl shadow-sm p-4">
                 <div className="flex items-center gap-3 mb-4">
@@ -2821,7 +2658,6 @@ export default function SettingsPage() {
           {/* Operations Tab Content */}
           {!isNewUser && activeTab === 'operations' && (
             <>
-
               {/* Venue Mode Configuration Section */}
               <div className="bg-white rounded-xl shadow-sm p-4">
                 <div className="flex items-center gap-3 mb-4">
@@ -2840,310 +2676,315 @@ export default function SettingsPage() {
                           : 'text-green-600'
                     } />
                   </div>
-                  <div className={`border-2 rounded-lg p-4 ${
-                    venueMode === 'basic' 
-                      ? 'bg-blue-50 border-blue-200' 
-                      : venueMode === 'venue' && authorityMode === 'pos'
-                        ? 'bg-yellow-50 border-yellow-200'
-                        : 'bg-green-50 border-green-200'
-                  }`}>
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                          venueMode === 'basic' 
-                            ? 'bg-blue-100' 
-                            : venueMode === 'venue' && authorityMode === 'pos'
-                              ? 'bg-yellow-100'
-                              : 'bg-green-100'
-                        }`}>
-                          {venueMode === 'basic' ? (
-                            <Printer size={24} className="text-blue-600" />
-                          ) : venueMode === 'venue' && authorityMode === 'pos' ? (
-                            <div className="flex items-center gap-1">
-                              <Menu size={12} className="text-yellow-600" />
-                              <Printer size={12} className="text-yellow-600" />
-                            </div>
-                          ) : (
-                            <Menu size={24} className="text-green-600" />
-                          )}
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-gray-800 text-lg">
-                            {venueMode === 'basic' ? 'Tabeza Basic' : 'Tabeza Venue'}
-                          </h4>
-                          <p className="text-sm text-gray-600">
-                            {venueMode === 'basic' 
-                              ? 'Transaction & Receipt Bridge' 
-                              : authorityMode === 'pos'
-                                ? 'Customer Interaction + POS Integration'
-                                : 'Full Service Platform'
-                            }
-                          </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <div className={`w-2 h-2 rounded-full ${
-                              venueMode === 'basic' 
-                                ? 'bg-blue-500' 
-                                : venueMode === 'venue' && authorityMode === 'pos'
-                                  ? 'bg-yellow-500'
-                                  : 'bg-green-500'
-                            }`}></div>
-                            <span className="text-xs text-gray-500">
-                              {venueMode === 'basic' 
-                                ? 'POS-Authoritative Mode' 
-                                : authorityMode === 'pos'
-                                  ? 'Hybrid POS Integration'
-                                  : 'Tabeza-Authoritative Mode'
-                              }
-                            </span>
+                  <div>
+                    <h3 className="font-bold text-gray-800">Venue Mode Configuration</h3>
+                    <p className="text-sm text-gray-500">Configure how your venue operates with Tabeza</p>
+                  </div>
+                </div>
+
+                <div className={`border-2 rounded-lg p-4 mb-4 ${
+                  venueMode === 'basic' 
+                    ? 'bg-blue-50 border-blue-200' 
+                    : venueMode === 'venue' && authorityMode === 'pos'
+                      ? 'bg-yellow-50 border-yellow-200'
+                      : 'bg-green-50 border-green-200'
+                }`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                        venueMode === 'basic' 
+                          ? 'bg-blue-100' 
+                          : venueMode === 'venue' && authorityMode === 'pos'
+                            ? 'bg-yellow-100'
+                            : 'bg-green-100'
+                      }`}>
+                        {venueMode === 'basic' ? (
+                          <Printer size={24} className="text-blue-600" />
+                        ) : venueMode === 'venue' && authorityMode === 'pos' ? (
+                          <div className="flex items-center gap-1">
+                            <Menu size={12} className="text-yellow-600" />
+                            <Printer size={12} className="text-yellow-600" />
                           </div>
-                        </div>
+                        ) : (
+                          <Menu size={24} className="text-green-600" />
+                        )}
                       </div>
-                      <button
-                        onClick={() => setShowVenueModeModal(true)}
-                        className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-sm font-medium flex items-center gap-2"
-                      >
-                        <Edit2 size={16} />
-                        Change Configuration
-                      </button>
-                    </div>
-
-                    {/* Enhanced Configuration Details */}
-                    <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                      <div className="flex items-center justify-between p-2 bg-white rounded border">
-                        <span className="text-gray-600">Venue Mode:</span>
-                        <span className={`font-medium px-2 py-1 rounded text-xs ${
-                          venueMode === 'basic' 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-green-100 text-green-800'
-                        }`}>
-                          {venueMode === 'basic' ? 'Basic' : 'Venue'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between p-2 bg-white rounded border">
-                        <span className="text-gray-600">Order Authority:</span>
-                        <span className={`font-medium px-2 py-1 rounded text-xs ${
-                          authorityMode === 'pos' 
-                            ? 'bg-orange-100 text-orange-800' 
-                            : 'bg-green-100 text-green-800'
-                        }`}>
-                          {authorityMode === 'pos' ? 'POS System' : 'Tabeza'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between p-2 bg-white rounded border">
-                        <span className="text-gray-600">POS Integration:</span>
-                        <span className={`font-medium px-2 py-1 rounded text-xs ${
-                          posIntegrationEnabled 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-gray-100 text-gray-600'
-                        }`}>
-                          {posIntegrationEnabled ? 'Enabled' : 'Disabled'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between p-2 bg-white rounded border">
-                        <span className="text-gray-600">Printer Required:</span>
-                        <span className={`font-medium px-2 py-1 rounded text-xs ${
-                          printerRequired 
-                            ? 'bg-orange-100 text-orange-800' 
-                            : 'bg-gray-100 text-gray-600'
-                        }`}>
-                          {printerRequired ? 'Required' : 'Optional'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Enhanced Feature Status */}
-                    <div className="mb-4">
-                      <h5 className="font-medium text-gray-800 mb-2">Feature Status</h5>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div className="flex items-center gap-2">
-                          {venueMode === 'venue' ? (
-                            <Check size={14} className="text-green-600" />
-                          ) : (
-                            <X size={14} className="text-red-500" />
-                          )}
-                          <span className={venueMode === 'venue' ? 'text-green-700' : 'text-red-600'}>
-                            Customer Menus
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {venueMode === 'venue' && authorityMode === 'tabeza' ? (
-                            <Check size={14} className="text-green-600" />
-                          ) : venueMode === 'venue' && authorityMode === 'pos' ? (
-                            <AlertCircle size={14} className="text-yellow-600" />
-                          ) : (
-                            <X size={14} className="text-red-500" />
-                          )}
-                          <span className={
-                            venueMode === 'venue' && authorityMode === 'tabeza' 
-                              ? 'text-green-700' 
+                      <div>
+                        <h4 className="font-semibold text-gray-800 text-lg">
+                          {venueMode === 'basic' ? 'Tabeza Basic' : 'Tabeza Venue'}
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          {venueMode === 'basic' 
+                            ? 'Transaction & Receipt Bridge' 
+                            : authorityMode === 'pos'
+                              ? 'Customer Interaction + POS Integration'
+                              : 'Full Service Platform'
+                          }
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className={`w-2 h-2 rounded-full ${
+                            venueMode === 'basic' 
+                              ? 'bg-blue-500' 
                               : venueMode === 'venue' && authorityMode === 'pos'
-                                ? 'text-yellow-700'
-                                : 'text-red-600'
-                          }>
-                            Customer Ordering
-                            {venueMode === 'venue' && authorityMode === 'pos' && (
-                              <span className="ml-1 text-xs">(Requests)</span>
-                            )}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {venueMode === 'venue' && authorityMode === 'tabeza' ? (
-                            <Check size={14} className="text-green-600" />
-                          ) : (
-                            <X size={14} className="text-red-500" />
-                          )}
-                          <span className={
-                            venueMode === 'venue' && authorityMode === 'tabeza' 
-                              ? 'text-green-700' 
-                              : 'text-red-600'
-                          }>
-                            Staff Ordering
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {printerRequired ? (
-                            <AlertCircle size={14} className="text-orange-600" />
-                          ) : (
-                            <Check size={14} className="text-green-600" />
-                          )}
-                          <span className={printerRequired ? 'text-orange-700' : 'text-green-700'}>
-                            Printer Setup
-                            {printerRequired && (
-                              <span className="ml-1 text-xs">(Required)</span>
-                            )}
+                                ? 'bg-yellow-500'
+                                : 'bg-green-500'
+                          }`}></div>
+                          <span className="text-xs text-gray-500">
+                            {venueMode === 'basic' 
+                              ? 'POS-Authoritative Mode' 
+                              : authorityMode === 'pos'
+                                ? 'Hybrid POS Integration'
+                                : 'Tabeza-Authoritative Mode'
+                            }
                           </span>
                         </div>
                       </div>
                     </div>
+                    <button
+                      onClick={() => setShowVenueModeModal(true)}
+                      className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-sm font-medium flex items-center gap-2"
+                    >
+                      <Edit2 size={16} />
+                      Change Configuration
+                    </button>
+                  </div>
 
-                    {/* Enhanced Workflow Description */}
-                    <div className="p-3 bg-white rounded-lg border">
-                      <div className="flex items-start gap-2">
-                        <ArrowRight size={16} className="text-gray-500 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-800 mb-1">Current Workflow:</p>
-                          <p className="text-sm text-gray-700">
-                            {venueMode === 'basic' 
-                              ? 'POS creates orders → Tabeza mirrors receipts → Digital delivery to customers'
-                              : authorityMode === 'pos'
-                                ? 'Customers browse menus → Send requests → Staff confirms in POS → Tabeza delivers receipts'
-                                : 'Customers browse menus → Place orders → Staff confirms in Tabeza → Digital receipts generated'
-                            }
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            <strong>Core Truth:</strong> Manual service always exists. Digital authority is singular.
-                          </p>
-                        </div>
+                  {/* Enhanced Configuration Details */}
+                  <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                    <div className="flex items-center justify-between p-2 bg-white rounded border">
+                      <span className="text-gray-600">Venue Mode:</span>
+                      <span className={`font-medium px-2 py-1 rounded text-xs ${
+                        venueMode === 'basic' 
+                          ? 'bg-blue-100 text-blue-800' 
+                          : 'bg-green-100 text-green-800'
+                      }`}>
+                        {venueMode === 'basic' ? 'Basic' : 'Venue'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-white rounded border">
+                      <span className="text-gray-600">Order Authority:</span>
+                      <span className={`font-medium px-2 py-1 rounded text-xs ${
+                        authorityMode === 'pos' 
+                          ? 'bg-orange-100 text-orange-800' 
+                          : 'bg-green-100 text-green-800'
+                      }`}>
+                        {authorityMode === 'pos' ? 'POS System' : 'Tabeza'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-white rounded border">
+                      <span className="text-gray-600">POS Integration:</span>
+                      <span className={`font-medium px-2 py-1 rounded text-xs ${
+                        posIntegrationEnabled 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {posIntegrationEnabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-white rounded border">
+                      <span className="text-gray-600">Printer Required:</span>
+                      <span className={`font-medium px-2 py-1 rounded text-xs ${
+                        printerRequired 
+                          ? 'bg-orange-100 text-orange-800' 
+                          : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {printerRequired ? 'Required' : 'Optional'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Enhanced Feature Status */}
+                  <div className="mb-4">
+                    <h5 className="font-medium text-gray-800 mb-2">Feature Status</h5>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        {venueMode === 'venue' ? (
+                          <Check size={14} className="text-green-600" />
+                        ) : (
+                          <X size={14} className="text-red-500" />
+                        )}
+                        <span className={venueMode === 'venue' ? 'text-green-700' : 'text-red-600'}>
+                          Customer Menus
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {venueMode === 'venue' && authorityMode === 'tabeza' ? (
+                          <Check size={14} className="text-green-600" />
+                        ) : venueMode === 'venue' && authorityMode === 'pos' ? (
+                          <AlertCircle size={14} className="text-yellow-600" />
+                        ) : (
+                          <X size={14} className="text-red-500" />
+                        )}
+                        <span className={
+                          venueMode === 'venue' && authorityMode === 'tabeza' 
+                            ? 'text-green-700' 
+                            : venueMode === 'venue' && authorityMode === 'pos'
+                              ? 'text-yellow-700'
+                              : 'text-red-600'
+                        }>
+                          Customer Ordering
+                          {venueMode === 'venue' && authorityMode === 'pos' && (
+                            <span className="ml-1 text-xs">(Requests)</span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {venueMode === 'venue' && authorityMode === 'tabeza' ? (
+                          <Check size={14} className="text-green-600" />
+                        ) : (
+                          <X size={14} className="text-red-500" />
+                        )}
+                        <span className={
+                          venueMode === 'venue' && authorityMode === 'tabeza' 
+                            ? 'text-green-700' 
+                            : 'text-red-600'
+                        }>
+                          Staff Ordering
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {printerRequired ? (
+                          <AlertCircle size={14} className="text-orange-600" />
+                        ) : (
+                          <Check size={14} className="text-green-600" />
+                        )}
+                        <span className={printerRequired ? 'text-orange-700' : 'text-green-700'}>
+                          Printer Setup
+                          {printerRequired && (
+                            <span className="ml-1 text-xs">(Required)</span>
+                          )}
+                        </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Enhanced Configuration Warnings and Requirements */}
-                  {venueMode === 'basic' && (
-                    <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <Printer size={16} className="text-blue-600" />
-                        </div>
-                        <div className="text-sm text-blue-800">
-                          <p className="font-semibold mb-2">🔵 Basic Mode Requirements</p>
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 bg-blue-600 rounded-full"></div>
-                              <span>Thermal printer must be configured and connected</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 bg-blue-600 rounded-full"></div>
-                              <span>POS system must be operational for order creation</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 bg-blue-600 rounded-full"></div>
-                              <span>Customer ordering and menus are disabled</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 bg-blue-600 rounded-full"></div>
-                              <span>Staff ordering in Tabeza is disabled</span>
-                            </div>
-                          </div>
-                          <div className="mt-3 p-2 bg-blue-100 rounded border border-blue-300">
-                            <p className="text-xs font-medium">Ideal for: Established venues with existing POS systems</p>
-                          </div>
-                        </div>
+                  {/* Enhanced Workflow Description */}
+                  <div className="p-3 bg-white rounded-lg border">
+                    <div className="flex items-start gap-2">
+                      <ArrowRight size={16} className="text-gray-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-800 mb-1">Current Workflow:</p>
+                        <p className="text-sm text-gray-700">
+                          {venueMode === 'basic' 
+                            ? 'POS creates orders → Tabeza mirrors receipts → Digital delivery to customers'
+                            : authorityMode === 'pos'
+                              ? 'Customers browse menus → Send requests → Staff confirms in POS → Tabeza delivers receipts'
+                              : 'Customers browse menus → Place orders → Staff confirms in Tabeza → Digital receipts generated'
+                          }
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          <strong>Core Truth:</strong> Manual service always exists. Digital authority is singular.
+                        </p>
                       </div>
                     </div>
-                  )}
-
-                  {venueMode === 'venue' && authorityMode === 'pos' && (
-                    <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <div className="flex items-center gap-0.5">
-                            <Menu size={8} className="text-yellow-600" />
-                            <Printer size={8} className="text-yellow-600" />
-                          </div>
-                        </div>
-                        <div className="text-sm text-yellow-800">
-                          <p className="font-semibold mb-2">🟡 Hybrid POS Integration Mode</p>
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 bg-yellow-600 rounded-full"></div>
-                              <span>Customers can browse menus and send order requests</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 bg-yellow-600 rounded-full"></div>
-                              <span>All orders must be confirmed in your POS system</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 bg-yellow-600 rounded-full"></div>
-                              <span>Staff ordering in Tabeza is disabled</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 bg-yellow-600 rounded-full"></div>
-                              <span>Receipts originate from POS and are mirrored digitally</span>
-                            </div>
-                          </div>
-                          <div className="mt-3 p-2 bg-yellow-100 rounded border border-yellow-300">
-                            <p className="text-xs font-medium">Best for: Venues wanting customer interaction while keeping existing POS workflows</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {venueMode === 'venue' && authorityMode === 'tabeza' && (
-                    <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <Menu size={16} className="text-green-600" />
-                        </div>
-                        <div className="text-sm text-green-800">
-                          <p className="font-semibold mb-2">🟢 Full Tabeza Mode</p>
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div>
-                              <span>Complete customer ordering system with menus</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div>
-                              <span>Staff can manage orders directly in Tabeza</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div>
-                              <span>Digital receipts and payment processing</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div>
-                              <span>No POS system required</span>
-                            </div>
-                          </div>
-                          <div className="mt-3 p-2 bg-green-100 rounded border border-green-300">
-                            <p className="text-xs font-medium">Perfect for: New venues or those wanting to replace their POS system</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  </div>
                 </div>
+
+                {/* Enhanced Configuration Warnings and Requirements */}
+                {venueMode === 'basic' && (
+                  <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Printer size={16} className="text-blue-600" />
+                      </div>
+                      <div className="text-sm text-blue-800">
+                        <p className="font-semibold mb-2">🔵 Basic Mode Requirements</p>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-blue-600 rounded-full"></div>
+                            <span>Thermal printer must be configured and connected</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-blue-600 rounded-full"></div>
+                            <span>POS system must be operational for order creation</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-blue-600 rounded-full"></div>
+                            <span>Customer ordering and menus are disabled</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-blue-600 rounded-full"></div>
+                            <span>Staff ordering in Tabeza is disabled</span>
+                          </div>
+                        </div>
+                        <div className="mt-3 p-2 bg-blue-100 rounded border border-blue-300">
+                          <p className="text-xs font-medium">Ideal for: Established venues with existing POS systems</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {venueMode === 'venue' && authorityMode === 'pos' && (
+                  <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <div className="flex items-center gap-0.5">
+                          <Menu size={8} className="text-yellow-600" />
+                          <Printer size={8} className="text-yellow-600" />
+                        </div>
+                      </div>
+                      <div className="text-sm text-yellow-800">
+                        <p className="font-semibold mb-2">🟡 Hybrid POS Integration Mode</p>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-yellow-600 rounded-full"></div>
+                            <span>Customers can browse menus and send order requests</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-yellow-600 rounded-full"></div>
+                            <span>All orders must be confirmed in your POS system</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-yellow-600 rounded-full"></div>
+                            <span>Staff ordering in Tabeza is disabled</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-yellow-600 rounded-full"></div>
+                            <span>Receipts originate from POS and are mirrored digitally</span>
+                          </div>
+                        </div>
+                        <div className="mt-3 p-2 bg-yellow-100 rounded border border-yellow-300">
+                          <p className="text-xs font-medium">Best for: Venues wanting customer interaction while keeping existing POS workflows</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {venueMode === 'venue' && authorityMode === 'tabeza' && (
+                  <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Menu size={16} className="text-green-600" />
+                      </div>
+                      <div className="text-sm text-green-800">
+                        <p className="font-semibold mb-2">🟢 Full Tabeza Mode</p>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div>
+                            <span>Complete customer ordering system with menus</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div>
+                            <span>Staff can manage orders directly in Tabeza</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div>
+                            <span>Digital receipts and payment processing</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div>
+                            <span>No POS system required</span>
+                          </div>
+                        </div>
+                        <div className="mt-3 p-2 bg-green-100 rounded border border-green-300">
+                          <p className="text-xs font-medium">Perfect for: New venues or those wanting to replace their POS system</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Business Hours Section */}
@@ -3340,15 +3181,15 @@ export default function SettingsPage() {
                 </button>
               </div>
 
-              {/* Table Setup Section */}
+              {/* Table Setup Section - MOVED FROM VENUE TAB */}
               <div className="bg-white rounded-xl shadow-sm p-4">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-2 bg-teal-100 rounded-lg">
                     <Grid3X3 size={20} className="text-teal-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800">POS Setup</h3>
-                    <p className="text-sm text-gray-500">Configure your POS integration and receipt capture</p>
+                    <h3 className="font-bold text-gray-800">Table Setup</h3>
+                    <p className="text-sm text-gray-500">Configure table requirements for customers</p>
                   </div>
                 </div>
 

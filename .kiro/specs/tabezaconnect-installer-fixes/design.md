@@ -1,595 +1,673 @@
-# TabezaConnect Installer Fixes - Design
+# Design Document: TabezaConnect v1.6.1 Installer Bugfixes
 
 ## Overview
-This design addresses critical installer issues preventing successful deployment of TabezaConnect v1.2.0. The solution focuses on fixing admin rights handling, adding terms acceptance, improving branding, and handling antivirus interference.
+
+This design addresses five critical bugs in the TabezaConnect v1.6.1 installer that prevent complete installation tracking and proper configuration. The installer currently has working core functionality (service starts, printer registers in Supabase), but specific components need fixes:
+
+1. **configure-bridge.ps1**: Remove port creation code (regression from working approach)
+2. **Status tracking**: Add write-status.ps1 calls to all scripts (only step 1 currently writes)
+3. **config.json update**: Fix driverId field not being added despite successful API registration
+4. **Installation UI**: Add Inno Setup progress page to show real-time installation status
+5. **Upgrade handling**: Preserve configuration and prevent duplicate resources on reinstall
+
+The design maintains the silent bridge architecture where POS prints to a folder port, the bridge captures and uploads receipts, then forwards to the physical printer (POS authority).
 
 ## Architecture
 
-### Current Installer Stack
-- **Inno Setup 6.x**: Windows installer compiler
-- **Node.js Service**: TabezaConnect background service
-- **Windows Service Wrapper**: NSSM or similar for service management
-- **Configuration**: JSON config file with Bar ID
+### System Components
 
-### Installation Flow
 ```
-User Downloads Installer
-    ↓
-Run as Administrator (UAC Prompt)
-    ↓
-Welcome Screen
-    ↓
-Terms & Conditions Acceptance ← NEW
-    ↓
-Bar ID Input
-    ↓
-Install Files
-    ↓
-Configure Service
-    ↓
-Start Service
-    ↓
-Completion
+Inno Setup Installer
+├── [Files] Section → Copy executables and scripts
+├── [Run] Section → Execute PowerShell scripts sequentially
+│   ├── create-folders.ps1 (Step 1)
+│   ├── detect-thermal-printer.ps1 (Step 2)
+│   ├── configure-bridge.ps1 (Step 3) ← FIX NEEDED
+│   ├── register-service-pkg.ps1 (Step 4)
+│   ├── check-service-started.ps1 (Step 5) ← FIX NEEDED
+│   ├── register-printer-with-api.ps1 (Step 6)
+│   └── verify-bridge.ps1 (Step 7) ← FIX NEEDED
+├── [Code] Section → Progress page with real-time updates ← NEW
+└── Status Tracking → installation-status.json
 ```
 
-## Component Design
+### Data Flow
 
-### 1. Admin Rights Handling
-
-#### Problem Analysis
-The "Error 5: Access is denied" occurs when:
-- Installer tries to write to protected directories without proper elevation
-- Temp directory is locked by antivirus
-- UAC elevation is not properly requested
-- Installer runs with insufficient privileges
-
-#### Solution: Proper UAC Elevation
-
-**Inno Setup Configuration:**
-```pascal
-[Setup]
-; Request admin privileges
-PrivilegesRequired=admin
-PrivilegesRequiredOverridesAllowed=dialog
-
-; Use system temp directory with fallback
-UsePreviousAppDir=yes
-DirExistsWarning=auto
-
-; Disable directory page for simpler flow
-DisableDirPage=no
-DefaultDirName={autopf}\TabezaConnect
-
-; Compression settings
-Compression=lzma2
-SolidCompression=yes
+```
+Installation Start
+    ↓
+[Progress Page Displayed] ← NEW
+    ↓
+Step 1: create-folders.ps1
+    → Creates C:\TabezaPrints\
+    → Calls write-status.ps1 ← FIX: Add this call
+    ↓
+Step 2: detect-thermal-printer.ps1
+    → Detects thermal printer
+    → Saves to detected-printer.json
+    → Calls write-status.ps1 ← FIX: Add this call
+    ↓
+Step 3: configure-bridge.ps1
+    → Reads detected-printer.json
+    → Creates folder port ← FIX: Remove port creation code
+    → Configures printer to use folder port
+    → Writes printer name to config.json ← FIX: Add forwarding target
+    → Restarts print spooler
+    → Calls write-status.ps1 (already exists)
+    ↓
+Step 4: register-service-pkg.ps1
+    → Registers Windows service
+    → Calls write-status.ps1 (already exists)
+    ↓
+Step 5: check-service-started.ps1
+    → Verifies service is running
+    → Calls write-status.ps1 ← FIX: Add this call
+    ↓
+Step 6: register-printer-with-api.ps1
+    → Generates driverId
+    → Registers with Supabase
+    → Updates config.json with driverId ← FIX: Ensure this works
+    → Calls write-status.ps1 (already exists)
+    ↓
+Step 7: verify-bridge.ps1
+    → Performs test print
+    → Verifies forwarding
+    → Calls write-status.ps1 ← FIX: Add this call
+    ↓
+[Progress Page Shows Summary] ← NEW
+    ↓
+Installation Complete
 ```
 
-**Key Changes:**
-1. `PrivilegesRequired=admin` - Forces UAC elevation
-2. `PrivilegesRequiredOverridesAllowed=dialog` - Shows clear error if user declines
-3. Use `{autopf}` (Program Files) instead of custom directories
-4. Use `{tmp}` for temporary files with proper cleanup
+### Upgrade Flow
 
-#### Temp Directory Handling
-
-**Strategy:**
-```pascal
-[Code]
-function GetSafeTempDir(): String;
-var
-  TempDir: String;
-begin
-  // Try system temp first
-  TempDir := ExpandConstant('{tmp}');
-  
-  // Verify write access
-  if DirExists(TempDir) and IsAdminInstallMode then
-    Result := TempDir
-  else
-    // Fallback to user temp
-    Result := ExpandConstant('{usertmp}');
-end;
+```
+Installer Detects Existing Installation
+    ↓
+Check for existing service
+    → If exists: Stop service
+    ↓
+Check for existing config.json
+    → If exists: Read barId and driverId
+    → Preserve these fields
+    ↓
+Check for existing printer port
+    → If exists: Reuse port name
+    → Don't create duplicate
+    ↓
+Proceed with normal installation
+    → Merge preserved config with new config
+    ↓
+Restart service with preserved configuration
 ```
 
-### 2. Terms and Conditions Acceptance
+## Components and Interfaces
 
-#### UI Design
+### 1. PowerShell Scripts (Fixes)
 
-**Custom Page in Installer:**
-```pascal
-[Code]
-var
-  TermsPage: TOutputMsgMemoWizardPage;
-  AcceptCheckbox: TNewCheckBox;
+#### create-folders.ps1 (Fix)
+**Current State**: Creates folders but doesn't write status
+**Fix Required**: Add write-status.ps1 call at end
 
-procedure InitializeWizard;
-begin
-  // Create terms page after welcome
-  TermsPage := CreateOutputMsgMemoPage(wpWelcome,
-    'Terms of Service and Privacy Policy',
-    'Please review and accept the terms',
-    'By installing Tabeza POS Connect, you agree to our Terms of Service and Privacy Policy.',
-    '');
-  
-  // Add terms text
-  TermsPage.RichEditViewer.Lines.Add('TABEZA POS CONNECT');
-  TermsPage.RichEditViewer.Lines.Add('Terms of Service & Privacy Policy');
-  TermsPage.RichEditViewer.Lines.Add('');
-  TermsPage.RichEditViewer.Lines.Add('Full terms available at: https://tabeza.co.ke/terms');
-  TermsPage.RichEditViewer.Lines.Add('');
-  TermsPage.RichEditViewer.Lines.Add('By installing this software, you agree to:');
-  TermsPage.RichEditViewer.Lines.Add('1. Use the service in accordance with our Terms of Service');
-  TermsPage.RichEditViewer.Lines.Add('2. Allow collection of usage data as described in our Privacy Policy');
-  TermsPage.RichEditViewer.Lines.Add('3. Comply with all applicable laws and regulations');
-  
-  // Add acceptance checkbox
-  AcceptCheckbox := TNewCheckBox.Create(TermsPage);
-  AcceptCheckbox.Parent := TermsPage.Surface;
-  AcceptCheckbox.Top := TermsPage.RichEditViewer.Top + TermsPage.RichEditViewer.Height + 16;
-  AcceptCheckbox.Width := TermsPage.SurfaceWidth;
-  AcceptCheckbox.Caption := 'I accept the Terms of Service and Privacy Policy';
-  AcceptCheckbox.Checked := False;
-end;
-
-function NextButtonClick(CurPageID: Integer): Boolean;
-begin
-  Result := True;
-  
-  // Validate terms acceptance
-  if CurPageID = TermsPage.ID then
-  begin
-    if not AcceptCheckbox.Checked then
-    begin
-      MsgBox('You must accept the Terms of Service and Privacy Policy to continue.', 
-             mbError, MB_OK);
-      Result := False;
-    end;
-  end;
-end;
+```powershell
+# At end of script, add:
+& "$PSScriptRoot\write-status.ps1" -StepNumber 1 -StepName "Folders created" -Success $true -Details "Location: $WatchFolder"
 ```
 
-#### Acceptance Logging
+#### detect-thermal-printer.ps1 (Fix)
+**Current State**: Detects printer but doesn't write status
+**Fix Required**: Add write-status.ps1 call at end
 
-**Log Format:**
-```json
-{
-  "timestamp": "2026-02-19T10:30:00Z",
-  "barId": "bar_abc123",
-  "termsVersion": "v1.0",
-  "installerVersion": "1.2.0",
-  "accepted": true,
-  "ipAddress": "192.168.1.100"
+```powershell
+# At end of script, add:
+& "$PSScriptRoot\write-status.ps1" -StepNumber 2 -StepName "Printer detected" -Success $true -Details "Printer: $printerName"
+```
+
+#### configure-bridge.ps1 (Major Fix)
+**Current State**: Has port creation code that should be removed
+**Fix Required**: 
+1. Remove port creation code (lines attempting to create new port)
+2. Use folder port approach directly
+3. Add printer name to config.json as forwarding target
+
+```powershell
+# REMOVE THIS SECTION (port creation):
+# Write-Host "Creating NULL port..." -ForegroundColor Yellow
+# $portName = "NULL:"
+# Write-Host "  Using built-in NULL port" -ForegroundColor Green
+
+# REPLACE WITH: Use folder port directly
+$portName = "TabezaCapturePort"  # Or whatever port name is configured
+
+# ADD: Write printer name to config for forwarding
+$config = @{
+    barId = $BarId
+    apiUrl = "https://bkaigyrrzsqbfscyznzw.supabase.co"
+    bridge = @{
+        enabled = $true
+        printerName = $printerInfo.printerName  # ← Forwarding target
+        originalPort = $printerInfo.originalPortName
+        captureFolder = $captureFolder
+        tempFolder = $tempFolder
+        autoConfigure = $true
+    }
+    # ... rest of config
 }
 ```
 
-**Implementation:**
-```pascal
-procedure LogTermsAcceptance(BarID: String);
-var
-  LogFile: String;
-  LogContent: String;
-  Timestamp: String;
-begin
-  LogFile := ExpandConstant('{app}\logs\terms-acceptance.log');
-  Timestamp := GetDateTimeString('yyyy-mm-dd hh:nn:ss', #0, #0);
-  
-  LogContent := Format('[%s] Bar ID: %s | Terms v1.0 | Installer v1.2.0 | Accepted', 
-                       [Timestamp, BarID]);
-  
-  SaveStringToFile(LogFile, LogContent + #13#10, True);
-end;
+#### check-service-started.ps1 (Fix)
+**Current State**: Checks service but doesn't write status
+**Fix Required**: Add write-status.ps1 call at end
+
+```powershell
+# At end of script, add:
+if ($service.Status -eq 'Running') {
+    & "$PSScriptRoot\write-status.ps1" -StepNumber 5 -StepName "Service started" -Success $true -Details "Status: Running"
+} else {
+    & "$PSScriptRoot\write-status.ps1" -StepNumber 5 -StepName "Service started" -Success $false -Details "Status: $($service.Status)"
+}
 ```
 
-### 3. Branding Updates
+#### register-printer-with-api.ps1 (Fix)
+**Current State**: Registers printer but driverId not added to config.json
+**Fix Required**: Ensure config.json update preserves existing fields
 
-#### Display Names
+```powershell
+# CURRENT CODE (may have issues):
+$config | Add-Member -NotePropertyName "driverId" -NotePropertyValue $driverId -Force
+$config | ConvertTo-Json -Depth 10 | Set-Content -Path $ConfigFile -Encoding UTF8
 
-**User-Facing (with space):**
-- Application Name: "Tabeza POS Connect"
-- Service Display Name: "Tabeza POS Connect Service"
-- Start Menu Folder: "Tabeza POS Connect"
-- Uninstaller Name: "Tabeza POS Connect"
-
-**Technical (no space):**
-- Executable: `TabezaConnect-Setup-v1.2.0.exe`
-- Service Name: `TabezaConnectService`
-- Install Directory: `C:\Program Files\TabezaConnect`
-- Registry Key: `HKLM\Software\TabezaConnect`
-
-**Inno Setup Configuration:**
-```pascal
-[Setup]
-AppName=Tabeza POS Connect
-AppVersion=1.2.0
-AppPublisher=Tabeza
-AppPublisherURL=https://tabeza.co.ke
-AppSupportURL=https://tabeza.co.ke/support
-AppUpdatesURL=https://github.com/billoapp/TabezaConnect/releases
-
-DefaultDirName={autopf}\TabezaConnect
-DefaultGroupName=Tabeza POS Connect
-UninstallDisplayName=Tabeza POS Connect
-
-OutputBaseFilename=TabezaConnect-Setup-v1.2.0
+# ENSURE THIS WORKS: Read existing config, add driverId, preserve all fields
+$config = Get-Content $ConfigFile | ConvertFrom-Json
+$config | Add-Member -NotePropertyName "driverId" -NotePropertyValue $driverId -Force
+$config | ConvertTo-Json -Depth 10 | Set-Content -Path $ConfigFile -Encoding UTF8
 ```
 
-### 4. Antivirus Compatibility
+#### verify-bridge.ps1 (Fix)
+**Current State**: Verifies installation but doesn't write status
+**Fix Required**: Add write-status.ps1 call at end
 
-#### Strategy: Minimize False Positives
+```powershell
+# At end of script, add:
+& "$PSScriptRoot\write-status.ps1" -StepNumber 7 -StepName "Installation verified" -Success $true -Details "Test print successful"
+```
 
-**Best Practices:**
-1. **Use Standard Patterns**: Follow Windows installer conventions
-2. **Avoid Rapid Operations**: Add small delays between file operations
-3. **Clear Metadata**: Include version info, company name, description
-4. **Retry Logic**: Handle temporary file locks
+### 2. Inno Setup Progress Page (New Component)
 
-**Implementation:**
+**Purpose**: Display real-time installation progress to user
+
+**Implementation**: Use Inno Setup Pascal scripting to create custom progress page
+
 ```pascal
 [Code]
-function InstallFileWithRetry(SourceFile, DestFile: String): Boolean;
 var
-  Retry: Integer;
-  Success: Boolean;
-begin
-  Retry := 0;
-  Success := False;
+  ProgressPage: TOutputProgressWizardPage;
+  StatusLabels: array[1..7] of TNewStaticText;
   
-  while (Retry < 3) and (not Success) do
-  begin
-    try
-      FileCopy(SourceFile, DestFile, False);
-      Success := True;
-    except
-      Retry := Retry + 1;
-      if Retry < 3 then
-        Sleep(1000); // Wait 1 second before retry
-    end;
-  end;
-  
-  Result := Success;
-end;
-```
-
-#### Version Information
-
-**Add to executable metadata:**
-```
-FileVersion: 1.2.0.0
-ProductVersion: 1.2.0
-CompanyName: Tabeza
-FileDescription: Tabeza POS Connect Installer
-ProductName: Tabeza POS Connect
-LegalCopyright: Copyright © 2026 Tabeza
-```
-
-### 5. Bar ID Configuration
-
-#### Input Validation
-
-**Custom Page:**
-```pascal
-var
-  BarIDPage: TInputQueryWizardPage;
-
 procedure InitializeWizard;
 begin
-  // Create Bar ID input page
-  BarIDPage := CreateInputQueryPage(TermsPage.ID,
-    'Venue Configuration',
-    'Enter your Bar ID',
-    'Please enter the Bar ID provided by Tabeza. You can find this in your staff dashboard.');
+  // Create progress page
+  ProgressPage := CreateOutputProgressPage('Installing TabezaConnect', 
+    'Please wait while Setup installs TabezaConnect on your computer.');
   
-  BarIDPage.Add('Bar ID:', False);
+  // Create status labels for each step
+  StatusLabels[1] := TNewStaticText.Create(ProgressPage);
+  StatusLabels[1].Caption := '⏳ Step 1: Creating folders...';
+  StatusLabels[1].Parent := ProgressPage.Surface;
+  
+  // ... repeat for steps 2-7
 end;
 
-function NextButtonClick(CurPageID: Integer): Boolean;
-var
-  BarID: String;
+procedure UpdateStepStatus(StepNumber: Integer; Success: Boolean; StepName: String);
 begin
-  Result := True;
-  
-  if CurPageID = BarIDPage.ID then
+  if Success then
+    StatusLabels[StepNumber].Caption := '✅ Step ' + IntToStr(StepNumber) + ': ' + StepName
+  else
+    StatusLabels[StepNumber].Caption := '❌ Step ' + IntToStr(StepNumber) + ': ' + StepName + ' (FAILED)';
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  StatusFile: String;
+  StatusContent: String;
+  I: Integer;
+begin
+  if CurStep = ssPostInstall then
   begin
-    BarID := Trim(BarIDPage.Values[0]);
+    ProgressPage.Show;
     
-    // Validate Bar ID format
-    if Length(BarID) < 8 then
-    begin
-      MsgBox('Please enter a valid Bar ID. It should be at least 8 characters long.', 
-             mbError, MB_OK);
-      Result := False;
-    end
-    else if Pos(' ', BarID) > 0 then
-    begin
-      MsgBox('Bar ID should not contain spaces.', mbError, MB_OK);
-      Result := False;
-    end;
+    // Poll installation-status.json and update UI
+    StatusFile := ExpandConstant('{commonappdata}\Tabeza\logs\installation-status.json');
+    
+    repeat
+      if FileExists(StatusFile) then
+      begin
+        LoadStringFromFile(StatusFile, StatusContent);
+        // Parse JSON and update status labels
+        // (Simplified - actual implementation needs JSON parsing)
+      end;
+      Sleep(500);  // Poll every 500ms
+    until AllStepsComplete;
+    
+    ProgressPage.Hide;
   end;
 end;
 ```
 
-#### Configuration File
+### 3. Upgrade Handler (New Component)
 
-**Save to JSON:**
+**Purpose**: Detect existing installation and preserve configuration
+
+**Implementation**: Add to Inno Setup [Code] section
+
 ```pascal
-procedure SaveConfiguration(BarID: String);
+function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
-  ConfigFile: String;
-  ConfigContent: String;
+  ExistingConfig: String;
+  ExistingBarId: String;
+  ExistingDriverId: String;
 begin
-  ConfigFile := ExpandConstant('{app}\config.json');
+  Result := '';
   
-  ConfigContent := '{' + #13#10 +
-    '  "barId": "' + BarID + '",' + #13#10 +
-    '  "version": "1.2.0",' + #13#10 +
-    '  "installedAt": "' + GetDateTimeString('yyyy-mm-dd"T"hh:nn:ss"Z"', #0, #0) + '",' + #13#10 +
-    '  "apiUrl": "https://api.tabeza.co.ke"' + #13#10 +
-    '}';
-  
-  SaveStringToFile(ConfigFile, ConfigContent, False);
-end;
-```
-
-### 6. Service Installation
-
-#### Windows Service Setup
-
-**Using NSSM (Non-Sucking Service Manager):**
-```pascal
-[Files]
-Source: "nssm.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
-
-[Run]
-; Install service
-Filename: "{app}\bin\nssm.exe"; Parameters: "install TabezaConnectService ""{app}\bin\node.exe"" ""{app}\service\index.js"""; Flags: runhidden
-; Set service display name
-Filename: "{app}\bin\nssm.exe"; Parameters: "set TabezaConnectService DisplayName ""Tabeza POS Connect Service"""; Flags: runhidden
-; Set service description
-Filename: "{app}\bin\nssm.exe"; Parameters: "set TabezaConnectService Description ""Tabeza POS receipt capture and relay service"""; Flags: runhidden
-; Set startup type to automatic
-Filename: "{app}\bin\nssm.exe"; Parameters: "set TabezaConnectService Start SERVICE_AUTO_START"; Flags: runhidden
-; Start service
-Filename: "{app}\bin\nssm.exe"; Parameters: "start TabezaConnectService"; Flags: runhidden
-```
-
-**Service Configuration:**
-```pascal
-procedure ConfigureService;
-var
-  ResultCode: Integer;
-begin
-  // Set service to restart on failure
-  Exec(ExpandConstant('{app}\bin\nssm.exe'), 
-       'set TabezaConnectService AppExit Default Restart',
-       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  
-  // Set restart delay to 10 seconds
-  Exec(ExpandConstant('{app}\bin\nssm.exe'),
-       'set TabezaConnectService AppRestartDelay 10000',
-       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-end;
-```
-
-### 7. Error Handling
-
-#### User-Friendly Error Messages
-
-**Common Errors:**
-```pascal
-const
-  ERR_ADMIN_REQUIRED = 'Administrator privileges are required to install Tabeza POS Connect. Please right-click the installer and select "Run as administrator".';
-  ERR_DISK_SPACE = 'Insufficient disk space. Please free up at least 100MB and try again.';
-  ERR_ANTIVIRUS = 'Installation was blocked by antivirus software. Please temporarily disable your antivirus or add an exception for the installer.';
-  ERR_SERVICE_START = 'The service was installed but failed to start. Please check Windows Event Viewer for details or contact support@tabeza.co.ke';
-
-function HandleInstallError(ErrorCode: Integer): String;
-begin
-  case ErrorCode of
-    5: Result := ERR_ADMIN_REQUIRED;
-    112: Result := ERR_DISK_SPACE;
-    else
-      Result := Format('Installation failed with error code %d. Please contact support@tabeza.co.ke', [ErrorCode]);
+  // Check for existing service
+  if ServiceExists('TabezaConnect') then
+  begin
+    // Stop service
+    Exec('sc.exe', 'stop TabezaConnect', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Sleep(2000);
   end;
+  
+  // Check for existing config
+  ExistingConfig := ExpandConstant('{commonappdata}\Tabeza\config.json');
+  if FileExists(ExistingConfig) then
+  begin
+    // Read and preserve barId and driverId
+    // (Simplified - actual implementation needs JSON parsing)
+    // Store in global variables for later use
+  end;
+  
+  // Check for existing printer port
+  // (Would need PowerShell call to check)
 end;
 ```
 
-## Data Flow
+## Data Models
 
-### Installation Process
+### installation-status.json
 
+```json
+[
+  {
+    "step": 1,
+    "name": "Folders created",
+    "success": true,
+    "details": "Location: C:\\TabezaPrints",
+    "timestamp": "2025-01-15 10:30:15"
+  },
+  {
+    "step": 2,
+    "name": "Printer detected",
+    "success": true,
+    "details": "Printer: EPSON TM-T20III",
+    "timestamp": "2025-01-15 10:30:18"
+  },
+  {
+    "step": 3,
+    "name": "Bridge configured",
+    "success": true,
+    "details": "Printer: EPSON TM-T20III",
+    "timestamp": "2025-01-15 10:30:25"
+  },
+  {
+    "step": 4,
+    "name": "Service registered",
+    "success": true,
+    "details": "Service: TabezaConnect",
+    "timestamp": "2025-01-15 10:30:30"
+  },
+  {
+    "step": 5,
+    "name": "Service started",
+    "success": true,
+    "details": "Status: Running",
+    "timestamp": "2025-01-15 10:30:35"
+  },
+  {
+    "step": 6,
+    "name": "Printer registered with Tabeza API",
+    "success": true,
+    "details": "Driver ID: driver-DESKTOP-ABC123-20250115103040",
+    "timestamp": "2025-01-15 10:30:40"
+  },
+  {
+    "step": 7,
+    "name": "Installation verified",
+    "success": true,
+    "details": "Test print successful",
+    "timestamp": "2025-01-15 10:30:45"
+  }
+]
 ```
-1. User Downloads Installer
-   ↓
-2. UAC Elevation Request
-   ↓ (if declined)
-   └→ Show ERR_ADMIN_REQUIRED
-   
-3. Welcome Screen
-   ↓
-4. Terms & Conditions Page
-   ↓ (if not accepted)
-   └→ Block Next button
-   
-5. Bar ID Input Page
-   ↓ (validate format)
-   └→ Show validation error if invalid
-   
-6. Installation Progress
-   - Extract files to Program Files
-   - Create config.json with Bar ID
-   - Log terms acceptance
-   - Install Windows service
-   - Configure service settings
-   ↓ (on error)
-   └→ Show specific error message
-   
-7. Service Start
-   ↓ (verify running)
-   └→ Show ERR_SERVICE_START if failed
-   
-8. Completion Screen
-   - Show success message
-   - Provide next steps
-   - Link to dashboard
+
+### config.json (Updated Structure)
+
+```json
+{
+  "barId": "438c80c1-fe11-4ac5-8a48-2fc45104ba31",
+  "driverId": "driver-DESKTOP-ABC123-20250115103040",
+  "apiUrl": "https://bkaigyrrzsqbfscyznzw.supabase.co",
+  "bridge": {
+    "enabled": true,
+    "printerName": "EPSON TM-T20III",
+    "originalPort": "USB001",
+    "captureFolder": "C:\\TabezaPrints",
+    "tempFolder": "C:\\TabezaPrints\\temp",
+    "autoConfigure": true
+  },
+  "service": {
+    "name": "TabezaConnect",
+    "displayName": "Tabeza POS Connect",
+    "description": "Captures receipt data from POS and syncs with Tabeza staff app",
+    "port": 8765
+  },
+  "sync": {
+    "intervalSeconds": 30,
+    "retryAttempts": 3,
+    "retryDelaySeconds": 60
+  }
+}
 ```
 
-## Testing Strategy
+**Key Changes**:
+- Added `driverId` at root level (for API identification)
+- `bridge.printerName` is the forwarding target (physical printer)
+- `bridge.originalPort` preserved for reference
 
-### Test Cases
+### detected-printer.json
 
-#### 1. Admin Rights
-- **TC1.1**: Install with admin rights → Success
-- **TC1.2**: Install without admin rights → Clear error message
-- **TC1.3**: Install on locked directory → Retry logic works
+```json
+{
+  "printerName": "EPSON TM-T20III",
+  "originalPortName": "USB001",
+  "driverName": "EPSON TM-T20III Receipt",
+  "status": "Normal",
+  "timestamp": "2025-01-15T10:30:18.123Z"
+}
+```
 
-#### 2. Terms Acceptance
-- **TC2.1**: Try to proceed without accepting → Blocked
-- **TC2.2**: Accept terms → Installation proceeds
-- **TC2.3**: Terms logged correctly → Verify log file
-
-#### 3. Bar ID Validation
-- **TC3.1**: Enter valid Bar ID → Accepted
-- **TC3.2**: Enter short Bar ID → Validation error
-- **TC3.3**: Enter Bar ID with spaces → Validation error
-- **TC3.4**: Configuration saved correctly → Verify config.json
-
-#### 4. Branding
-- **TC4.1**: Check Programs list → Shows "Tabeza POS Connect"
-- **TC4.2**: Check Start menu → Shows "Tabeza POS Connect"
-- **TC4.3**: Check service name → Shows "Tabeza POS Connect Service"
-- **TC4.4**: Check install directory → Uses "TabezaConnect"
-
-#### 5. Service Installation
-- **TC5.1**: Service installs successfully → Verify in Services
-- **TC5.2**: Service starts automatically → Check status
-- **TC5.3**: Service survives reboot → Restart and verify
-
-#### 6. Antivirus Compatibility
-- **TC6.1**: Install with Windows Defender → Success
-- **TC6.2**: Install with Avast → Success (may show warning)
-- **TC6.3**: Retry logic handles temporary locks → Success
 
 ## Correctness Properties
 
-### Property 1: Admin Elevation Requirement
-**Property**: Installation MUST fail gracefully if admin rights are not granted
-```
-∀ installation_attempt:
-  IF NOT has_admin_rights(installation_attempt)
-  THEN installation_fails_with_clear_message(installation_attempt)
-```
+*A property is a characteristic or behavior that should hold true across all valid executions of a system-essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
 
-**Validates**: Requirements 1.1
+### Property 1: Complete Installation Status Tracking
 
-### Property 2: Terms Acceptance Requirement
-**Property**: Installation CANNOT proceed without terms acceptance
-```
-∀ installation_attempt:
-  IF NOT terms_accepted(installation_attempt)
-  THEN cannot_proceed_past_terms_page(installation_attempt)
-```
+*For any* complete installation run, the installation-status.json file should contain exactly 7 status entries (one for each step)
 
-**Validates**: Requirements 2.1
+**Validates: Requirements 2.8**
 
-### Property 3: Bar ID Validation
-**Property**: Only valid Bar IDs are accepted
-```
-∀ bar_id:
-  IF length(bar_id) < 8 OR contains_spaces(bar_id)
-  THEN validation_fails(bar_id)
-```
+### Property 2: Config Field Preservation on Update
 
-**Validates**: User Story 1
+*For any* existing config.json with fields (barId, apiUrl, bridge, service, sync, driverId), updating the config should preserve all existing fields with their original values
 
-### Property 4: Service Installation Success
-**Property**: Service MUST be installed and running after successful installation
-```
-∀ successful_installation:
-  service_exists("TabezaConnectService") AND
-  service_status("TabezaConnectService") = "Running"
-```
+**Validates: Requirements 3.3, 7.2**
 
-**Validates**: User Story 1
+## Error Handling
 
-### Property 5: Configuration Persistence
-**Property**: Bar ID and terms acceptance MUST be persisted
-```
-∀ installation:
-  IF installation_complete(installation)
-  THEN config_file_exists(installation) AND
-       terms_log_exists(installation) AND
-       bar_id_matches(installation)
+### Script-Level Error Handling
+
+Each PowerShell script must:
+1. Use `try-catch` blocks around all operations
+2. Write error details to installation-status.json on failure
+3. Exit with code 1 on critical failures (steps 1-5)
+4. Exit with code 0 on non-critical failures (steps 6-7) to allow installation to continue
+
+Example error handling pattern:
+
+```powershell
+try {
+    # Script operations
+    
+    # Success status write
+    & "$PSScriptRoot\write-status.ps1" -StepNumber X -StepName "Step name" -Success $true -Details "Success details"
+    exit 0
+    
+} catch {
+    # Error status write
+    & "$PSScriptRoot\write-status.ps1" -StepNumber X -StepName "Step name" -Success $false -Details $_.Exception.Message
+    
+    # Exit with appropriate code
+    if ($IsCriticalStep) {
+        exit 1  # Stop installation
+    } else {
+        exit 0  # Continue installation
+    }
+}
 ```
 
-**Validates**: Requirements 2.2
+### Installer-Level Error Handling
 
-## Security Considerations
+Inno Setup [Run] section must:
+1. Check exit codes from each script
+2. Stop installation if critical step fails (exit code 1)
+3. Continue installation if non-critical step fails (exit code 0 with error logged)
+4. Display error summary on progress page
 
-### 1. Bar ID Storage
-- Store in plain text config file (acceptable for MVP)
-- File permissions: Read-only for non-admin users
-- Future: Encrypt sensitive configuration
+```pascal
+[Run]
+Filename: "powershell.exe"; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\create-folders.ps1"""; \
+  StatusMsg: "Creating folders..."; \
+  Flags: runhidden waituntilterminated; \
+  Check: CheckPreviousStepSuccess; \
+  Components: core
+```
 
-### 2. Terms Acceptance Logging
-- Log locally for compliance
-- Include timestamp and version
-- Future: Send to backend API for centralized tracking
+### Upgrade Error Handling
 
-### 3. Service Security
-- Run as Local System account
-- Restrict file permissions to admin only
-- Future: Run as dedicated service account
+If upgrade detection fails:
+1. Log the error but proceed with fresh installation
+2. Don't attempt to preserve config if it's malformed
+3. Create new service registration if old one can't be removed
 
-## Performance Considerations
+## Testing Strategy
 
-### Installation Time
-- Target: < 2 minutes total
-- File extraction: ~30 seconds
-- Service installation: ~15 seconds
-- Service start: ~10 seconds
-- User input time: Variable
+### Dual Testing Approach
 
-### Resource Usage
-- Disk space: ~50MB
-- Memory during install: ~100MB
-- Service memory: ~50MB running
+This bugfix requires both unit tests and property-based tests:
 
-## Deployment
+**Unit Tests**: Verify specific scenarios and edge cases
+- Test each script writes correct status entry
+- Test config.json update preserves fields
+- Test upgrade preserves barId and driverId
+- Test error handling writes error details
+- Test non-critical step failure allows continuation
 
-### Build Process
-1. Update Inno Setup script with changes
-2. Compile installer with Inno Setup Compiler
-3. Test on clean Windows 10/11 VMs
-4. Upload to GitHub releases
-5. Update download links in staff app
+**Property Tests**: Verify universal properties across all inputs
+- Property 1: Complete installation always has 7 status entries
+- Property 2: Config updates always preserve existing fields
 
-### Release Checklist
-- [ ] Inno Setup script updated
-- [ ] Terms text finalized
-- [ ] Bar ID validation tested
-- [ ] Service installation tested
-- [ ] Branding verified
-- [ ] Error messages reviewed
-- [ ] Tested on Windows 10
-- [ ] Tested on Windows 11
-- [ ] Tested with Defender
-- [ ] Tested with Avast
-- [ ] GitHub release created
-- [ ] Download links updated
+### Property-Based Testing Configuration
 
-## Future Enhancements
+- Use **Pester** for PowerShell property-based testing
+- Minimum **100 iterations** per property test
+- Each property test must reference its design document property
+- Tag format: **Feature: tabezaconnect-installer-fixes, Property {number}: {property_text}**
 
-### Post-MVP Improvements
-1. **Code Signing**: Obtain certificate to eliminate security warnings
-2. **Auto-Updates**: Check for updates and prompt user
-3. **Silent Installation**: Support `/SILENT` flag for IT deployments
-4. **Unattended Mode**: Pre-configure Bar ID via command line
-5. **Multi-language**: Support additional languages
-6. **Telemetry**: Send installation success/failure metrics
+### Unit Test Examples
 
-## References
+**Test: create-folders.ps1 writes status**
+```powershell
+Describe "create-folders.ps1" {
+    It "Should write step 1 status to installation-status.json" {
+        # Arrange
+        $statusFile = "C:\ProgramData\Tabeza\logs\installation-status.json"
+        Remove-Item $statusFile -ErrorAction SilentlyContinue
+        
+        # Act
+        & ".\create-folders.ps1" -WatchFolder "C:\TabezaPrints"
+        
+        # Assert
+        $statusFile | Should -Exist
+        $status = Get-Content $statusFile | ConvertFrom-Json
+        $status[0].step | Should -Be 1
+        $status[0].name | Should -Be "Folders created"
+        $status[0].success | Should -Be $true
+    }
+}
+```
 
-- Inno Setup Documentation: https://jrsoftware.org/ishelp/
-- NSSM Documentation: https://nssm.cc/usage
-- Windows Service Best Practices: https://docs.microsoft.com/en-us/windows/win32/services/
+**Test: config.json update preserves fields**
+```powershell
+Describe "register-printer-with-api.ps1" {
+    It "Should preserve existing config fields when adding driverId" {
+        # Arrange
+        $configFile = "C:\ProgramData\Tabeza\config.json"
+        $originalConfig = @{
+            barId = "test-bar-123"
+            apiUrl = "https://test.supabase.co"
+            bridge = @{ enabled = $true }
+        }
+        $originalConfig | ConvertTo-Json | Set-Content $configFile
+        
+        # Act
+        & ".\register-printer-with-api.ps1" -BarId "test-bar-123" -ConfigFile $configFile
+        
+        # Assert
+        $updatedConfig = Get-Content $configFile | ConvertFrom-Json
+        $updatedConfig.barId | Should -Be "test-bar-123"
+        $updatedConfig.apiUrl | Should -Be "https://test.supabase.co"
+        $updatedConfig.bridge.enabled | Should -Be $true
+        $updatedConfig.driverId | Should -Not -BeNullOrEmpty
+    }
+}
+```
+
+### Property Test Examples
+
+**Property 1: Complete Installation Status Tracking**
+```powershell
+Describe "Installation Status Tracking Property" {
+    It "Should have exactly 7 status entries after complete installation" -Tag "Feature: tabezaconnect-installer-fixes, Property 1: Complete installation has 7 status entries" {
+        # Run full installation
+        & ".\run-full-installation.ps1" -BarId "test-bar-123"
+        
+        # Verify property
+        $statusFile = "C:\ProgramData\Tabeza\logs\installation-status.json"
+        $status = Get-Content $statusFile | ConvertFrom-Json
+        $status.Count | Should -Be 7
+        
+        # Verify all steps present
+        1..7 | ForEach-Object {
+            $status | Where-Object { $_.step -eq $_ } | Should -Not -BeNullOrEmpty
+        }
+    }
+}
+```
+
+**Property 2: Config Field Preservation**
+```powershell
+Describe "Config Field Preservation Property" {
+    It "Should preserve all existing fields when updating config" -Tag "Feature: tabezaconnect-installer-fixes, Property 2: Config updates preserve fields" -ForEach @(
+        @{ barId = "bar-1"; apiUrl = "https://url1.com"; driverId = "driver-1" }
+        @{ barId = "bar-2"; apiUrl = "https://url2.com"; driverId = "driver-2" }
+        @{ barId = "bar-3"; apiUrl = "https://url3.com"; driverId = $null }
+    ) {
+        # Arrange
+        $configFile = "C:\ProgramData\Tabeza\config.json"
+        $originalConfig = @{
+            barId = $barId
+            apiUrl = $apiUrl
+            bridge = @{ enabled = $true; printerName = "Test Printer" }
+            service = @{ name = "TabezaConnect" }
+        }
+        if ($driverId) {
+            $originalConfig.driverId = $driverId
+        }
+        $originalConfig | ConvertTo-Json -Depth 10 | Set-Content $configFile
+        
+        # Act - Update config (simulate adding/updating driverId)
+        $config = Get-Content $configFile | ConvertFrom-Json
+        $config | Add-Member -NotePropertyName "driverId" -NotePropertyValue "new-driver-id" -Force
+        $config | ConvertTo-Json -Depth 10 | Set-Content $configFile
+        
+        # Assert - All original fields preserved
+        $updatedConfig = Get-Content $configFile | ConvertFrom-Json
+        $updatedConfig.barId | Should -Be $barId
+        $updatedConfig.apiUrl | Should -Be $apiUrl
+        $updatedConfig.bridge.enabled | Should -Be $true
+        $updatedConfig.bridge.printerName | Should -Be "Test Printer"
+        $updatedConfig.service.name | Should -Be "TabezaConnect"
+    }
+}
+```
+
+### Integration Testing
+
+**End-to-End Installation Test**:
+1. Clean test environment (remove existing installation)
+2. Run installer with test Bar ID
+3. Verify all 7 steps complete successfully
+4. Verify service is running
+5. Verify config.json has all required fields
+6. Verify printer is registered in Supabase
+7. Perform test print and verify forwarding
+
+**Upgrade Test**:
+1. Install v1.6.0 with test Bar ID
+2. Run v1.6.1 installer (upgrade)
+3. Verify Bar ID preserved
+4. Verify service still running
+5. Verify no duplicate ports created
+6. Verify config.json has driverId added
+
+### Manual Testing
+
+**UI Testing**:
+- Verify progress page displays during installation
+- Verify each step updates in real-time
+- Verify success/failure indicators display correctly
+- Verify no PowerShell windows flash during installation
+- Verify summary page shows all step statuses
+
+**Error Scenario Testing**:
+- Disconnect network during step 6 (API registration) - should continue
+- Stop print spooler during step 3 - should fail gracefully
+- Delete config.json during step 6 - should handle error
+- Run installer twice - should preserve configuration
+
+## Implementation Notes
+
+### Critical Code Changes
+
+1. **configure-bridge.ps1**: Remove lines 30-35 (port creation code)
+2. **create-folders.ps1**: Add line at end calling write-status.ps1
+3. **detect-thermal-printer.ps1**: Add line at end calling write-status.ps1
+4. **check-service-started.ps1**: Add line at end calling write-status.ps1
+5. **verify-bridge.ps1**: Add line at end calling write-status.ps1
+6. **register-printer-with-api.ps1**: Verify config update logic preserves fields
+7. **installer-pkg-v1.6.1.iss**: Add Pascal code for progress page
+
+### Deployment Considerations
+
+- Test on clean Windows 10/11 machines
+- Test upgrade from v1.5.1 and v1.6.0
+- Verify with different thermal printer models
+- Test with and without internet connection
+- Verify Bar ID validation still works
+
+### Rollback Plan
+
+If v1.6.1 fixes cause issues:
+1. Revert to v1.6.0 installer
+2. Document specific failure scenarios
+3. Fix issues in v1.6.2
+4. Re-test with same scenarios
+
+### Success Metrics
+
+- 100% of installations complete all 7 steps
+- 100% of installations write complete status JSON
+- 100% of upgrades preserve Bar ID and driver ID
+- 0 PowerShell windows visible during installation
+- Progress page displays correctly on all test machines

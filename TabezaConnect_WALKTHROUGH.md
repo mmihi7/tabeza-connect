@@ -99,7 +99,7 @@ The installer automatically configures `config.json`:
   "vercelBypassToken": "",
   "driverId": "driver-MIHI-PC",
   "watchFolder": "C:\\ProgramData\\Tabeza\\TabezaPrints",
-  "captureMode": "spooler"  // NEW: "spooler" vs old "folder"
+  "captureMode": "pooling"  // NEW: "spooler" vs old "folder"
 }
 ```
 
