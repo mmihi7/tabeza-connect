@@ -1796,7 +1796,22 @@ export default function TabDetailPage() {
                       )}
                       <div>
                         <p className="font-semibold text-gray-800 capitalize">{payment.method}</p>
-                        <p className="text-sm text-gray-500">{timeAgo(payment.created_at, true)}</p>
+                        <div className="text-sm text-gray-500">
+                          <div>{timeAgo(payment.created_at, true)}</div>
+                          {payment.method === 'mpesa' && payment.reference ? (
+                            <div className="text-xs text-gray-600 mt-1">
+                              Receipt: {payment.reference}
+                            </div>
+                          ) : payment.method === 'cash' && payment.reference ? (
+                            <div className="text-xs text-gray-600 mt-1">
+                              Ref: {payment.reference}
+                            </div>
+                          ) : payment.method === 'card' && payment.reference ? (
+                            <div className="text-xs text-gray-600 mt-1">
+                              Card: {payment.reference}
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                     <p className="font-bold text-green-600">+ {tempFormatCurrency(payment.amount)}</p>
@@ -1808,19 +1823,26 @@ export default function TabDetailPage() {
 
           {/* Action Buttons */}
           <div className="space-y-3 pb-6">
-            <button
-              onClick={initiateCloseTab}
-              className={`w-full py-4 rounded-xl font-semibold ${
-                balance === 0 
-                  ? 'bg-green-500 text-white hover:bg-green-600' 
-                  : 'bg-orange-500 text-white hover:bg-orange-600'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-              disabled={hasPendingStaffOrders() || hasPendingCustomerOrders()}
-            >
-              {balance === 0 
-                ? 'Close Tab' 
-                : `Push to Overdue (${tempFormatCurrency(balance)})`}
-            </button>
+            {balance === 0 && (
+              <button
+                onClick={initiateCloseTab}
+                className="w-full py-4 rounded-xl font-semibold bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={hasPendingStaffOrders() || hasPendingCustomerOrders()}
+              >
+                Close Tab
+              </button>
+            )}
+            
+            {balance > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
+                <p className="text-sm text-blue-700 mb-2">
+                  <strong>Outstanding Balance: {tempFormatCurrency(balance)}</strong>
+                </p>
+                <p className="text-xs text-blue-600">
+                  Tab will automatically become overdue after business hours. Customers can still make payments.
+                </p>
+              </div>
+            )}
             
             {hasPendingStaffOrders() && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-center">
@@ -1857,15 +1879,11 @@ export default function TabDetailPage() {
           setClosingTab(false);
         }}
         onConfirm={executeCloseTab}
-        title={closeTabReason === 'overdue' ? 'Push Tab to Overdue?' : 'Close Tab?'}
-        message={
-          closeTabReason === 'overdue' 
-            ? `This tab has ${tempFormatCurrency(balance)} outstanding balance. Pushing to overdue will mark it as bad debt. This action cannot be undone.`
-            : 'Are you sure you want to close this tab? This action cannot be undone.'
-        }
-        confirmText={closeTabReason === 'overdue' ? 'Push to Overdue' : 'Close Tab'}
+        title="Close Tab?"
+        message="Are you sure you want to close this tab? This action cannot be undone."
+        confirmText="Close Tab"
         cancelText="Cancel"
-        type={closeTabReason === 'overdue' ? 'danger' : 'warning'}
+        type="warning"
         isLoading={closingTab}
       />
     </div>

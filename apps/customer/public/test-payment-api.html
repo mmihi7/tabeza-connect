@@ -38,6 +38,7 @@
             margin: 5px;
         }
         button:hover { background-color: #0056b3; }
+        .simulate-callback-btn { margin-top: 8px; }
         .debug-info {
             background-color: #f8f9fa;
             border: 1px solid #dee2e6;
@@ -69,17 +70,21 @@
         
         <div id="status"></div>
         
+        <p class="info" style="padding:10px; margin:10px 0;">
+          <strong>Tab ID <code>__test__</code></strong>: tests <strong>STK push only</strong> (no tab/bar DB). To get a <strong>real response from Safaricom</strong>, set <code>MPESA_MOCK_MODE=false</code> in root <code>.env</code> and restart the app — otherwise you get a mock response (<code>mock_checkout_...</code>) and no request is sent.<br>
+          <strong>⚠️ CRITICAL: USE ONLY SANDBOX TEST NUMBERS</strong>: <code>254708374149</code>, <code>254711040400</code>, <code>254711040401</code>, <code>254711040402</code>, <code>254711040403</code><br>
+          <strong>🚨 NEVER USE REAL PHONE NUMBERS</strong> - Real numbers trigger real money transfers even in sandbox!<br>
+          <strong>Mock Callback Testing</strong>: Available when <code>MPESA_MOCK_MODE=true</code> OR <code>ALLOW_MOCK_CALLBACK_IN_PRODUCTION=true</code><br>
+          Audit log file: <code>MPESA_AUDIT_LOG_FILE=./logs/mpesa-audit.log</code>.
+        </p>
         <form id="testForm">
-            <label for="barId">Bar ID:</label>
-            <input type="text" id="barId" value="438c80c1-fe11-4ac5-8a48-2fc45104ba31" required>
+            <label for="tabId">Tab ID (<code>__test__</code> = initiation only, or real UUID for full flow):</label>
+            <input type="text" id="tabId" value="__test__" placeholder="__test__ or 550e8400-e29b-41d4-a716-446655440000" required>
             
-            <label for="customerIdentifier">Customer Identifier:</label>
-            <input type="text" id="customerIdentifier" value="test-device-123_438c80c1-fe11-4ac5-8a48-2fc45104ba31" required>
+            <label for="phoneNumber">Phone Number (Kenyan - USE TEST NUMBERS ONLY):</label>
+            <input type="text" id="phoneNumber" value="254708374149" required>
             
-            <label for="phoneNumber">Phone Number:</label>
-            <input type="text" id="phoneNumber" value="+254712345678" required>
-            
-            <label for="amount">Amount:</label>
+            <label for="amount">Amount (KES):</label>
             <input type="number" id="amount" value="100" min="1" required>
             
             <button type="submit">🚀 Test Payment API</button>
@@ -98,23 +103,45 @@
             document.getElementById('results').innerHTML = content;
         }
 
+        // Single delegated listener: "Simulate callback" button POSTs to mock-callback
+        document.getElementById('results').addEventListener('click', async (e) => {
+            const btn = e.target.closest('.simulate-callback-btn');
+            if (!btn) return;
+            const checkoutRequestId = btn.getAttribute('data-checkout-request-id');
+            if (!checkoutRequestId) return;
+            const resultEl = btn.parentElement.querySelector('.callback-result');
+            if (resultEl) {
+                resultEl.style.display = 'block';
+                resultEl.textContent = 'Calling mock-callback...';
+            }
+            try {
+                const cbRes = await fetch(window.location.origin + '/api/mpesa/mock-callback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ checkoutRequestId })
+                });
+                const cbJson = await cbRes.json().catch(() => ({}));
+                if (resultEl) resultEl.textContent = (cbRes.ok ? 'OK ' : 'Error ') + cbRes.status + '\n' + JSON.stringify(cbJson, null, 2);
+            } catch (err) {
+                if (resultEl) resultEl.textContent = 'Error: ' + err.message;
+            }
+        });
+
         document.getElementById('testForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
             showStatus('Testing payment API...', 'info');
             
-            const formData = new FormData(e.target);
             const testData = {
-                barId: document.getElementById('barId').value,
-                customerIdentifier: document.getElementById('customerIdentifier').value,
-                phoneNumber: document.getElementById('phoneNumber').value,
+                tabId: document.getElementById('tabId').value.trim(),
+                phoneNumber: document.getElementById('phoneNumber').value.trim(),
                 amount: parseFloat(document.getElementById('amount').value)
             };
             
             try {
                 console.log('Sending payment request:', testData);
                 
-                const response = await fetch('/api/payments/mpesa/initiate', {
+                const response = await fetch('/api/payments/mpesa', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -143,15 +170,34 @@
                 html += '<div class="debug-info">';
                 html += JSON.stringify(result, null, 2);
                 html += '</div>';
+                if (response.ok && result.checkoutRequestId && result.success) {
+                    const fromTest = result.fromTest === true;
+                    if (fromTest) {
+                        html += '<p class="info" style="padding:10px;margin:10px 0;">STK push ran successfully (mock or sandbox). No payment row was created, so "Simulate callback" is not available. Use a <strong>real tab UUID</strong> to test initiate → simulate callback.</p>';
+                    } else {
+                        html += '<p class="info" style="padding:10px;margin:10px 0;">Simulate Safaricom callback (marks payment success in DB):</p>';
+                        html += '<button type="button" class="simulate-callback-btn" data-checkout-request-id="' + result.checkoutRequestId + '">Simulate callback</button>';
+                        html += '<pre class="callback-result debug-info" style="margin-top:8px;display:none;"></pre>';
+                        html += '<p class="info" style="padding:10px;margin:10px 0;font-size:11px;">Or: <code>curl -X POST ' + window.location.origin + '/api/mpesa/mock-callback -H "Content-Type: application/json" -d \'{"checkoutRequestId":"' + result.checkoutRequestId + '"}\'</code></p>';
+                    }
+                }
                 
                 if (!response.ok) {
                     html += '<h4>🔍 Troubleshooting</h4>';
                     html += '<div class="debug-info">';
                     
-                    if (response.status === 400) {
-                        html += 'Bad Request (400) - Check if all required fields are provided and valid.\n';
+                    if (response.status === 502) {
+                        html += 'Bad Gateway (502) - Safaricom rejected the STK push. See error (and errorDetail / safaricomResponse below) for the exact reason.\n';
+                        if (result.errorDetail) html += 'Safaricom message: ' + result.errorDetail + '\n';
+                        if (result.safaricomResponse) html += 'Safaricom response: ' + JSON.stringify(result.safaricomResponse, null, 2) + '\n';
+                        html += 'Common causes: wrong shortcode/passkey, invalid callback URL, account not allowed for STK push, or sandbox vs production mismatch.\n';
+                    } else if (response.status === 400) {
+                        html += 'Bad Request (400) - Check tabId (valid UUID), phoneNumber (e.g. 254712345678), amount (positive number).\n';
                         if (result.error && result.error.includes('Missing required fields')) {
-                            html += 'Missing fields detected. Check the request data above.\n';
+                            html += 'Missing fields: tabId, phoneNumber, amount.\n';
+                        }
+                        if (result.error && result.error.includes('Tab')) {
+                            html += 'Tab not found or not open. Use a real tab ID from the tabs table.\n';
                         }
                     } else if (response.status === 500) {
                         html += 'Internal Server Error (500) - Check server logs for detailed error information.\n';

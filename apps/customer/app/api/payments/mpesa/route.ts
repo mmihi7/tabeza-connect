@@ -9,6 +9,7 @@ import { createServiceRoleClient } from '@/lib/supabase';
 import { 
   validateKenyanPhoneNumber,
   sendSTKPush,
+  STKPushError,
   loadMpesaConfigFromBar, 
   MpesaConfigurationError,
   type BarMpesaData 
@@ -28,6 +29,27 @@ interface MpesaPaymentRequest {
   tabId: string;
   phoneNumber: string;
   amount: number;
+}
+
+/** Append one NDJSON line to MPESA_AUDIT_LOG_FILE when set (so __test__ and full flow both write to file). */
+async function appendAuditLogToFileIfEnabled(
+  _action: string,
+  auditLogEntry: Record<string, unknown>
+): Promise<void> {
+  const logPath = process.env.MPESA_AUDIT_LOG_FILE;
+  if (!logPath || typeof logPath !== 'string' || logPath.trim() === '') return;
+  try {
+    const { appendFile, mkdir } = await import('fs/promises');
+    const { dirname, resolve } = await import('path');
+    const line = JSON.stringify({ ...auditLogEntry, _written_at: new Date().toISOString() }) + '\n';
+    const dir = dirname(logPath);
+    await mkdir(dir, { recursive: true }).catch(() => {});
+    await appendFile(logPath, line);
+    const absolutePath = resolve(logPath);
+    console.log('M-Pesa audit log written to file:', absolutePath);
+  } catch (err) {
+    console.error('M-Pesa audit file write failed:', logPath, err);
+  }
 }
 
 interface MpesaPaymentResponse {
@@ -113,6 +135,67 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
 
     const normalizedPhoneNumber = phoneValidation.normalized!;
 
+    // TabId __test__: run STK push only (no tab/bar DB, no tab_payments). Uses mock config so no real Safaricom call unless you use a real tab.
+    if (tabId.trim() === '__test__') {
+      // Live endpoints for __test__ so you can use m-tip (or other) production credentials
+      const mpesaConfig = {
+        environment: 'production' as const,
+        businessShortcode: process.env.MPESA_SHORTCODE || process.env.MPESA_SHORT_CODE || '174379',
+        consumerKey: process.env.MPESA_CONSUMER_KEY || 'mock_key',
+        consumerSecret: process.env.MPESA_CONSUMER_SECRET || 'mock_secret',
+        passkey: process.env.MPESA_PASSKEY || 'mock_passkey',
+        callbackUrl: process.env.MPESA_CALLBACK_URL || 'http://localhost:3002/api/mpesa/callback',
+        oauthUrl: process.env.MPESA_OAUTH_URL || 'https://api.safaricom.co.ke/oauth/v1/generate',
+        stkPushUrl: process.env.MPESA_STK_PUSH_URL || 'https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest',
+        stkQueryUrl: process.env.MPESA_STK_QUERY_URL || 'https://api.safaricom.co.ke/mpesa/stkpushquery/v1/query'
+      };
+      const stkRequest = {
+        phoneNumber: normalizedPhoneNumber,
+        amount: Math.round(amount),
+        accountReference: 'TEST',
+        transactionDesc: 'Tab Payment'
+      };
+      console.log('🧪 STK push only (tabId=__test__): calling sendSTKPush with', process.env.MPESA_MOCK_MODE === 'true' ? 'mock mode' : 'live (production) endpoints');
+      try {
+        const stkResponse = await sendSTKPush(stkRequest, mpesaConfig);
+        await appendAuditLogToFileIfEnabled('payment_stk_sent', {
+          action: 'payment_stk_sent',
+          tab_id: '__test__',
+          bar_id: null,
+          staff_id: null,
+          details: {
+            checkout_request_id: stkResponse.CheckoutRequestID,
+            amount,
+            phone_number: normalizedPhoneNumber,
+            environment: 'production',
+            stk_request_payload: stkRequest,
+            stk_response: stkResponse,
+            mock_mode: process.env.MPESA_MOCK_MODE === 'true',
+            logged_at: new Date().toISOString(),
+            log_version: '1.0'
+          },
+          created_at: new Date().toISOString()
+        });
+        return NextResponse.json({
+          success: true,
+          checkoutRequestId: stkResponse.CheckoutRequestID,
+          fromTest: true  // No payment row; "Simulate callback" would 404
+        });
+      } catch (stkError) {
+        console.error('STK push failed (__test__):', stkError);
+        const message = stkError instanceof Error ? stkError.message : 'STK Push failed';
+        const body: { success: false; error: string; errorDetail?: string; safaricomResponse?: unknown } = {
+          success: false,
+          error: message
+        };
+        if (stkError instanceof STKPushError) {
+          if (stkError.responseDescription) body.errorDetail = stkError.responseDescription;
+          if (stkError.originalError) body.safaricomResponse = stkError.originalError;
+        }
+        return NextResponse.json(body, { status: 502 });
+      }
+    }
+
     // Requirement 2.1: Enhanced payment validation logic
     const validationRequest: PaymentValidationRequest = {
       tabId,
@@ -153,8 +236,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<MpesaPaym
         mpesa_business_shortcode,
         mpesa_consumer_key_encrypted,
         mpesa_consumer_secret_encrypted,
-        mpesa_passkey_encrypted,
-        mpesa_callback_url
+        mpesa_passkey_encrypted
       `)
       .eq('id', tab.bar_id)
       .single();

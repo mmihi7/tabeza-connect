@@ -115,13 +115,56 @@ export async function getTabBalance(tabId: string): Promise<number> {
 /**
  * Check if tab has any pending M-Pesa payments
  * Requirement 1.4: Only one pending M-Pesa payment per tab
+ * Auto-clears payments older than 3 minutes to prevent blocking
  */
 export async function checkPendingMpesaPayments(tabId: string): Promise<boolean> {
   const supabase = createServiceRoleClient();
 
+  // First, auto-clear any payments older than 3 minutes
+  const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+  
+  const { data: expiredPayments, error: expiredError } = await supabase
+    .from('tab_payments')
+    .select('id, status, created_at')
+    .eq('tab_id', tabId)
+    .eq('method', 'mpesa')
+    .in('status', ['initiated', 'stk_sent'])
+    .lt('created_at', threeMinutesAgo);
+
+  if (expiredError) {
+    console.error('Error checking expired payments:', expiredError);
+  } else if (expiredPayments && expiredPayments.length > 0) {
+    console.log(`🧹 Auto-clearing ${expiredPayments.length} expired M-Pesa payments for tab ${tabId}`);
+    
+    // Update expired payments to failed status
+    const { error: updateError } = await supabase
+      .from('tab_payments')
+      .update({ 
+        status: 'failed',
+        metadata: { 
+          auto_cleared: true,
+          cleared_at: new Date().toISOString(),
+          reason: 'Payment expired after 3 minutes',
+          original_status: expiredPayments[0].status
+        },
+        updated_at: new Date().toISOString()
+      })
+      .eq('tab_id', tabId)
+      .eq('method', 'mpesa')
+      .in('status', ['initiated', 'stk_sent'])
+      .lt('created_at', threeMinutesAgo);
+
+    if (updateError) {
+      console.error('Error clearing expired payments:', updateError);
+    } else {
+      console.log(`✅ Cleared ${expiredPayments.length} expired payments for tab ${tabId}`);
+    }
+  }
+
+  // Now check for any remaining pending payments
   const { data: pendingPayments, error } = await supabase
     .from('tab_payments')
-    .select('id')
+    .select('id, created_at')
     .eq('tab_id', tabId)
     .eq('method', 'mpesa')
     .in('status', ['initiated', 'stk_sent'])
@@ -132,5 +175,14 @@ export async function checkPendingMpesaPayments(tabId: string): Promise<boolean>
     throw new Error('Failed to check pending payments');
   }
 
-  return (pendingPayments?.length || 0) > 0;
+  const hasPending = (pendingPayments?.length || 0) > 0;
+  
+  if (hasPending) {
+    const payment = pendingPayments![0];
+    const createdAt = new Date(payment.created_at);
+    const ageMinutes = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60));
+    console.log(`⏳ Found pending payment (${ageMinutes} minutes old) for tab ${tabId}`);
+  }
+
+  return hasPending;
 }
