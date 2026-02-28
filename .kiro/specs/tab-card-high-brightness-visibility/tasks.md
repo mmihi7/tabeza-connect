@@ -180,7 +180,7 @@ This implementation enhances Tab card visibility in the staff dashboard for high
   - Ask the user if questions arise
 
 - [ ] 7. Write automated tests (REQUIRED for correctness)
-  - [ ] 7.1 Write property test for card background contrast
+  - [~] 7.1 Write property test for card background contrast
     - **Property 1: Card Background Contrast**
     - Test that all card types have ≥3:1 contrast with page background
     - Use fast-check to generate random tab data
@@ -188,7 +188,7 @@ This implementation enhances Tab card visibility in the staff dashboard for high
     - **Tag**: `// Feature: tab-card-high-brightness-visibility, Property 1`
     - **Validates: Requirements 1.2**
   
-  - [ ] 7.2 Write property test for text accessibility contrast
+  - [~] 7.2 Write property test for text accessibility contrast
     - **Property 2: Text Accessibility Contrast**
     - Test all text elements meet WCAG AA (4.5:1 normal, 3:1 large)
     - Test across all card types (normal, pending, overdue)
@@ -197,7 +197,7 @@ This implementation enhances Tab card visibility in the staff dashboard for high
     - **Tag**: `// Feature: tab-card-high-brightness-visibility, Property 2`
     - **Validates: Requirements 1.3, 5.1**
   
-  - [ ] 7.3 Write property test for border visibility
+  - [~] 7.3 Write property test for border visibility
     - **Property 3: Border Visibility Contrast**
     - Test that borders have ≥7:1 contrast with card background
     - Test across all card types
@@ -205,7 +205,7 @@ This implementation enhances Tab card visibility in the staff dashboard for high
     - **Tag**: `// Feature: tab-card-high-brightness-visibility, Property 3`
     - **Validates: Requirements 1.1**
   
-  - [ ] 7.4 Write property test for light background requirement
+  - [~] 7.4 Write property test for light background requirement
     - **Property 4: Light Background Requirement**
     - Test that pending/overdue cards have luminance > 0.85
     - Prevent dark background anti-pattern
@@ -213,7 +213,7 @@ This implementation enhances Tab card visibility in the staff dashboard for high
     - **Tag**: `// Feature: tab-card-high-brightness-visibility, Property 4`
     - **Validates: Requirements 1.1, 2.1**
   
-  - [ ] 7.5 Write property test for hover effects
+  - [~] 7.5 Write property test for hover effects
     - **Property 5: Shadow and Hover Effects**
     - Test that all cards have shadow classes in default state
     - Test that hover applies enhanced shadow and scale
@@ -221,7 +221,7 @@ This implementation enhances Tab card visibility in the staff dashboard for high
     - **Tag**: `// Feature: tab-card-high-brightness-visibility, Property 5`
     - **Validates: Requirements 3.1, 3.2, 4.3**
   
-  - [ ] 7.6 Write property test for theme consistency
+  - [~] 7.6 Write property test for theme consistency
     - **Property 6: Theme Color Consistency**
     - Test that normal cards use orange/amber theme colors
     - Test that interactive elements maintain orange-600/500
@@ -229,7 +229,7 @@ This implementation enhances Tab card visibility in the staff dashboard for high
     - **Tag**: `// Feature: tab-card-high-brightness-visibility, Property 6`
     - **Validates: Requirements 4.1, 4.2**
   
-  - [ ] 7.7 Write property test for priority differentiation
+  - [~] 7.7 Write property test for priority differentiation
     - **Property 7: Priority Visual Differentiation**
     - Test that pending/overdue use border-4, normal uses border-2
     - Verify visual hierarchy through border thickness
@@ -237,7 +237,7 @@ This implementation enhances Tab card visibility in the staff dashboard for high
     - **Tag**: `// Feature: tab-card-high-brightness-visibility, Property 7`
     - **Validates: Requirements 2.1, 2.2**
   
-  - [ ] 7.8 Write property test for responsive consistency
+  - [~] 7.8 Write property test for responsive consistency
     - **Property 8: Responsive Styling Consistency**
     - Test that cards apply same classes across viewport widths
     - Test at mobile (< 640px), tablet (640-1024px), desktop (> 1024px)
@@ -245,7 +245,7 @@ This implementation enhances Tab card visibility in the staff dashboard for high
     - **Tag**: `// Feature: tab-card-high-brightness-visibility, Property 8`
     - **Validates: Requirements 6.1**
   
-  - [ ] 7.9 Write property test for icon indicators
+  - [~] 7.9 Write property test for icon indicators
     - **Property 9: Icon Indicator Presence**
     - Test that pending/overdue cards include icon elements
     - Test that screen reader text is present
@@ -253,14 +253,14 @@ This implementation enhances Tab card visibility in the staff dashboard for high
     - **Tag**: `// Feature: tab-card-high-brightness-visibility, Property 9`
     - **Validates: Requirements 5.3**
   
-  - [ ] 7.10 Run all tests and verify 100% pass rate
+  - [~] 7.10 Run all tests and verify 100% pass rate
     - Execute: `cd packages/shared && pnpm test` (or appropriate test command)
     - Verify all property tests pass with 100 iterations each
     - Fix any failing tests before proceeding
     - Document test results
 
 - [ ] 8. Cross-browser and performance testing
-  - [ ] 8.1 Test in multiple browsers
+  - [~] 8.1 Test in multiple browsers
     - [ ] Chrome/Edge (latest)
     - [ ] Firefox (latest)
     - [ ] Safari (latest)
@@ -270,7 +270,7 @@ This implementation enhances Tab card visibility in the staff dashboard for high
     - Verify shadows appear consistently
     - _Requirements: 6.2_
   
-  - [ ] 8.2 Test animation performance
+  - [~] 8.2 Test animation performance
     - Create test page with 50+ cards
     - Measure frame rate (should maintain 60fps)
     - Verify GPU acceleration is active (check DevTools)
@@ -278,24 +278,24 @@ This implementation enhances Tab card visibility in the staff dashboard for high
     - If performance issues, consider reducing animation complexity
 
 - [ ] 9. Final validation and deployment preparation
-  - [ ] 9.1 Real-world brightness testing
+  - [~] 9.1 Real-world brightness testing
     - Test on actual device at 100% brightness
     - Test outdoors in sunlight if possible
     - Test with polarized sunglasses
     - Get feedback from 2-3 staff members
   
-  - [ ] 9.2 Final screenshot documentation
+  - [~] 9.2 Final screenshot documentation
     - Capture all card states in final form
     - Document before/after comparison
     - Prepare for user acceptance
   
-  - [ ] 9.3 User acceptance testing
+  - [~] 9.3 User acceptance testing
     - Present changes to stakeholders
     - Demonstrate visibility improvements
     - Address any concerns
     - Get explicit approval for deployment
   
-  - [ ] 9.4 Deployment strategy
+  - [~] 9.4 Deployment strategy
     - Deploy to development environment first
     - Test with staff for 1 day
     - If approved, deploy to staging

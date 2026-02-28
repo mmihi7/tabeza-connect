@@ -3,6 +3,7 @@ export * from './types';
 export * from './tokens-service';
 export * from './utils';
 export * from './lib/response-time';
+export * from './error-handling';
 
 // Export phone validation utilities (simplified version)
 export * from './lib/services/phoneValidation';
@@ -31,46 +32,11 @@ export * from './lib/services/tab-resolution';
 // Export diagnostic services
 export * from './lib/diagnostics/environment-validator';
 
-// Export venue configuration validation service
-export {
-  validateVenueConfiguration,
-  validateConfigurationChange,
-  generateCorrectedConfiguration,
-  isValidCoreConfiguration,
-  getConfigurationDescription,
-  getThemeConfiguration,
-  getDefaultMigrationConfiguration,
-  type VenueConfiguration,
-  type VenueConfigurationInput,
-  type ValidationResult
-} from './lib/services/venue-configuration-validation';
-
-// Export printer services and driver queries
-export {
-  getActiveDrivers,
-  getAllDrivers,
-  isDriverActive,
-  getTimeSinceHeartbeat,
-  getDriverStatus,
-  type PrinterDriver,
-  type DriverQueryResult
-} from './lib/services/printer-services';
-
-// Export mode configuration service
-export * from './services/modeConfigService';
-
-// Export mode context and hooks
-export * from './contexts/ModeContext';
-export * from './hooks/useFeatureGuard';
-
-// Export mode-based UI components
-export * from './components/UnavailableFeatureMessage';
-
-// Re-export pure logic packages for convenience
-// TODO: Re-enable these exports once packages are fixed
-// export * from '@tabeza/validation';
-// export * from '@tabeza/tax-rules';
-// export * from '@tabeza/escpos-parser';
+// Export notification and audio unlock services
+export * from './lib/audio-unlock';
+export * from './lib/notification-manager';
+export * from './lib/browser-capabilities';
+export * from './lib/subscription-error-handler';
 
 // Note: React hooks and components are not exported here to avoid server-side import issues
 // Import them directly from their specific paths when needed in client components:

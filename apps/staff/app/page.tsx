@@ -1,20 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter as useNextRouter } from 'next/navigation';
-import { Users, DollarSign, Menu, X, Search, ArrowRight, AlertCircle, RefreshCw, LogOut, AlertTriangle, MessageCircle, BellRing, Receipt } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Users, DollarSign, Menu, X, Search, ArrowRight, AlertCircle, RefreshCw, LogOut, AlertTriangle, MessageCircle, BellRing } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { checkAndUpdateOverdueTabs } from '@/lib/businessHours';
-import { calculateResponseTimeFromTabs, formatResponseTime, type ResponseTimeResult } from '@tabeza/shared';
+import { calculateResponseTimeFromTabs, formatResponseTime, type ResponseTimeResult, createNotificationManager, type AudioUnlockManager, type NotificationManager } from '@tabeza/shared';
 import { PaymentNotificationContainer, usePaymentNotifications, type PaymentNotificationData } from '@/components/PaymentNotification';
-import VenueModeOnboarding from '@/components/VenueModeOnboarding';
-import { type VenueConfiguration } from '@tabeza/shared';
-import CaptainsOrders from '@/components/printer/CaptainsOrders';
-import PlaceSwitcher from '@/components/PlaceSwitcher';
-import PrinterStatus from '@/components/PrinterStatus';
-
-const useRouter = useNextRouter;
+import { AudioUnlockPrompt } from '@/components/AudioUnlockPrompt';
 
 // Format functions for thousand separators
 const formatCurrency = (amount: number | string, decimals = 0): string => {
@@ -74,8 +68,34 @@ const calculatePendingWaitTime = (tabs: any[], currentTime?: number): string => 
 };
 
 // Play alert sound function with mobile support and continuous option
-const playAlertSound = (customAudioUrl: string, soundEnabled: boolean, volume: number = 0.8, vibrationEnabled: boolean = true, continuous: boolean = false) => {
+const playAlertSound = async (
+  customAudioUrl: string, 
+  soundEnabled: boolean, 
+  volume: number = 0.8, 
+  vibrationEnabled: boolean = true, 
+  continuous: boolean = false,
+  notificationManager?: NotificationManager | null
+) => {
   try {
+    console.log('🔔 playAlertSound called:', { soundEnabled, vibrationEnabled, continuous, hasNotificationManager: !!notificationManager });
+    
+    // Use new notification manager if available (Requirements 1, 3, 14, 15)
+    if (notificationManager) {
+      console.log('🔔 Using NotificationManager for alert');
+      
+      await notificationManager.notify({
+        sound: soundEnabled ? 'bell' : undefined,
+        vibrate: vibrationEnabled,
+        visual: 'New notification',
+        priority: 'high'
+      });
+      
+      return;
+    }
+    
+    // Fallback to old implementation if notification manager not available
+    console.log('⚠️ Falling back to legacy audio implementation');
+    
     // Vibrate for mobile devices (works for all users including anon)
     if (vibrationEnabled && 'vibrate' in navigator) {
       // Vibration pattern: [duration, pause, duration, pause, ...]
@@ -315,18 +335,15 @@ export default function TabsPage() {
   
   const [tabs, setTabs] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState('open');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [showMenu, setShowMenu] = useState(false);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(Date.now());
 
-  // Onboarding state
-  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
-  const [onboardingCompleted, setOnboardingCompleted] = useState(true);
-
-  // Venue mode state
-  const [venueMode, setVenueMode] = useState<'basic' | 'venue'>('venue');
-  const [authorityMode, setAuthorityMode] = useState<'pos' | 'tabeza'>('tabeza');
+  // Audio unlock state
+  const [showAudioUnlockPrompt, setShowAudioUnlockPrompt] = useState(false);
+  const [notificationManager, setNotificationManager] = useState<NotificationManager | null>(null);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
 
   // Alert state
   const [showAlert, setShowAlert] = useState(false);
@@ -357,6 +374,44 @@ export default function TabsPage() {
     };
   }, []);
 
+  // Check if we need to show audio unlock prompt (mobile detection)
+  useEffect(() => {
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const hasInteracted = sessionStorage.getItem('audio-unlocked') === 'true';
+    
+    console.log('🔊 Audio unlock check:', { isMobile, hasInteracted, audioUnlocked });
+    
+    // Show prompt on mobile if not already unlocked
+    if (isMobile && !hasInteracted && !audioUnlocked) {
+      console.log('📱 Mobile device detected - showing audio unlock prompt');
+      setShowAudioUnlockPrompt(true);
+    }
+  }, [audioUnlocked]);
+
+  // Handle audio unlock
+  const handleAudioUnlock = (audioManager: AudioUnlockManager) => {
+    console.log('✅ Audio unlocked - creating notification manager');
+    
+    const manager = createNotificationManager(audioManager);
+    setNotificationManager(manager);
+    setAudioUnlocked(true);
+    setShowAudioUnlockPrompt(false);
+    
+    // Persist unlock state for session
+    sessionStorage.setItem('audio-unlocked', 'true');
+    
+    console.log('🔔 Notification manager ready');
+  };
+
+  // Handle audio unlock dismissal
+  const handleAudioUnlockDismiss = () => {
+    console.log('ℹ️ Audio unlock dismissed - notifications will use fallbacks');
+    setShowAudioUnlockPrompt(false);
+    
+    // Still mark as "handled" so we don't show again this session
+    sessionStorage.setItem('audio-unlocked', 'dismissed');
+  };
+
   // Stop sound when alert is hidden
   useEffect(() => {
     if (!showAlert) {
@@ -369,46 +424,6 @@ export default function TabsPage() {
   useEffect(() => {
     setVibrationSupported('vibrate' in navigator);
   }, []);
-
-  // Check onboarding status and show modal if incomplete
-  useEffect(() => {
-    const checkOnboardingStatus = async () => {
-      if (!bar) return;
-
-      try {
-        const { data, error } = await supabase
-          .from('bars')
-          .select('onboarding_completed, venue_mode, authority_mode')
-          .eq('id', bar.id)
-          .single() as { data: any, error: any };
-
-        if (error) {
-          console.error('Error checking onboarding status:', error);
-          return;
-        }
-
-        const isCompleted = data?.onboarding_completed ?? true;
-        setOnboardingCompleted(isCompleted);
-
-        // Load venue mode and authority mode
-        if (data?.venue_mode) {
-          setVenueMode(data.venue_mode);
-        }
-        if (data?.authority_mode) {
-          setAuthorityMode(data.authority_mode);
-        }
-
-        if (!isCompleted) {
-          console.log('🚨 Onboarding incomplete - showing onboarding modal on dashboard');
-          setShowOnboardingModal(true);
-        }
-      } catch (error) {
-        console.error('Error checking onboarding status:', error);
-      }
-    };
-
-    checkOnboardingStatus();
-  }, [bar]);
 
   // Load alert settings
   useEffect(() => {
@@ -533,45 +548,6 @@ export default function TabsPage() {
     }
   };
 
-  // Handle onboarding completion
-  const handleOnboardingComplete = async (config: VenueConfiguration) => {
-    if (!bar) return;
-
-    try {
-      console.log('✅ Onboarding completed with config:', config);
-
-      // Update the bar with the onboarding configuration
-      // @ts-ignore - Supabase type inference issue with update
-      const { error } = await supabase
-        .from('bars')
-        .update({
-          venue_mode: config.venue_mode,
-          authority_mode: config.authority_mode,
-          pos_integration_enabled: config.pos_integration_enabled,
-          printer_required: config.printer_required,
-          onboarding_completed: true,
-          authority_configured_at: new Date().toISOString(),
-          mode_last_changed_at: new Date().toISOString()
-        })
-        .eq('id', bar.id);
-
-      if (error) throw error;
-
-      // Update local state
-      setOnboardingCompleted(true);
-      setShowOnboardingModal(false);
-
-      // Show success message
-      alert('✅ Venue configuration completed successfully! You can now access all features.');
-
-      // Reload the page to reflect the new configuration
-      window.location.reload();
-    } catch (error) {
-      console.error('Error completing onboarding:', error);
-      alert('Failed to save venue configuration. Please try again.');
-    }
-  };
-
   // Load tabs function
   const loadTabs = async () => {
     if (!bar) return;
@@ -658,7 +634,7 @@ export default function TabsPage() {
             if (payload.new?.initiated_by === 'customer') {
               console.log('🚨 STAFF APP: Customer message detected - triggering MESSAGE alert');
               if (mounted.current) {
-                playAlertSound(alertSettings.customAudioUrl, alertSettings.soundEnabled, alertSettings.volume, alertSettings.vibrationEnabled, true);
+                playAlertSound(alertSettings.customAudioUrl, alertSettings.soundEnabled, alertSettings.volume, alertSettings.vibrationEnabled, true, notificationManager);
                 setAlertType('message');
                 setShowAlert(true);
                 
@@ -714,7 +690,7 @@ export default function TabsPage() {
             if (payload.new?.initiated_by === 'customer') {
               console.log('🚨 Triggering ORDER alert');
               if (mounted.current) {
-                playAlertSound(alertSettings.customAudioUrl, alertSettings.soundEnabled, alertSettings.volume, alertSettings.vibrationEnabled, true);
+                playAlertSound(alertSettings.customAudioUrl, alertSettings.soundEnabled, alertSettings.volume, alertSettings.vibrationEnabled, true, notificationManager);
                 setAlertType('order');
                 setShowAlert(true);
                 
@@ -1020,7 +996,10 @@ export default function TabsPage() {
     const hasPendingMessages = (tab.unreadMessages || 0) > 0;
     
     let matchesFilter = false;
-    if (filterStatus === 'pending') {
+    if (filterStatus === 'all') {
+      // Show all tabs
+      matchesFilter = true;
+    } else if (filterStatus === 'pending') {
       // For pending filter, show tabs that have pending orders OR messages
       matchesFilter = hasPendingOrders || hasPendingMessages;
     } else {
@@ -1088,15 +1067,20 @@ export default function TabsPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex justify-center">
       <div className="w-full lg:max-w-[80%] max-w-full">
+        {/* AUDIO UNLOCK PROMPT */}
+        {showAudioUnlockPrompt && (
+          <AudioUnlockPrompt
+            onUnlock={handleAudioUnlock}
+            onDismiss={handleAudioUnlockDismiss}
+          />
+        )}
+
         {/* HEADER - Updated orange colors */}
         <div className="bg-gradient-to-r from-orange-600 to-orange-700 text-white p-6 pb-8">
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div>
-                <h1 className="text-2xl font-bold">{bar?.name || 'Bar'}</h1>
-                <p className="text-orange-200 text-sm">{user?.email}</p>
-              </div>
-              <PlaceSwitcher />
+            <div>
+              <h1 className="text-2xl font-bold">{bar?.name || 'Bar'}</h1>
+              <p className="text-orange-200 text-sm">{user?.email}</p>
             </div>
             <div className="flex gap-2">
               <button 
@@ -1108,7 +1092,7 @@ export default function TabsPage() {
               <button 
                 onClick={() => {
                   console.log('🚨 Test button clicked!');
-                  playAlertSound(alertSettings.customAudioUrl, alertSettings.soundEnabled, alertSettings.volume, alertSettings.vibrationEnabled, true);
+                  playAlertSound(alertSettings.customAudioUrl, alertSettings.soundEnabled, alertSettings.volume, alertSettings.vibrationEnabled, true, notificationManager);
                   setAlertType('order');
                   setShowAlert(true);
                   
@@ -1161,18 +1145,6 @@ export default function TabsPage() {
           </div>
         </div>
 
-        {/* PRINTER STATUS - Show for venues that require printer integration */}
-        {(venueMode === 'basic' || (venueMode === 'venue' && authorityMode === 'pos')) && (
-          <div className="p-4 bg-white border-b border-gray-200">
-            <PrinterStatus 
-              barId={bar?.id || ''}
-              venueMode={venueMode}
-              authorityMode={authorityMode}
-              compact={true}
-            />
-          </div>
-        )}
-
         {showMenu && (
           <div 
             className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-end"
@@ -1195,13 +1167,10 @@ export default function TabsPage() {
                   <DollarSign size={20} />
                   Reports & Export
                 </button>
-                {/* Only show Menu Management for Venue mode with Tabeza authority */}
-                {!(venueMode === 'basic' || authorityMode === 'pos') && (
-                  <button onClick={() => { router.push('/menu'); setShowMenu(false); }} className="flex items-center gap-3 w-full text-left py-2 font-medium hover:bg-orange-50 px-2 rounded">
-                    <Menu size={20} />
-                    Menu Management
-                  </button>
-                )}
+                <button onClick={() => { router.push('/menu'); setShowMenu(false); }} className="flex items-center gap-3 w-full text-left py-2 font-medium hover:bg-orange-50 px-2 rounded">
+                  <Menu size={20} />
+                  Menu Management
+                </button>
                 <button onClick={() => { router.push('/settings'); setShowMenu(false); }} className="flex items-center gap-3 w-full text-left py-2 font-medium hover:bg-orange-50 px-2 rounded">
                   <Menu size={20} />
                   Settings
@@ -1232,11 +1201,14 @@ export default function TabsPage() {
           </div>
           
           <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
-            {['pending', 'open', 'overdue'].map(status => {
+            {['all', 'pending', 'open', 'overdue'].map(status => {
               let count = 0;
               let displayText = status.charAt(0).toUpperCase() + status.slice(1);
               
-              if (status === 'pending') {
+              if (status === 'all') {
+                count = tabs.length;
+                displayText = `All (${tabs.length})`;
+              } else if (status === 'pending') {
                 count = totalPending;
                 displayText = `⚡ Pending (${totalPending})`;
               } else if (status === 'open') {
@@ -1264,13 +1236,6 @@ export default function TabsPage() {
           </div>
         </div>
 
-        {/* CAPTAIN'S ORDERS - POS RECEIPTS WAITING FOR TAB ASSIGNMENT (URGENT - SHOWN FIRST) */}
-        {bar && bar.authority_mode === 'pos' && (
-          <div className="p-4 pt-0">
-            <CaptainsOrders barId={bar.id} />
-          </div>
-        )}
-
         {/* TAB CARDS - Changed from rounded-xl to rounded-lg (less rounded) */}
         <div className="p-4 pb-24">
           {filteredTabs.length === 0 ? (
@@ -1288,15 +1253,28 @@ export default function TabsPage() {
                 );
                 const hasPendingMessages = (tab.unreadMessages || 0) > 0;
                 const hasPending = hasPendingOrders || hasPendingMessages;
+                const isOverdue = tab.status === 'overdue';
+                
+                // Debug logging
+                if (isOverdue || hasPendingOrders) {
+                  console.log(`Tab ${tab.tab_number}:`, {
+                    status: tab.status,
+                    isOverdue,
+                    hasPendingOrders,
+                    hasPendingMessages
+                  });
+                }
                 
                 return (
                   <div 
                     key={tab.id} 
                     onClick={() => router.push(`/tabs/${tab.id}`)}
-                    className={`rounded-lg p-4 shadow-sm hover:shadow-lg cursor-pointer transition transform hover:scale-105 relative ${
-                      hasPendingOrders 
-                        ? 'bg-gradient-to-br from-red-900 to-red-800 border-2 border-red-500 animate-pulse text-white' 
-                        : 'bg-white border border-gray-200'
+                    className={`rounded-lg p-4 cursor-pointer transition-all duration-200 transform hover:scale-[1.02] relative ${
+                      isOverdue
+                        ? 'bg-gradient-to-br from-red-900 to-red-800 border border-red-700 shadow-lg'
+                        : hasPendingOrders 
+                        ? 'bg-gradient-to-br from-amber-500 to-amber-600 border border-amber-700 shadow-lg' 
+                        : 'bg-gradient-to-br from-green-600 to-green-700 border border-green-800 shadow-lg'
                     }`}
                   >
                     {/* PAID Overlay Sticker */}
@@ -1307,12 +1285,32 @@ export default function TabsPage() {
                         </div>
                       </div>
                     )}
+                    
+                    {/* Pending Orders Icon Indicator */}
+                    {hasPendingOrders && !isOverdue && (
+                      <div className="absolute top-2 right-2">
+                        <AlertCircle className="w-6 h-6 text-amber-900" />
+                        <span className="sr-only">Pending orders</span>
+                      </div>
+                    )}
+                    
+                    {/* Overdue Tab Icon Indicator */}
+                    {isOverdue && (
+                      <div className="absolute top-2 right-2">
+                        <AlertTriangle className="w-6 h-6 text-yellow-200" />
+                        <span className="sr-only">Overdue tab</span>
+                      </div>
+                    )}
                     <div className="mb-3">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex-1 min-w-0">
-                          <h3 className={`text-lg font-bold truncate ${hasPendingOrders ? 'text-white' : 'text-gray-800'}`}>{getDisplayName(tab)}</h3>
+                          <h3 className={`text-lg font-bold truncate ${
+                            isOverdue ? 'text-white' : hasPendingOrders ? 'text-gray-900' : 'text-white'
+                          }`}>{getDisplayName(tab)}</h3>
                           {getTableNumber(tab) && (
-                            <p className={`text-sm font-medium ${hasPendingOrders ? 'text-yellow-300' : 'text-orange-600'}`}>
+                            <p className={`text-sm font-medium ${
+                              isOverdue ? 'text-yellow-200' : hasPendingOrders ? 'text-amber-900' : 'text-green-200'
+                            }`}>
                               Table {getTableNumber(tab)}
                             </p>
                           )}
@@ -1326,27 +1324,28 @@ export default function TabsPage() {
                               </span>
                             </div>
                           )}
-                          {hasPending && (
-                            <span className="flex items-center justify-center w-6 h-6 bg-amber-500 rounded animate-pulse">
-                              <AlertCircle size={14} className="text-amber-900" />
-                            </span>
-                          )}
                         </div>
                       </div>
-                      <p className={`text-xs ${hasPendingOrders ? 'text-gray-300' : 'text-gray-500'}`}>Opened {timeAgo(tab.opened_at)}</p>
+                      <p className={`text-xs ${
+                        isOverdue ? 'text-gray-200' : hasPendingOrders ? 'text-amber-900' : 'text-green-200'
+                      }`}>Opened {timeAgo(tab.opened_at)}</p>
                     </div>
 
                     {/* Balance section - Updated to show bill total and paid amount */}
                     <div className={`text-center py-4 rounded-lg mb-3 ${
-                      hasPendingOrders ? 'bg-gray-800' : 'bg-orange-50'
+                      isOverdue ? 'bg-red-800' : hasPendingOrders ? 'bg-amber-600' : 'bg-green-800'
                     }`}>
                       {balance === 0 && billTotal > 0 ? (
                         // Fully paid - show bill total and paid amount
                         <div>
-                          <p className={`text-lg font-bold ${hasPendingOrders ? 'text-white' : 'text-gray-700'}`}>
+                          <p className={`text-lg font-bold ${
+                            isOverdue ? 'text-white' : hasPendingOrders ? 'text-gray-900' : 'text-white'
+                          }`}>
                             Bill: {formatCurrency(billTotal)}
                           </p>
-                          <p className={`text-sm font-medium ${hasPendingOrders ? 'text-green-300' : 'text-green-600'}`}>
+                          <p className={`text-sm font-medium ${
+                            isOverdue ? 'text-green-200' : hasPendingOrders ? 'text-green-700' : 'text-green-200'
+                          }`}>
                             Paid: {formatCurrency(paidTotal)}
                           </p>
                         </div>
@@ -1354,13 +1353,13 @@ export default function TabsPage() {
                         // Outstanding balance - show balance as before
                         <div>
                           <p className={`text-2xl font-bold ${
-                            hasPendingOrders 
-                              ? 'text-white' 
-                              : balance > 0 ? 'text-orange-700' : 'text-green-600'
+                            isOverdue ? 'text-white' : hasPendingOrders ? 'text-gray-900' : 'text-white'
                           }`}>
                             {formatCurrency(balance)}
                           </p>
-                          <p className={`text-xs ${hasPendingOrders ? 'text-gray-400' : 'text-gray-500'}`}>
+                          <p className={`text-xs ${
+                            isOverdue ? 'text-gray-200' : hasPendingOrders ? 'text-amber-900' : 'text-green-200'
+                          }`}>
                             Balance
                           </p>
                         </div>
@@ -1368,12 +1367,20 @@ export default function TabsPage() {
                     </div>
 
                     <div className={`flex items-center justify-between text-xs pt-3 border-t ${
-                      hasPendingOrders 
-                        ? 'text-gray-300 border-gray-700' 
-                        : 'text-gray-600 border-gray-100'
+                      isOverdue
+                        ? 'text-gray-100 border-red-700'
+                        : hasPendingOrders
+                        ? 'text-gray-900 border-amber-700'
+                        : 'text-gray-100 border-green-800'
                     }`}>
                       <span>{tab.orders?.filter((o: any) => o.status !== 'cancelled').length || 0} orders</span>
-                      <span className={hasPendingOrders ? 'text-yellow-300 font-medium' : 'text-yellow-600 font-medium'}>
+                      <span className={
+                        isOverdue
+                          ? 'text-yellow-200 font-medium'
+                          : hasPendingOrders
+                          ? 'text-amber-900 font-medium'
+                          : 'text-green-200 font-medium'
+                      }>
                         {tab.orders?.filter((o: any) => o.status === 'pending' && o.status !== 'cancelled').length || 0} pending
                       </span>
                     </div>
@@ -1408,23 +1415,8 @@ export default function TabsPage() {
           }}
         />
 
-        {/* ONBOARDING MODAL - Forced mode for incomplete onboarding */}
-        {showOnboardingModal && !onboardingCompleted && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <VenueModeOnboarding
-                  onComplete={handleOnboardingComplete}
-                  isForced={true}
-                  barId={bar?.id}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* CSS Animations */}
-        <style>{`
+        <style jsx global>{`
           .hide-scrollbar::-webkit-scrollbar {
             display: none;
           }

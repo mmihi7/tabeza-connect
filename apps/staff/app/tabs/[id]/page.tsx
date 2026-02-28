@@ -21,6 +21,102 @@ const tempFormatCurrency = (amount: number | string, decimals = 0): string => {
   }).format(number)}`;
 };
 
+/**
+ * Error Handling Utility for Close Tab Operations
+ * Task: 5.1 Create error handling utility
+ * Requirements: 2.5, 4.1, 4.3
+ * 
+ * Categorizes errors and provides user-friendly messages with troubleshooting guidance
+ */
+interface CloseTabError {
+  type: 'network' | 'validation' | 'database' | 'permission';
+  message: string;
+  details?: Record<string, any>;
+  retryable: boolean;
+  troubleshooting?: string;
+}
+
+const handleCloseTabError = (error: any): CloseTabError => {
+  console.error('🔍 Analyzing close tab error:', error);
+  
+  // Network/connection errors
+  if (error.code === 'PGRST301' || 
+      error.message?.includes('fetch') || 
+      error.message?.includes('network') ||
+      error.message?.includes('connection')) {
+    return {
+      type: 'network',
+      message: 'Connection error. Please check your internet connection.',
+      retryable: true,
+      troubleshooting: 'Check your internet connection and try again. If the problem persists, contact support.'
+    };
+  }
+  
+  // Permission/authorization errors
+  if (error.code === '42501' || 
+      error.message?.includes('permission') ||
+      error.message?.includes('unauthorized') ||
+      error.message?.includes('access denied')) {
+    return {
+      type: 'permission',
+      message: 'You do not have permission to close this tab.',
+      retryable: false,
+      troubleshooting: 'Contact your bar manager or administrator to verify your permissions.'
+    };
+  }
+  
+  // Validation errors (pending orders, balance issues)
+  if (error.message?.includes('pending') || 
+      error.message?.includes('balance') ||
+      error.message?.includes('orders')) {
+    return {
+      type: 'validation',
+      message: error.message || 'Cannot close tab due to validation error',
+      details: error.details,
+      retryable: false,
+      troubleshooting: 'Resolve any pending orders or balance issues before closing the tab.'
+    };
+  }
+  
+  // Tab already closed
+  if (error.message?.includes('already closed')) {
+    return {
+      type: 'validation',
+      message: 'This tab is already closed.',
+      retryable: false,
+      troubleshooting: 'Refresh the page to see the current tab status.'
+    };
+  }
+  
+  // Database/RPC errors
+  if (error.code?.startsWith('P') || // PostgreSQL error codes
+      error.message?.includes('rpc') ||
+      error.message?.includes('function') ||
+      error.message?.includes('database')) {
+    return {
+      type: 'database',
+      message: 'Database error occurred. Please try again.',
+      details: { 
+        code: error.code,
+        hint: error.hint
+      },
+      retryable: true,
+      troubleshooting: 'Try again in a moment. If the error persists, contact support with the error code.'
+    };
+  }
+  
+  // Generic/unknown errors
+  return {
+    type: 'database',
+    message: 'An unexpected error occurred while closing the tab.',
+    details: { 
+      originalError: error.message 
+    },
+    retryable: true,
+    troubleshooting: 'Please try again. If the problem continues, contact support.'
+  };
+};
+
 interface CartItem {
   id: string;
   name: string;
@@ -632,21 +728,13 @@ export default function TabDetailPage() {
   };
 
   const handleCancelOrder = async (orderId: string, initiatedBy: string) => {
-    if (initiatedBy === 'staff') {
-      showToast({
-        type: 'warning',
-        title: 'Cannot Cancel',
-        message: 'Staff orders cannot be cancelled after submission'
-      });
-      return;
-    }
-
     try {
       const { error } = await (supabase as any)
         .from('tab_orders')
         .update({ 
           status: 'cancelled',
-          cancelled_at: new Date().toISOString()
+          cancelled_at: new Date().toISOString(),
+          cancelled_by: 'staff'
         })
         .eq('id', orderId) as { data: any, error: any };
 
@@ -657,7 +745,9 @@ export default function TabDetailPage() {
       showToast({
         type: 'success',
         title: 'Order Cancelled',
-        message: 'Customer order has been cancelled'
+        message: initiatedBy === 'staff' 
+          ? 'Your order has been cancelled' 
+          : 'Customer order has been cancelled'
       });
       
     } catch (error) {
@@ -709,7 +799,7 @@ export default function TabDetailPage() {
     }
   };
 
-  // Check for pending orders awaiting customer approval
+  // Check for pending orders awaiting customer approval (Requirements 2.3, 4.2)
   const hasPendingStaffOrders = () => {
     if (!tab?.orders) return false;
     return tab.orders.some((order: any) => 
@@ -717,12 +807,58 @@ export default function TabDetailPage() {
     );
   };
 
-  // Check for pending customer orders not yet served
+  // Get detailed information about pending staff orders
+  const getPendingStaffOrdersDetails = () => {
+    if (!tab?.orders) return { count: 0, total: 0, orders: [] };
+    
+    const pendingStaffOrders = tab.orders.filter((order: any) => 
+      order.status === 'pending' && order.initiated_by === 'staff'
+    );
+    
+    const total = pendingStaffOrders.reduce((sum: number, order: any) => 
+      sum + parseFloat(order.total), 0
+    );
+    
+    return {
+      count: pendingStaffOrders.length,
+      total,
+      orders: pendingStaffOrders.map((order: any) => ({
+        id: order.id,
+        total: parseFloat(order.total),
+        items: order.items
+      }))
+    };
+  };
+
+  // Check for pending customer orders not yet served (Requirements 2.4, 4.2)
   const hasPendingCustomerOrders = () => {
     if (!tab?.orders) return false;
     return tab.orders.some((order: any) => 
       order.status === 'pending' && order.initiated_by === 'customer'
     );
+  };
+
+  // Get detailed information about pending customer orders
+  const getPendingCustomerOrdersDetails = () => {
+    if (!tab?.orders) return { count: 0, total: 0, orders: [] };
+    
+    const pendingCustomerOrders = tab.orders.filter((order: any) => 
+      order.status === 'pending' && order.initiated_by === 'customer'
+    );
+    
+    const total = pendingCustomerOrders.reduce((sum: number, order: any) => 
+      sum + parseFloat(order.total), 0
+    );
+    
+    return {
+      count: pendingCustomerOrders.length,
+      total,
+      orders: pendingCustomerOrders.map((order: any) => ({
+        id: order.id,
+        total: parseFloat(order.total),
+        items: order.items
+      }))
+    };
   };
 
   const getTabBalance = () => {
@@ -737,21 +873,23 @@ export default function TabDetailPage() {
   const initiateCloseTab = () => {
     const balance = getTabBalance();
     
-    // Check for pending orders
+    // Check for pending orders with detailed information (Requirements 2.3, 2.4, 4.2)
     if (hasPendingStaffOrders()) {
+      const details = getPendingStaffOrdersDetails();
       showToast({
         type: 'warning',
         title: 'Cannot Close Tab',
-        message: 'There are orders pending customer approval'
+        message: `${details.count} staff order(s) totaling ${tempFormatCurrency(details.total)} are awaiting customer approval. Please wait for customer to approve or cancel these orders.`
       });
       return;
     }
 
     if (hasPendingCustomerOrders()) {
+      const details = getPendingCustomerOrdersDetails();
       showToast({
         type: 'warning',
         title: 'Cannot Close Tab',
-        message: 'There are unserved customer orders'
+        message: `${details.count} customer order(s) totaling ${tempFormatCurrency(details.total)} have not been served yet. Please mark them as served or cancel them before closing.`
       });
       return;
     }
@@ -788,27 +926,13 @@ export default function TabDetailPage() {
         // Push to overdue - use the close_tab function with write-off
         const { data, error } = await (supabase as any).rpc('close_tab', {
           p_tab_id: tabId,
-          p_write_off_amount: balance
+          p_write_off_amount: balance,
+          p_closed_by: 'staff'
         });
 
         if (error) {
           console.error('Error pushing tab to overdue:', error);
           throw error;
-        }
-
-        // Also update status to overdue instead of closed
-        const { error: updateError } = await (supabase as any)
-          .from('tabs')
-          .update({ 
-            status: 'overdue',
-            moved_to_overdue_at: new Date().toISOString(),
-            overdue_reason: 'Unpaid balance pushed to bad debt',
-            closed_by: 'staff'
-          })
-          .eq('id', tabId);
-
-        if (updateError) {
-          console.error('Error updating tab status to overdue:', updateError);
         }
 
         showToast({
@@ -821,7 +945,8 @@ export default function TabDetailPage() {
         // Close normally using the close_tab function
         const { data, error } = await (supabase as any).rpc('close_tab', {
           p_tab_id: tabId,
-          p_write_off_amount: 0
+          p_write_off_amount: null,
+          p_closed_by: 'staff'
         });
 
         if (error) {
@@ -843,14 +968,38 @@ export default function TabDetailPage() {
       
     } catch (error: any) {
       console.error('Error closing tab:', error);
+      
+      // Use enhanced error handling (Requirements 2.5, 4.1, 4.3)
+      const errorInfo = handleCloseTabError(error);
+      
+      // Show detailed error message with troubleshooting guidance
       showToast({
         type: 'error',
-        title: 'Failed to Close Tab',
-        message: error.message || 'Please try again. Check your connection and authentication.'
+        title: `Failed to ${balance > 0 ? 'Push to Overdue' : 'Close Tab'}`,
+        message: `${errorInfo.message}\n\n${errorInfo.troubleshooting || ''}`
       });
-    } finally {
-      setClosingTab(false);
-      setShowCloseConfirm(false);
+      
+      // Log error details for debugging (Requirement 4.4)
+      console.error('Close tab error details:', {
+        type: errorInfo.type,
+        message: errorInfo.message,
+        retryable: errorInfo.retryable,
+        details: errorInfo.details,
+        tabId,
+        balance,
+        timestamp: new Date().toISOString()
+      });
+      
+      // If error is retryable, show retry option
+      if (errorInfo.retryable) {
+        // Keep the modal open so user can retry
+        setClosingTab(false);
+        // Don't close the confirmation modal - let user retry
+      } else {
+        // Non-retryable error - close modal
+        setClosingTab(false);
+        setShowCloseConfirm(false);
+      }
     }
   };
 
@@ -1593,8 +1742,16 @@ export default function TabDetailPage() {
                               </button>
                             </div>
                           ) : (
-                            <div className="w-full bg-blue-50 border border-blue-200 text-blue-700 py-2 rounded-lg text-sm font-medium text-center">
-                              ⏳ Waiting for customer approval
+                            <div className="flex flex-col gap-2">
+                              <div className="w-full bg-blue-50 border border-blue-200 text-blue-700 py-2 rounded-lg text-sm font-medium text-center">
+                                ⏳ Waiting for customer approval
+                              </div>
+                              <button
+                                onClick={() => handleCancelOrder(order.id, initiatedBy)}
+                                className="w-full bg-red-500 text-white py-2 rounded-lg text-sm font-medium hover:bg-red-600"
+                              >
+                                Cancel Order
+                              </button>
                             </div>
                           )}
                         </>

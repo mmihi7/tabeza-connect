@@ -17,7 +17,8 @@
   },
   "include": [
     "lib/**/*",
-    "jest.setup.js"
+    "jest.setup.js",
+    "*.ts"
   ],
   "exclude": [
     "node_modules",
