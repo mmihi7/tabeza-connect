@@ -15,7 +15,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "create-package": "node create-package.js",
-    "build-exe": "pkg . --targets node18-win-x64 --output dist/tabeza-printer-service.exe",
+    "build-exe": "pkg index.js --targets node18-win-x64 --output dist/tabeza-printer-service.exe",
     "build-installer": "node build-installer.js",
     "build:electron": "electron-builder",
     "build:all": "npm run build:electron",
@@ -48,8 +48,13 @@
     ]
   },
   "pkg": {
+    "scripts": [
+      "**/*.js",
+      "../server/**/*.js"
+    ],
     "assets": [
-      "node_modules/**/*"
+      "node_modules/**/*",
+      "../public/**/*"
     ],
     "targets": [
       "node18-win-x64"

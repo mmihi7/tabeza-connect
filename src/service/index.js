@@ -64,6 +64,8 @@ function log(level, message) {
   } catch (_) {}
 }
 
+log('INFO', '--- INDEX.JS WAS LOADED ---');
+
 const info  = (m) => log('INFO',  m);
 const warn  = (m) => log('WARN',  m);
 const error = (m) => log('ERROR', m);
