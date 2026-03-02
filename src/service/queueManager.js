@@ -14,7 +14,7 @@
  * Requirements: Design "Component 7: Local Queue Manager", "Model 2: CapturedReceipt"
  */
 
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs').promises;
 
@@ -94,36 +94,27 @@ class QueueManager {
    * Open database connection with WAL mode for concurrent access
    */
   async openDatabase() {
-    return new Promise((resolve, reject) => {
-      this.db = new sqlite3.Database(this.dbPath, (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          // Enable WAL mode for concurrent access
-          this.db.run('PRAGMA journal_mode = WAL;', (err) => {
-            if (err) {
-              reject(err);
-            } else {
-              // Enable foreign keys
-              this.db.run('PRAGMA foreign_keys = ON;', (err) => {
-                if (err) {
-                  reject(err);
-                } else {
-                  resolve();
-                }
-              });
-            }
-          });
-        }
-      });
-    });
+    try {
+      this.db = new Database(this.dbPath);
+      
+      // Enable WAL mode for concurrent access
+      this.db.pragma('journal_mode = WAL');
+      
+      // Enable foreign keys
+      this.db.pragma('foreign_keys = ON');
+      
+      console.log('🔒 Database connection opened');
+    } catch (error) {
+      throw new Error(`Failed to open database: ${error.message}`);
+    }
   }
 
   /**
    * Create database schema with receipts table and indexes
    */
   async createSchema() {
-    return new Promise((resolve, reject) => {
+    try {
+      // Create receipts table
       const createTableSQL = `
         CREATE TABLE IF NOT EXISTS receipts (
           id TEXT PRIMARY KEY,
@@ -141,39 +132,25 @@ class QueueManager {
         );
       `;
 
-      this.db.run(createTableSQL, (err) => {
-        if (err) {
-          reject(err);
-          return;
-        }
+      this.db.exec(createTableSQL);
 
-        // Create indexes for efficient querying
-        const indexes = [
-          'CREATE INDEX IF NOT EXISTS idx_receipts_status ON receipts(status);',
-          'CREATE INDEX IF NOT EXISTS idx_receipts_captured_at ON receipts(capturedAt);',
-          'CREATE INDEX IF NOT EXISTS idx_receipts_bar_id ON receipts(barId);',
-          'CREATE INDEX IF NOT EXISTS idx_receipts_retry_count ON receipts(retryCount);',
-          'CREATE INDEX IF NOT EXISTS idx_receipts_status_captured_at ON receipts(status, capturedAt);'
-        ];
+      // Create indexes for efficient querying
+      const indexes = [
+        'CREATE INDEX IF NOT EXISTS idx_receipts_status ON receipts(status);',
+        'CREATE INDEX IF NOT EXISTS idx_receipts_captured_at ON receipts(capturedAt);',
+        'CREATE INDEX IF NOT EXISTS idx_receipts_bar_id ON receipts(barId);',
+        'CREATE INDEX IF NOT EXISTS idx_receipts_retry_count ON receipts(retryCount);',
+        'CREATE INDEX IF NOT EXISTS idx_receipts_status_captured_at ON receipts(status, capturedAt);'
+      ];
 
-        let completed = 0;
-        const total = indexes.length;
-
-        indexes.forEach((indexSQL, i) => {
-          this.db.run(indexSQL, (err) => {
-            if (err) {
-              reject(err);
-              return;
-            }
-            
-            completed++;
-            if (completed === total) {
-              resolve();
-            }
-          });
-        });
+      indexes.forEach(indexSQL => {
+        this.db.exec(indexSQL);
       });
-    });
+
+      console.log('✅ Database schema created');
+    } catch (error) {
+      throw new Error(`Failed to create schema: ${error.message}`);
+    }
   }
 
   /**
@@ -187,7 +164,7 @@ class QueueManager {
    * @returns {Promise<string>} - Receipt ID
    */
   async add(receipt) {
-    return new Promise((resolve, reject) => {
+    try {
       // Validate required fields
       this.validateReceipt(receipt);
       
@@ -195,43 +172,39 @@ class QueueManager {
       const receiptId = this.generateId();
       
       // Check queue size limit
-      this.getQueueSize().then(size => {
-        if (size >= MAX_QUEUE_SIZE) {
-          reject(new Error(`Queue size limit reached (${MAX_QUEUE_SIZE}). Cannot add new receipts.`));
-          return;
-        }
+      const size = await this.getQueueSize();
+      if (size >= MAX_QUEUE_SIZE) {
+        throw new Error(`Queue size limit reached (${MAX_QUEUE_SIZE}). Cannot add new receipts.`);
+      }
 
-        const sql = `
-          INSERT INTO receipts (
-            id, barId, rawText, parsedData, status, retryCount, capturedAt
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        `;
+      const sql = `
+        INSERT INTO receipts (
+          id, barId, rawText, parsedData, status, retryCount, capturedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      `;
 
-        const params = [
-          receiptId,
-          receipt.barId,
-          receipt.rawText || null,
-          receipt.parsedData ? JSON.stringify(receipt.parsedData) : null,
-          'pending',
-          0,
-          receipt.capturedAt || new Date().toISOString()
-        ];
+      const stmt = this.db.prepare(sql);
+      const params = [
+        receiptId,
+        receipt.barId,
+        receipt.rawText || null,
+        receipt.parsedData ? JSON.stringify(receipt.parsedData) : null,
+        'pending',
+        0,
+        receipt.capturedAt || new Date().toISOString()
+      ];
 
-        this.db.run(sql, params, function(err) {
-          if (err) {
-            reject(err);
-            return;
-          }
+      stmt.run(params);
 
-          // Update statistics
-          this.stats.enqueued++;
-          this.stats.lastEnqueue = new Date().toISOString();
+      // Update statistics
+      this.stats.enqueued++;
+      this.stats.lastEnqueue = new Date().toISOString();
 
-          console.log(`✅ Receipt added to queue: ${receiptId}`);
-          resolve(receiptId);
-        }.bind(this));
-      }).catch(reject);
-    });
+      console.log(`✅ Receipt added to queue: ${receiptId}`);
+      return receiptId;
+    } catch (error) {
+      throw new Error(`Failed to add receipt: ${error.message}`);
+    }
   }
 
   /**
@@ -241,7 +214,7 @@ class QueueManager {
    * @returns {Promise<Array>} - Array of pending receipts
    */
   async getPending(limit = 50) {
-    return new Promise((resolve, reject) => {
+    try {
       const sql = `
         SELECT * FROM receipts 
         WHERE status = 'pending' 
@@ -249,21 +222,19 @@ class QueueManager {
         LIMIT ?
       `;
 
-      this.db.all(sql, [limit], (err, rows) => {
-        if (err) {
-          reject(err);
-          return;
-        }
+      const stmt = this.db.prepare(sql);
+      const rows = stmt.all(limit);
 
-        // Parse JSON fields
-        const receipts = rows.map(row => ({
-          ...row,
-          parsedData: row.parsedData ? JSON.parse(row.parsedData) : null
-        }));
+      // Parse JSON fields
+      const receipts = rows.map(row => ({
+        ...row,
+        parsedData: row.parsedData ? JSON.parse(row.parsedData) : null
+      }));
 
-        resolve(receipts);
-      });
-    });
+      return receipts;
+    } catch (error) {
+      throw new Error(`Failed to get pending receipts: ${error.message}`);
+    }
   }
 
   /**
@@ -273,7 +244,7 @@ class QueueManager {
    * @returns {Promise<void>}
    */
   async markUploaded(receiptId) {
-    return new Promise((resolve, reject) => {
+    try {
       const sql = `
         UPDATE receipts 
         SET status = 'uploaded', 
@@ -282,25 +253,21 @@ class QueueManager {
         WHERE id = ?
       `;
 
-      this.db.run(sql, [receiptId], function(err) {
-        if (err) {
-          reject(err);
-          return;
-        }
+      const stmt = this.db.prepare(sql);
+      const result = stmt.run(receiptId);
 
-        if (this.changes === 0) {
-          console.warn(`⚠️  Receipt ${receiptId} not found in queue`);
-          resolve();
-          return;
-        }
+      if (result.changes === 0) {
+        console.warn(`⚠️  Receipt ${receiptId} not found in queue`);
+        return;
+      }
 
-        // Update statistics
-        this.stats.uploaded++;
+      // Update statistics
+      this.stats.uploaded++;
 
-        console.log(`✅ Receipt marked as uploaded: ${receiptId}`);
-        resolve();
-      }.bind(this));
-    });
+      console.log(`✅ Receipt marked as uploaded: ${receiptId}`);
+    } catch (error) {
+      throw new Error(`Failed to mark receipt as uploaded: ${error.message}`);
+    }
   }
 
   /**
@@ -311,7 +278,7 @@ class QueueManager {
    * @returns {Promise<void>}
    */
   async markFailed(receiptId, error = null) {
-    return new Promise((resolve, reject) => {
+    try {
       const sql = `
         UPDATE receipts 
         SET status = 'failed',
@@ -321,25 +288,21 @@ class QueueManager {
         WHERE id = ?
       `;
 
-      this.db.run(sql, [error, receiptId], function(err) {
-        if (err) {
-          reject(err);
-          return;
-        }
+      const stmt = this.db.prepare(sql);
+      const result = stmt.run(error, receiptId);
 
-        if (this.changes === 0) {
-          console.warn(`⚠️  Receipt ${receiptId} not found in queue`);
-          resolve();
-          return;
-        }
+      if (result.changes === 0) {
+        console.warn(`⚠️  Receipt ${receiptId} not found in queue`);
+        return;
+      }
 
-        // Update statistics
-        this.stats.failed++;
+      // Update statistics
+      this.stats.failed++;
 
-        console.log(`❌ Receipt marked as failed: ${receiptId}`);
-        resolve();
-      }.bind(this));
-    });
+      console.log(`❌ Receipt marked as failed: ${receiptId}`);
+    } catch (error) {
+      throw new Error(`Failed to mark receipt as failed: ${error.message}`);
+    }
   }
 
   /**
@@ -349,7 +312,7 @@ class QueueManager {
    * @returns {Promise<void>}
    */
   async incrementRetry(receiptId) {
-    return new Promise((resolve, reject) => {
+    try {
       const sql = `
         UPDATE receipts 
         SET retryCount = retryCount + 1,
@@ -358,21 +321,16 @@ class QueueManager {
         WHERE id = ?
       `;
 
-      this.db.run(sql, [receiptId], function(err) {
-        if (err) {
-          reject(err);
-          return;
-        }
+      const stmt = this.db.prepare(sql);
+      const result = stmt.run(receiptId);
 
-        if (this.changes === 0) {
-          console.warn(`⚠️  Receipt ${receiptId} not found in queue`);
-          resolve();
-          return;
-        }
-
-        resolve();
-      });
-    });
+      if (result.changes === 0) {
+        console.warn(`⚠️  Receipt ${receiptId} not found in queue`);
+        return;
+      }
+    } catch (error) {
+      throw new Error(`Failed to increment retry count: ${error.message}`);
+    }
   }
 
   /**
@@ -381,7 +339,7 @@ class QueueManager {
    * @returns {Promise<Object>} - Queue statistics
    */
   async getQueueStats() {
-    return new Promise((resolve, reject) => {
+    try {
       const sql = `
         SELECT 
           status,
@@ -390,27 +348,25 @@ class QueueManager {
         GROUP BY status
       `;
 
-      this.db.all(sql, [], (err, rows) => {
-        if (err) {
-          reject(err);
-          return;
-        }
+      const stmt = this.db.prepare(sql);
+      const rows = stmt.all();
 
-        const stats = {
-          pending: 0,
-          uploaded: 0,
-          failed: 0,
-          total: 0
-        };
+      const stats = {
+        pending: 0,
+        uploaded: 0,
+        failed: 0,
+        total: 0
+      };
 
-        rows.forEach(row => {
-          stats[row.status] = row.count;
-          stats.total += row.count;
-        });
-
-        resolve(stats);
+      rows.forEach(row => {
+        stats[row.status] = row.count;
+        stats.total += row.count;
       });
-    });
+
+      return stats;
+    } catch (error) {
+      throw new Error(`Failed to get queue statistics: ${error.message}`);
+    }
   }
 
   /**
@@ -419,18 +375,16 @@ class QueueManager {
    * @returns {Promise<number>}
    */
   async getQueueSize() {
-    return new Promise((resolve, reject) => {
+    try {
       const sql = 'SELECT COUNT(*) as count FROM receipts WHERE status = "pending"';
       
-      this.db.get(sql, [], (err, row) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        
-        resolve(row.count);
-      });
-    });
+      const stmt = this.db.prepare(sql);
+      const row = stmt.get();
+      
+      return row.count;
+    } catch (error) {
+      throw new Error(`Failed to get queue size: ${error.message}`);
+    }
   }
 
   /**
@@ -440,7 +394,7 @@ class QueueManager {
    * @returns {Promise<number>} - Number of receipts cleaned up
    */
   async cleanup() {
-    return new Promise((resolve, reject) => {
+    try {
       console.log('🧹 Cleaning up old uploaded receipts...');
       
       const sql = `
@@ -449,25 +403,23 @@ class QueueManager {
         AND uploadedAt < datetime('now', '-${MAX_UPLOADED_AGE_DAYS} days')
       `;
 
-      this.db.run(sql, [], function(err) {
-        if (err) {
-          reject(err);
-          return;
-        }
+      const stmt = this.db.prepare(sql);
+      const result = stmt.run();
 
-        // Update statistics
-        this.stats.cleanedUp += this.changes;
-        this.stats.lastCleanup = new Date().toISOString();
+      // Update statistics
+      this.stats.cleanedUp += result.changes;
+      this.stats.lastCleanup = new Date().toISOString();
 
-        if (this.changes > 0) {
-          console.log(`✅ Cleaned up ${this.changes} old uploaded receipts`);
-        } else {
-          console.log('✅ No old receipts to clean up');
-        }
+      if (result.changes > 0) {
+        console.log(`✅ Cleaned up ${result.changes} old uploaded receipts`);
+      } else {
+        console.log('✅ No old receipts to clean up');
+      }
 
-        resolve(this.changes);
-      }.bind(this));
-    });
+      return result.changes;
+    } catch (error) {
+      throw new Error(`Failed to cleanup old receipts: ${error.message}`);
+    }
   }
 
   /**
@@ -526,20 +478,14 @@ class QueueManager {
    * Close database connection
    */
   async close() {
-    return new Promise((resolve, reject) => {
+    try {
       if (this.db) {
-        this.db.close((err) => {
-          if (err) {
-            reject(err);
-          } else {
-            console.log('🔒 SQLite queue database closed');
-            resolve();
-          }
-        });
-      } else {
-        resolve();
+        this.db.close();
+        console.log('🔒 SQLite queue database closed');
       }
-    });
+    } catch (error) {
+      console.error('❌ Error closing database:', error.message);
+    }
   }
 }
 

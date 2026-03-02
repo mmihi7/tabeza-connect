@@ -83,6 +83,8 @@ Source: "TabezaConnect.exe"; DestDir: "{app}"; Flags: ignoreversion; Components:
 Source: "src\installer\scripts\create-folders.ps1"; DestDir: "{app}\scripts"; Components: core
 Source: "src\installer\scripts\detect-thermal-printer.ps1"; DestDir: "{app}\scripts"; Components: core
 Source: "src\installer\scripts\configure-bridge.ps1"; DestDir: "{app}\scripts"; Components: core
+Source: "src\installer\scripts\configure-pooling-printer.ps1"; DestDir: "{app}\scripts"; Components: core
+Source: "src\installer\scripts\uninstall-pooling-printer.ps1"; DestDir: "{app}\scripts"; Components: core
 Source: "src\installer\scripts\verify-bridge.ps1"; DestDir: "{app}\scripts"; Components: core
 Source: "src\installer\scripts\register-service-pkg.ps1"; DestDir: "{app}\scripts"; Components: core
 Source: "src\installer\scripts\register-printer-with-api.ps1"; DestDir: "{app}\scripts"; Components: core
@@ -281,10 +283,38 @@ end;
 
 { Post-install actions }
 procedure CurStepChanged(CurStep: TSetupStep);
+var
+  PoolingErrorMsg: String;
 begin
   if CurStep = ssPostInstall then
   begin
     LogTermsAcceptance;
+    
+    { Check pooling printer configuration result }
+    { Note: The pooling configuration runs in [Run] section with waituntilterminated }
+    { Exit codes: 0=success, 2=already configured (idempotent), 3=no printer, 4=no admin, 1=other error }
+    if IsAdminInstallMode then
+    begin
+      PoolingErrorMsg := CheckPoolingConfigurationLog();
+      
+      if PoolingErrorMsg <> '' then
+      begin
+        { Log the error but allow installation to continue }
+        Log('Pooling printer configuration warning: ' + PoolingErrorMsg);
+        
+        { Display informational message to user }
+        MsgBox('Printer Configuration Notice:' + #13#10 + #13#10 +
+               PoolingErrorMsg + #13#10 + #13#10 +
+               'The TabezaConnect service has been installed successfully, but automatic printer configuration was not completed.' + #13#10 + #13#10 +
+               'You can configure the printer manually using the instructions in the documentation, or contact support for assistance.' + #13#10 + #13#10 +
+               'Log file: C:\ProgramData\Tabeza\logs\configure-pooling.log',
+               mbInformation, MB_OK);
+      end
+      else
+      begin
+        Log('Pooling printer configuration completed successfully');
+      end;
+    end;
   end;
 end;
 
@@ -316,6 +346,48 @@ end;
 function HasPreservedConfig(): Boolean;
 begin
   Result := HasExistingConfig;
+end;
+
+{ Check if running in admin mode }
+function IsAdminInstallMode(): Boolean;
+begin
+  Result := IsAdmin;
+end;
+
+{ Check pooling printer configuration log for errors }
+function CheckPoolingConfigurationLog(): String;
+var
+  LogFile: String;
+  LogContent: AnsiString;
+  LogStr: String;
+begin
+  Result := '';
+  LogFile := ExpandConstant('{commonappdata}\Tabeza\logs\configure-pooling.log');
+  
+  if FileExists(LogFile) then
+  begin
+    try
+      if LoadStringFromFile(LogFile, LogContent) then
+      begin
+        LogStr := String(LogContent);
+        
+        { Check for critical errors }
+        if Pos('[ERROR]', LogStr) > 0 then
+        begin
+          if Pos('No thermal printer detected', LogStr) > 0 then
+            Result := 'No thermal printer detected. Please ensure your printer is connected and drivers are installed.'
+          else if Pos('Administrator privileges required', LogStr) > 0 then
+            Result := 'Administrator privileges required for printer configuration.'
+          else if Pos('Print Spooler service is not running', LogStr) > 0 then
+            Result := 'Windows Print Spooler service is not running. Please start the service and try again.'
+          else
+            Result := 'Printer configuration encountered an error. Check the log file for details.';
+        end;
+      end;
+    except
+      { Ignore log read errors }
+    end;
+  end;
 end;
 
 { Prepare for installation - handle upgrades }
@@ -366,21 +438,29 @@ Filename: "powershell.exe"; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
-; Step 2: Detect printer
+; Step 2: Configure pooling printer (automatic printer detection and configuration)
+Filename: "powershell.exe"; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\configure-pooling-printer.ps1"" -CaptureFilePath ""C:\TabezaPrints\order.prn"""; \
+  StatusMsg: "Configuring Tabeza POS Printer..."; \
+  Flags: runhidden waituntilterminated; \
+  Components: core; \
+  Check: IsAdminInstallMode
+
+; Step 3: Detect printer (fallback for legacy bridge mode)
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\detect-thermal-printer.ps1"" -OutputFile ""C:\ProgramData\Tabeza\detected-printer.json"""; \
   StatusMsg: "Detecting printer..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
-; Step 3: Configure bridge
+; Step 4: Configure bridge (legacy bridge mode)
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\configure-bridge.ps1"" -BarId ""{code:GetBarId}"" -ConfigFile ""C:\ProgramData\Tabeza\config.json"""; \
   StatusMsg: "Configuring printer..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
-; Step 3b: Merge preserved config (only if upgrading)
+; Step 4b: Merge preserved config (only if upgrading)
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\merge-preserved-config.ps1"" -PreservedBarId ""{code:GetPreservedBarId}"" -PreservedDriverId ""{code:GetPreservedDriverId}"" -ConfigFile ""C:\ProgramData\Tabeza\config.json"""; \
   StatusMsg: "Restoring configuration..."; \
@@ -388,49 +468,49 @@ Filename: "powershell.exe"; \
   Components: core; \
   Check: HasPreservedConfig
 
-; Step 4: Register service
+; Step 5: Register service
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\register-service-pkg.ps1"" -InstallPath ""{app}"" -BarId ""{code:GetBarId}"""; \
   StatusMsg: "Registering service..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
-; Step 5: Start service
+; Step 6: Start service
 Filename: "sc.exe"; \
   Parameters: "start TabezaConnect"; \
   StatusMsg: "Starting service..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
-; Step 5b: Check service started
+; Step 6b: Check service started
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\check-service-started.ps1"""; \
   StatusMsg: "Verifying service..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
-; Step 6: Register printer with API
+; Step 7: Register printer with API
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\register-printer-with-api.ps1"" -BarId ""{code:GetBarId}"" -ConfigFile ""C:\ProgramData\Tabeza\config.json"""; \
   StatusMsg: "Registering printer..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
-; Step 7: Verify installation
+; Step 8: Verify installation
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\verify-bridge.ps1"" -InstallPath ""{app}"""; \
   StatusMsg: "Verifying installation..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
-; Step 8: Show summary
+; Step 9: Show summary
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\show-installation-summary.ps1"""; \
   StatusMsg: "Generating summary..."; \
   Flags: waituntilterminated; \
   Components: core
 
-; Step 9: Post-install instructions (optional)
+; Step 10: Post-install instructions (optional)
 Filename: "{win}\notepad.exe"; \
   Parameters: """{app}\docs\AFTER-INSTALL.txt"""; \
   Description: "View post-installation instructions"; \
@@ -439,20 +519,29 @@ Filename: "{win}\notepad.exe"; \
   Check: FileExists(ExpandConstant('{app}\docs\AFTER-INSTALL.txt'))
 
 [UninstallRun]
+; Stop the service
 Filename: "sc.exe"; \
   Parameters: "stop TabezaConnect"; \
   Flags: runhidden; \
   RunOnceId: "StopService"
 
+; Delete the service
 Filename: "sc.exe"; \
   Parameters: "delete TabezaConnect"; \
   Flags: runhidden; \
   RunOnceId: "DeleteService"
 
+; Remove Tabeza POS Printer and capture port (preserves capture file data)
+Filename: "powershell.exe"; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\uninstall-pooling-printer.ps1"" -PreserveCaptureData -Silent"; \
+  Flags: runhidden; \
+  RunOnceId: "RemovePoolingPrinter"
+
+; Remove legacy bridge printer (for backwards compatibility)
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Remove-Printer -Name 'Tabeza POS Connect' -ErrorAction SilentlyContinue"""; \
   Flags: runhidden; \
-  RunOnceId: "RemovePrinter"
+  RunOnceId: "RemoveLegacyPrinter"
 
 [UninstallDelete]
 Name: "{commonappdata}\Tabeza\logs"; Type: filesandordirs

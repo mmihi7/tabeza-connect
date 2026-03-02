@@ -51,12 +51,12 @@ const ICON_PATHS = {
 
 // ── State → icon / tooltip mapping ───────────────────────────────────────────
 const STATE_CONFIG = {
-  [ApplicationState.STARTING]:     { icon: 'grey',  tooltip: 'Tabeza POS Connect - Starting...' },
+  [ApplicationState.STARTING]:     { icon: 'grey', tooltip: 'Tabeza POS Connect - Starting...' },
   [ApplicationState.CONNECTED]:    { icon: 'green', tooltip: 'Tabeza POS Connect - Connected' },
-  [ApplicationState.UNCONFIGURED]: { icon: 'grey',  tooltip: 'Tabeza POS Connect - Configuration required' },
-  [ApplicationState.DISCONNECTED]: { icon: 'grey',  tooltip: 'Tabeza POS Connect - Cloud disconnected' },
-  [ApplicationState.ERROR]:        { icon: 'grey',  tooltip: 'Tabeza POS Connect - Error' },
-  [ApplicationState.SHUTTING_DOWN]:{ icon: 'grey',  tooltip: 'Tabeza POS Connect - Shutting down...' },
+  [ApplicationState.UNCONFIGURED]: { icon: 'grey', tooltip: 'Tabeza POS Connect - Configuration required' },
+  [ApplicationState.DISCONNECTED]: { icon: 'grey', tooltip: 'Tabeza POS Connect - Cloud disconnected' },
+  [ApplicationState.ERROR]:        { icon: 'grey', tooltip: 'Tabeza POS Connect - Error' },
+  [ApplicationState.SHUTTING_DOWN]:{ icon: 'grey', tooltip: 'Tabeza POS Connect - Shutting down...' },
 };
 
 // ── Status polling interval (ms) ──────────────────────────────────────────────
@@ -69,6 +69,7 @@ class TrayApp {
 
     this.tray   = null;
     this.window = null;           // BrowserWindow for status popup
+    this.wizardWindow = null;     // BrowserWindow for template wizard
 
     this.state        = ApplicationState.STARTING;
     this.barId        = null;
@@ -197,14 +198,62 @@ class TrayApp {
     }
   }
 
+  // ── Template wizard window ──────────────────────────────────────────────
+  _createWizardWindow() {
+    this.wizardWindow = new BrowserWindow({
+      width:           850,
+      height:          700,
+      resizable:       true,
+      maximizable:     true,
+      fullscreenable:  false,
+      show:            false,           // start hidden
+      skipTaskbar:     false,           // appear in taskbar
+      title:           'Tabeza Template Generator',
+      icon:            path.join(__dirname, '../../assets/icon-green.ico'),
+      webPreferences: {
+        nodeIntegration:   true,        // needed for fetch API in renderer
+        contextIsolation:  false,
+      },
+    });
+
+    this.wizardWindow.loadFile(path.join(__dirname, 'template-wizard.html'));
+
+    // Close wizard when window is closed
+    this.wizardWindow.on('close', () => {
+      this.wizardWindow = null;
+    });
+
+    // Remove the default menu bar
+    this.wizardWindow.setMenuBarVisibility(false);
+
+    console.log('[TrayApp] Template wizard window created (hidden)');
+  }
+
+  _showWizardWindow() {
+    if (!this.wizardWindow) {
+      this._createWizardWindow();
+    }
+    
+    if (!this.wizardWindow.isVisible()) {
+      this.wizardWindow.show();
+    }
+    this.wizardWindow.focus();
+  }
+
+  _hideWizardWindow() {
+    if (this.wizardWindow && this.wizardWindow.isVisible()) {
+      this.wizardWindow.hide();
+    }
+  }
+
   // Public alias used by main.js second-instance handler
   showWindow() { this._showWindow(); }
 
   // ── IPC handlers ─────────────────────────────────────────────────────────
   _registerIPC() {
     // Renderer asks for current status
-    ipcMain.on('get-status', (event) => {
-      event.reply('status-reply', this._buildStatusPayload());
+    ipcMain.on('get-status', async (event) => {
+      event.reply('status-reply', await this._buildStatusPayload());
     });
 
     // Renderer "Open Configuration" button
@@ -212,6 +261,9 @@ class TrayApp {
 
     // Renderer "Test Print" button
     ipcMain.on('test-print', () => this._testPrint());
+
+    // Renderer "Template Generator" button
+    ipcMain.on('open-template-wizard', () => this._showWizardWindow());
 
     // Renderer "OK" button → hide window
     ipcMain.on('hide-window', () => this._hideWindow());
@@ -221,6 +273,12 @@ class TrayApp {
   _rebuildContextMenu() {
     const shutting  = this.state === ApplicationState.SHUTTING_DOWN;
     const configured= !!(this.barId && this.barId !== 'NOT_CONFIGURED');
+
+    // Get queue stats for display
+    const queueStats = this._lastStatus?.queueStats;
+    const queueSize = queueStats?.queueSize || 0;
+    const pending = queueStats?.pending || 0;
+    const uploaded = queueStats?.uploaded || 0;
 
     let statusLabel;
     switch (this.state) {
@@ -236,7 +294,8 @@ class TrayApp {
     const menu = Menu.buildFromTemplate([
       { label: 'Tabeza POS Connect',                 enabled: false },
       { label: configured ? `Bar: ${this.barId}` : 'Bar: Not configured', enabled: false },
-      { label: `Status: ${statusLabel}`,              enabled: false },
+      { label: `${statusLabel}`, enabled: false },
+      { label: `Queue: ${pending} pending, ${uploaded} uploaded`, enabled: false },
       { type: 'separator' },
       {
         label:   'Show Status Window',
@@ -259,6 +318,11 @@ class TrayApp {
         label:   'Test Print',
         enabled: !shutting && configured,
         click:   () => this._testPrint(),
+      },
+      {
+        label:   'Template Generator',
+        enabled: !shutting && configured,
+        click:   () => this._showWizardWindow(),
       },
       {
         label:   'View Logs',
@@ -288,7 +352,7 @@ class TrayApp {
   }
 
   // ── State machine ─────────────────────────────────────────────────────────
-  setState(newState, reason = '', errorMsg = null) {
+  async setState(newState, reason = '', errorMsg = null) {
     const valid = Object.values(ApplicationState);
     if (!valid.includes(newState)) {
       console.warn(`[TrayApp] Unknown state: ${newState}`);
@@ -311,7 +375,7 @@ class TrayApp {
 
     // Push update to open window
     if (this.window && !this.window.isDestroyed()) {
-      this.window.webContents.send('status-update', this._buildStatusPayload());
+      this.window.webContents.send('status-update', await this._buildStatusPayload());
     }
 
     return true;
@@ -331,7 +395,7 @@ class TrayApp {
       const data = await res.json();
 
       // Merge into cached status
-      this._lastStatus = this._buildStatusPayload(data);
+      this._lastStatus = await this._buildStatusPayload(data);
 
       // Update barId from live data
       if (data.barId && data.barId !== this.barId) {
@@ -341,10 +405,10 @@ class TrayApp {
       // Determine desired app state
       if (!data.barId || data.barId === 'NOT_CONFIGURED') {
         if (this.state !== ApplicationState.UNCONFIGURED) {
-          this.setState(ApplicationState.UNCONFIGURED, 'Bar ID not configured');
+          await this.setState(ApplicationState.UNCONFIGURED, 'Bar ID not configured');
         }
       } else if (this.state !== ApplicationState.CONNECTED) {
-        this.setState(ApplicationState.CONNECTED, 'Service healthy');
+        await this.setState(ApplicationState.CONNECTED, 'Service healthy');
       } else {
         // Already connected — just refresh the menu/icon in case barId changed
         this._rebuildContextMenu();
@@ -358,13 +422,13 @@ class TrayApp {
         this.state !== ApplicationState.ERROR &&
         this.state !== ApplicationState.SHUTTING_DOWN
       ) {
-        this.setState(ApplicationState.ERROR, 'Service unreachable', 'Cannot connect to service');
+        await this.setState(ApplicationState.ERROR, 'Service unreachable', 'Cannot connect to service');
       }
     }
   }
 
   // ── Build status payload for the renderer ────────────────────────────────
-  _buildStatusPayload(liveData = null) {
+  async _buildStatusPayload(liveData = null) {
     let version = '1.1.0';
     try {
       const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf8'));
@@ -375,20 +439,37 @@ class TrayApp {
     const captureMode = liveData?.captureMode || null;
     let lastActivity = null;
     let receiptsProcessed = 0;
+    let queueStats = null;
 
     if (captureMode === 'pooling' && liveData?.pooling) {
       // Pooling (pause‑copy) mode uses pooling stats
       lastActivity = liveData.pooling.lastCapture || null;
       receiptsProcessed = liveData.pooling.jobsCaptured || 0;
-    } else if (captureMode === 'bridge' && liveData?.bridge) {
-      // Bridge mode (folder-based)
-      lastActivity = liveData.bridge.lastActivity || null;
-      receiptsProcessed = liveData.bridge.filesProcessed || 0;
     } else if (captureMode === 'spooler' && liveData?.spoolMonitor) {
       // Legacy passive spooler monitor
       lastActivity = liveData.spoolMonitor.lastDetection || null;
       receiptsProcessed = liveData.spoolMonitor.filesProcessed || 0;
     }
+
+    // Try to get queue statistics from local queue
+    const getQueueStats = async () => {
+      try {
+        const queueResponse = await fetch('http://localhost:8765/api/queue-stats', {
+          signal: AbortSignal.timeout(2000)
+        });
+        
+        if (queueResponse.ok) {
+          return await queueResponse.json();
+        }
+      } catch (error) {
+        console.warn('Failed to get queue stats:', error.message);
+        return {
+          pending: 0,
+          uploaded: 0,
+          failed: 0
+        };
+      }
+    };
 
     const base = {
       appState:           this.state,
@@ -397,10 +478,11 @@ class TrayApp {
       driverId:           liveData?.driverId              || null,
       lastActivity:       lastActivity,
       receiptsProcessed:  receiptsProcessed,
+      queueStats:          await getQueueStats(),
       port:               8765,
       captureMode:        captureMode,
       watchFolder:        liveData?.watchFolder           || null,
-      printerName:        liveData?.bridge?.printerName   || liveData?.printerName || null,
+      printerName:        liveData?.printerName || null,
       version,
     };
 
@@ -475,7 +557,7 @@ class TrayApp {
   }
 
   async _restartService() {
-    this.setState(ApplicationState.STARTING, 'User requested restart');
+    await this.setState(ApplicationState.STARTING, 'User requested restart');
 
     try {
       const res = await fetch('http://localhost:8765/api/restart', {
@@ -519,7 +601,7 @@ class TrayApp {
       title:   'About Tabeza POS Connect',
       message: `Tabeza POS Connect v${version}`,
       detail:
-        'POS Printer Bridge Application\n\n' +
+        'POS Printer Capture Service\n\n' +
         'Copyright © 2024 Tabeza\nAll rights reserved.\n\n' +
         'Website: https://tabeza.co.ke\n' +
         'Support: support@tabeza.co.ke',
@@ -531,7 +613,7 @@ class TrayApp {
   async handleExit() {
     console.log('[TrayApp] Graceful exit...');
 
-    this.setState(ApplicationState.SHUTTING_DOWN, 'User requested exit');
+    await this.setState(ApplicationState.SHUTTING_DOWN, 'User requested exit');
 
     // Stop polling
     if (this.monitorTimer) {
@@ -573,41 +655,41 @@ class TrayApp {
   }
 
   // ── External event hooks (called by main.js) ──────────────────────────────
-  onServiceReady(config) {
+  async onServiceReady(config) {
     if (config?.barId && config.barId !== 'NOT_CONFIGURED') {
       this.barId = config.barId;
-      this.setState(ApplicationState.CONNECTED, 'Service started');
+      await this.setState(ApplicationState.CONNECTED, 'Service started');
     } else {
-      this.setState(ApplicationState.UNCONFIGURED, 'Service started but not configured');
+      await this.setState(ApplicationState.UNCONFIGURED, 'Service started but not configured');
     }
   }
 
-  onServiceError(error) {
+  async onServiceError(error) {
     let msg = 'Service error';
     if (error?.code === 'EADDRINUSE')     msg = 'Port 8765 already in use';
     else if (error?.message)              msg = error.message.substring(0, 60);
-    this.setState(ApplicationState.ERROR, 'Service error', msg);
+    await this.setState(ApplicationState.ERROR, 'Service error', msg);
   }
 
-  onConfigurationChanged(config) {
+  async onConfigurationChanged(config) {
     if (config?.barId && config.barId !== 'NOT_CONFIGURED') {
       this.barId = config.barId;
       if (this.state === ApplicationState.UNCONFIGURED)
-        this.setState(ApplicationState.CONNECTED, 'Configuration completed');
+        await this.setState(ApplicationState.CONNECTED, 'Configuration completed');
     } else {
       if (this.state === ApplicationState.CONNECTED)
-        this.setState(ApplicationState.UNCONFIGURED, 'Configuration cleared');
+        await this.setState(ApplicationState.UNCONFIGURED, 'Configuration cleared');
     }
   }
 
-  onHeartbeatFailure() {
+  async onHeartbeatFailure() {
     if (this.state === ApplicationState.CONNECTED)
-      this.setState(ApplicationState.DISCONNECTED, 'Cloud connection lost');
+      await this.setState(ApplicationState.DISCONNECTED, 'Cloud connection lost');
   }
 
-  onHeartbeatSuccess() {
+  async onHeartbeatSuccess() {
     if (this.state === ApplicationState.DISCONNECTED)
-      this.setState(ApplicationState.CONNECTED, 'Cloud connection restored');
+      await this.setState(ApplicationState.CONNECTED, 'Cloud connection restored');
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────

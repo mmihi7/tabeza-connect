@@ -13,6 +13,9 @@
     <MajorUpgrade DowngradeErrorMessage="A newer version of Tabeza POS Connect is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
+    <!-- UI Properties -->
+    <Property Id="BARID" Value="YOUR_BAR_ID_HERE" />
+
     <!-- LAUNCH CONDITIONS -->
     <Launch Condition="VersionNT64" Message="This installer requires 64-bit Windows." />
 
@@ -26,27 +29,9 @@
     <StandardDirectory Id="DesktopFolder" />
     <StandardDirectory Id="ProgramMenuFolder" />
 
-    <!-- Custom Actions - Download from GitHub Releases + Systray Setup -->
-    <Binary Id="DownloadScript" SourceFile="download.vbs" />
-    <CustomAction Id="DownloadApp" 
-                  BinaryRef="DownloadScript" 
-                  VBScriptCall="DownloadMainApp" 
-                  Execute="immediate" 
-                  Return="check" />
-    
-    <!-- Launch systray app after installation -->
-    <CustomAction Id="LaunchSystray" 
-                  Directory="INSTALLFOLDER" 
-                  ExeCommand="&quot;[INSTALLFOLDER]TabezaConnect.exe&quot;" 
-                  Execute="immediate" 
-                  Return="asyncNoWait" />
-    
+    <!-- Custom Actions - Safe Setup Only -->
     <InstallExecuteSequence>
-      <!-- Download during install -->
-      <Custom Action="DownloadApp" Before="InstallFiles" Condition="NOT Installed" />
-      
-      <!-- Launch systray app after installation -->
-      <Custom Action="LaunchSystray" After="InstallFinalize" Condition="NOT Installed" />
+      <!-- No automatic launches - user will start manually -->
     </InstallExecuteSequence>
 
     <!-- Features -->
@@ -59,7 +44,34 @@
       <!-- Main Application Component -->
       <Component Id="MainApp" Guid="*">
         <File Id="TabezaConnect.exe" 
-              Source="placeholder.txt" 
+              Source="dist-wix\TabezaConnect.exe" 
+              KeyPath="yes" />
+      </Component>
+
+      <!-- Service Component -->
+      <Component Id="ServiceApp" Guid="*">
+        <File Id="tabeza_service_exe" 
+              Source="dist-wix\tabeza-service.exe" 
+              KeyPath="yes" />
+      </Component>
+
+      <!-- Configuration Component -->
+      <Component Id="ConfigComponent" Guid="*">
+        <File Id="config_json" 
+              Source="config.json" 
+              KeyPath="yes" />
+      </Component>
+
+      <!-- Setup Wizard Component -->
+      <Component Id="SetupWizardComponent" Guid="*">
+        <File Id="setup_wizard_bat" 
+              Source="setup-wizard.bat" />
+      </Component>
+
+      <!-- Launcher Component -->
+      <Component Id="LauncherComponent" Guid="*">
+        <File Id="launcher_bat" 
+              Source="TabezaConnect-Launcher.bat" 
               KeyPath="yes" />
       </Component>
 
@@ -74,30 +86,30 @@
         
         <Shortcut Id="DesktopShortcut" 
                   Directory="DesktopFolder" 
-                  Name="Tabeza POS Connect" 
-                  Target="[#TabezaConnect.exe]" 
+                  Name="TabezaConnect" 
+                  Target="[#launcher_bat]" 
                   WorkingDirectory="INSTALLFOLDER" />
         
         <Shortcut Id="StartMenuShortcut" 
                   Directory="ProgramMenuFolder" 
-                  Name="Tabeza POS Connect" 
-                  Target="[#TabezaConnect.exe]" 
+                  Name="TabezaConnect" 
+                  Target="[#launcher_bat]" 
                   WorkingDirectory="INSTALLFOLDER" />
       </Component>
 
-      <!-- Startup Registry Component -->
-      <Component Id="StartupComponent" Guid="*">
-        <RegistryKey Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Run">
-          <RegistryValue Name="Tabeza POS Connect" 
-                         Type="string" 
-                         Value="&quot;[#TabezaConnect.exe]&quot;" />
-        </RegistryKey>
-        <RegistryValue Root="HKCU" 
+      <!-- Configuration Component -->
+      <Component Id="ConfigurationComponent" Guid="*">
+        <RegistryValue Root="HKLM" 
                        Key="Software\Tabeza\TabezaConnect" 
-                       Name="Startup" 
-                       Type="integer" 
-                       Value="1" 
+                       Name="BarId" 
+                       Type="string" 
+                       Value="[BARID]" 
                        KeyPath="yes" />
+        <RegistryValue Root="HKLM" 
+                       Key="Software\Tabeza\TabezaConnect" 
+                       Name="InstallPath" 
+                       Type="string" 
+                       Value="[INSTALLFOLDER]" />
       </Component>
 
       <!-- Uninstall Registry Component -->
@@ -122,13 +134,8 @@
 
     </ComponentGroup>
 
-    <!-- UI - Using WixUI element with proper namespace prefix -->
+    <!-- UI - Using standard WixUI -->
     <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
-
-    <!-- Theme Variables -->
-    <WixVariable Id="WixUIBannerBmp" Value="banner-tabeza.bmp" />
-    <WixVariable Id="WixUIDialogBmp" Value="dialog-tabeza.bmp" />
-    <WixVariable Id="WixUILicenseRtf" Value="LICENSE.rtf" />
 
   </Package>
 

@@ -2,46 +2,27 @@
   "appId": "com.tabeza.connect",
   "productName": "TabezaConnect",
   "directories": {
-    "output": "dist-tray"
+    "output": "dist"
   },
   "files": [
-    "src/tray/**/*",
-    "src/service/**/*",
+    "src/**/*",
     "assets/**/*",
-    "node_modules/chokidar/**/*",
-    "node_modules/cors/**/*",
-    "node_modules/express/**/*",
-    "node_modules/fs-extra/**/*",
-    "node_modules/node-machine-id/**/*",
-    "node_modules/readdirp/**/*",
-    "node_modules/winreg/**/*",
-    "node_modules/ws/**/*",
-    "node_modules/electron/**/*",
-    "package.json"
+    "config.json",
+    "package.json",
+    "!src/**/*.test.js",
+    "!src/**/__tests__/**"
   ],
-  "extraFiles": [
-    {
-      "from": "src/installer",
-      "to": "installer",
-      "filter": ["**/*"]
-    }
+  "asarUnpack": [
+    "node_modules/winreg/**/*"
   ],
   "win": {
     "target": [
       {
-        "target": "nsis",
+        "target": "dir",
         "arch": ["x64"]
       }
     ],
-    "icon": "assets/icon.ico"
-  },
-  "nsis": {
-    "oneClick": false,
-    "allowToChangeInstallationDirectory": true,
-    "createDesktopShortcut": true,
-    "createStartMenuShortcut": true,
-    "shortcutName": "TabezaConnect",
-    "include": "installer-tray.nsh"
+    "requestedExecutionLevel": "asInvoker"
   },
   "publish": null
 }

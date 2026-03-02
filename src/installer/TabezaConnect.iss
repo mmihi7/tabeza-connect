@@ -1,28 +1,26 @@
 ; ===========================================================================
 ; TabezaConnect - Inno Setup Installer Script
-; Satisfies: TR-1, US-1, US-2, US-4
-; ===========================================================================
-; Build with:
-;   iscc.exe src\installer\TabezaConnect.iss /DAppVersion=1.0.0
+; Version: 1.7.0
 ; ===========================================================================
 
 #ifndef AppVersion
-  #define AppVersion "1.0.0"
+  #define AppVersion "1.7.0"
 #endif
 
-#define AppName        "TabezaConnect"
-#define AppPublisher   "Tabeza"
-#define AppURL         "https://tabeza.com"
-#define AppExeName     "tabeza-service.exe"
-#define ServiceName    "TabezaConnect"
-#define WatchFolder    "C:\TabezaPrints"
-#define InstallDir     "{commonpf}\Tabeza"
+#define AppName     "TabezaConnect"
+#define AppPublisher "Tabeza"
+#define AppURL      "https://tabeza.co.ke"
+#define ServiceName "TabezaConnect"
+#define WatchFolder "C:\TabezaPrints"
+#define BackendAPI  "https://tabeza.co.ke/api"  ; Your Vercel backend
 
+; ===========================================================================
 [Setup]
-; -- Identity --
+; ===========================================================================
 AppId={{6D3E8A2F-4B1C-4F9D-A8E5-2C7B3D6F1A04}}
 AppName={#AppName}
 AppVersion={#AppVersion}
+AppPublisher={#AppPublisher}
 AppPublisherURL={#AppURL}
 AppSupportURL={#AppURL}/support
 AppUpdatesURL={#AppURL}/updates
@@ -30,262 +28,315 @@ VersionInfoVersion={#AppVersion}
 VersionInfoCompany={#AppPublisher}
 VersionInfoDescription={#AppName} Setup
 
-; -- Installation target --
-DefaultDirName={#InstallDir}
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
+
+DefaultDirName={commonpf64}\TabezaConnect
 DisableDirPage=yes
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 
-; -- Elevation & privileges --
 PrivilegesRequired=admin
-PrivilegesRequiredOverridesAllowed=commandline
 
-; -- Output --
-OutputDir=..\..\dist
+OutputDir=dist-inno
 OutputBaseFilename=TabezaConnect-Setup-v{#AppVersion}
-SetupIconFile=..\..\assets\icon.ico
-UninstallDisplayIcon={app}\icon.ico
+SetupIconFile=assets\icon-green.ico
+UninstallDisplayIcon={app}\TabezaConnect.exe
 
-; -- Compression --
 Compression=lzma2/ultra64
 SolidCompression=yes
 LZMAUseSeparateProcess=yes
-
-; -- Digital signature --
-; Sign executable to reduce antivirus warnings
-SignTool=none
-; NOTE: Add actual signing certificate in production
-; SignTool="C:\Program Files (x86)\Windows Kits\10\bin\10.0.18362.0\x64\signtool.exe"
-; SignCertificate="C:\path\to\your\certificate.p12"
-; SignPassword="your-certificate-password"
-
-; -- Antivirus compatibility --
-; Add installer to Windows Defender exclusions automatically
-[Code]
-procedure CurStepChanged(CurStepID: Integer);
-begin
-  // Add Windows Defender exclusions during installation
-  if CurStepID = wpInstalling then
-  begin
-    // Add current installer to Windows Defender exclusions
-    ShellExec('powershell.exe', '-Command "Add-MpPreference -ExclusionPath ''' + ExpandConstant('{tmp}') + '''"', '', SW_HIDE);
-    ShellExec('powershell.exe', '-Command "Add-MpPreference -ExclusionPath ''' + ExpandConstant('{app}') + '''"', '', SW_HIDE);
-    ShellExec('powershell.exe', '-Command "Add-MpPreference -ExclusionPath ''' + ExpandConstant('{#WatchFolder}') + '''"', '', SW_HIDE);
-    
-    // Also add to common temp locations
-    ShellExec('powershell.exe', '-Command "Add-MpPreference -ExclusionPath ''%TEMP%''"', '', SW_HIDE);
-    ShellExec('powershell.exe', '-Command "Add-MpPreference -ExclusionPath ''%TMP%''"', '', SW_HIDE);
-  end;
-end;
-
-; -- UI --
 WizardStyle=modern
-WizardResizable=no
-ShowLanguageDialog=no
-DisableWelcomePage=no
-
-; -- Compatibility --
-ArchitecturesAllowed=x64 x86
-ArchitecturesInstallIn64BitMode=x64
-
-; -- Uninstall --
-UninstallDisplayName={#AppName}
-CreateUninstallRegKey=yes
-
-[Languages]
-Name: "english"; MessagesFile: "compiler:Default.isl"
+SetupLogging=yes
 
 ; ===========================================================================
-; Custom wizard page variables
+[Languages]
+; ===========================================================================
+Name: "english"; MessagesFile: "compiler:Default.isl"
+
 ; ===========================================================================
 [Code]
 var
   BarIDPage: TInputQueryWizardPage;
-  BarIDValue: string;
+  BarIDValue: String;
+  ApiKeyPage: TInputQueryWizardPage;
+  ApiKeyValue: String;
 
-// ---------------------------------------------------------------------------
-// Create the custom Bar ID page (US-2: collect Bar ID during installation)
-// ---------------------------------------------------------------------------
 procedure InitializeWizard;
 begin
-  BarIDPage := CreateInputQueryPage(
-    wpWelcome,
+  // Bar ID Page
+  BarIDPage := CreateInputQueryPage(wpWelcome,
     'Venue Configuration',
     'Enter your Tabeza Bar ID',
-    'Please enter the Bar ID provided by Tabeza support. ' +
-    'This links this installation to your venue account.'
-  );
-  BarIDPage.Add('Bar ID:', False);
-  // Pre-fill if registry key exists (re-install scenario)
-  BarIDPage.Values[0] := GetPreviousData('BarID', '');
+    'Your Bar ID can be found in the Tabeza dashboard under Settings > Venue.' + #13#10 +
+    'This ID is required for the service to connect to your Tabeza account.');
+  BarIDPage.Add('Bar ID (Required):', False);
+  
+  // API Key Page (optional - for offline installs)
+  ApiKeyPage := CreateInputQueryPage(BarIDPage.ID,
+    'API Configuration',
+    'Enter your DeepSeek API Key (Optional)',
+    'If you have an internet connection, we can fetch this automatically.' + #13#10 +
+    'Leave blank to fetch from Tabeza cloud (recommended).' + #13#10 +
+    'Only enter manually if you are offline or have a custom key.');
+  ApiKeyPage.Add('DeepSeek API Key (Optional):', False);
 end;
 
-// ---------------------------------------------------------------------------
-// Persist Bar ID for re-install / repair scenarios
-// ---------------------------------------------------------------------------
-procedure RegisterPreviousData(PreviousDataKey: Integer);
-begin
-  SetPreviousData(PreviousDataKey, 'BarID', BarIDPage.Values[0]);
-end;
-
-// ---------------------------------------------------------------------------
-// Validate Bar ID before allowing Next (US-2: must not be empty)
-// ---------------------------------------------------------------------------
 function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
+  
   if CurPageID = BarIDPage.ID then
   begin
     if Trim(BarIDPage.Values[0]) = '' then
     begin
-      MsgBox(
-        'Please enter your Bar ID before continuing.',
-        mbError, MB_OK
-      );
+      MsgBox('Bar ID is required. Please enter your venue Bar ID.', mbError, MB_OK);
       Result := False;
       Exit;
     end;
+    
+    // Validate Bar ID format (alphanumeric, no spaces)
+    if Pos(' ', Trim(BarIDPage.Values[0])) > 0 then
+    begin
+      MsgBox('Bar ID should not contain spaces. Please remove any spaces.', mbError, MB_OK);
+      Result := False;
+      Exit;
+    end;
+    
     BarIDValue := Trim(BarIDPage.Values[0]);
+  end
+  else if CurPageID = ApiKeyPage.ID then
+  begin
+    ApiKeyValue := Trim(ApiKeyPage.Values[0]);
   end;
 end;
 
-// ---------------------------------------------------------------------------
-// Stop and remove service before uninstall / upgrade
-// ---------------------------------------------------------------------------
-procedure StopAndRemoveService;
+procedure LogToFile(Message: string);
+var
+  LogFile: string;
+begin
+  LogFile := ExpandConstant('{app}\install.log');
+  SaveStringToFile(LogFile, Message + #13#10, True);
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode: Integer;
+  InstallPath: String;
+  ScriptPath: String;
+  ErrorMsg: String;
+  FetchApiKeyCmd: String;
+  TempFile: String;
 begin
-  Exec('sc.exe', 'stop ' + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  Exec('sc.exe', 'delete ' + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  if CurStep = ssPostInstall then
+  begin
+    InstallPath := ExpandConstant('{app}');
+    ScriptPath  := InstallPath + '\scripts\';
+    
+    LogToFile('=== TabezaConnect Installation Log ===');
+    LogToFile('Installation Path: ' + InstallPath);
+    LogToFile('Bar ID: ' + BarIDValue);
+    LogToFile('Start Time: ' + GetDateTimeString('yyyy-mm-dd hh:nn:ss', '-', ':'));
+
+    // Step 1: Windows Defender exclusions (non-fatal)
+    LogToFile('Step 1: Adding Windows Defender exclusions...');
+    Exec('powershell.exe',
+      '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command ' +
+      '"Add-MpPreference -ExclusionPath ''' + InstallPath + ''' -ErrorAction SilentlyContinue;' +
+      ' Add-MpPreference -ExclusionPath ''C:\TabezaPrints'' -ErrorAction SilentlyContinue;' +
+      ' Add-MpPreference -ExclusionPath ''C:\ProgramData\Tabeza'' -ErrorAction SilentlyContinue"',
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+    // Step 2: Create folders
+    LogToFile('Step 2: Creating folders...');
+    if Exec('powershell.exe',
+      '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ScriptPath + 'create-folders.ps1"',
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0) then
+    begin
+      LogToFile('  Folders created successfully');
+    end
+    else
+    begin
+      ErrorMsg := 'Warning: Could not create folders (code ' + IntToStr(ResultCode) + ')';
+      LogToFile('  ' + ErrorMsg);
+    end;
+
+    // Step 2.5: Fetch API key if not provided manually
+    LogToFile('Step 2.5: Configuring API key...');
+    if ApiKeyValue = '' then
+    begin
+      LogToFile('  Fetching API key from Tabeza cloud...');
+      TempFile := InstallPath + '\temp_apikey.txt';
+      
+      // Download API key from your backend
+      FetchApiKeyCmd := 
+        '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "' +
+        '$wc = New-Object System.Net.WebClient; ' +
+        'try { ' +
+        '  $url = ''{#BackendAPI}/get-key?barId=' + BarIDValue + '&version={#AppVersion}''; ' +
+        '  $response = $wc.DownloadString($url); ' +
+        '  $key = ($response | ConvertFrom-Json).apiKey; ' +
+        '  $key | Out-File -FilePath ''' + TempFile + ''' -Encoding UTF8; ' +
+        '  exit 0; ' +
+        '} catch { ' +
+        '  Write-Error $_.Exception.Message; ' +
+        '  exit 1; ' +
+        '}"';
+      
+      if Exec('powershell.exe', FetchApiKeyCmd, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0) then
+      begin
+        // Read the fetched key
+        if FileExists(TempFile) then
+        begin
+          LoadStringFromFile(TempFile, ApiKeyValue);
+          ApiKeyValue := Trim(ApiKeyValue);
+          DeleteFile(TempFile);
+          LogToFile('  ✅ API key fetched successfully');
+        end
+        else
+        begin
+          LogToFile('  ⚠️ Could not read fetched API key');
+        end;
+      end
+      else
+      begin
+        LogToFile('  ⚠️ Could not fetch API key from cloud (code: ' + IntToStr(ResultCode) + ')');
+        LogToFile('  ⚠️ Template generation will be limited');
+      end;
+    end
+    else
+    begin
+      LogToFile('  Using manually provided API key');
+    end;
+
+    // Step 3: Write config.json (now with fetched API key)
+    LogToFile('Step 3: Writing config.json...');
+    if Exec('powershell.exe',
+      '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ScriptPath + 'write-config.ps1"' +
+      ' -BarID "' + BarIDValue + '" -InstallDir "' + InstallPath + '"' +
+      ' -ApiKey "' + ApiKeyValue + '"',
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0) then
+    begin
+      LogToFile('  ✅ config.json written successfully');
+    end
+    else
+    begin
+      ErrorMsg := 'Warning: Could not write config.json (code ' + IntToStr(ResultCode) + ')';
+      LogToFile('  ' + ErrorMsg);
+    end;
+
+    // Step 4: Configure virtual printer and print pool
+    LogToFile('Step 4: Configuring printer...');
+    
+    // First, detect physical printers
+    LogToFile('  Detecting physical printers...');
+    if Exec('powershell.exe',
+      '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ScriptPath + 'detect-thermal-printer.ps1"' +
+      ' -OutputFile "' + InstallPath + '\printer-detection.json"',
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0) then
+    begin
+      LogToFile('  ✅ Printers detected');
+      
+      // Configure virtual printer
+      if Exec('powershell.exe',
+        '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ScriptPath + 'configure-printer.ps1"' +
+        ' -WatchFolder "C:\TabezaPrints"',
+        '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode <= 1) then
+      begin
+        LogToFile('  ✅ Virtual printer configured');
+        
+        // Configure print pool
+        if Exec('powershell.exe',
+          '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ScriptPath + 'configure-print-pool.ps1"' +
+          ' -ConfigFile "' + InstallPath + '\printer-detection.json"',
+          '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0) then
+        begin
+          LogToFile('  ✅ Print pool configured successfully');
+        end
+        else
+        begin
+          LogToFile('  ⚠️ Could not configure print pool (code: ' + IntToStr(ResultCode) + ')');
+        end;
+      end
+      else
+      begin
+        LogToFile('  ⚠️ Could not configure virtual printer (code: ' + IntToStr(ResultCode) + ')');
+      end;
+    end
+    else
+    begin
+      LogToFile('  ⚠️ Could not detect printers (code: ' + IntToStr(ResultCode) + ')');
+    end;
+
+    // Step 5: Register Windows service
+    LogToFile('Step 5: Registering Windows service...');
+    
+    // Stop any existing service
+    Exec('powershell.exe',
+      '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command ' +
+      '"Stop-Service -Name ''''{#ServiceName}'''' -Force -ErrorAction SilentlyContinue; ' +
+      'sc.exe delete {#ServiceName}"',
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    
+    Sleep(2000);
+    
+    // Register new service
+    if Exec('powershell.exe',
+      '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ScriptPath + 'register-service.ps1"' +
+      ' -InstallDir "' + InstallPath + '" -BarID "' + BarIDValue + '"',
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0) then
+    begin
+      LogToFile('  ✅ Service registered successfully');
+      
+      // Start the service
+      Exec('powershell.exe',
+        '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "Start-Service -Name ''''{#ServiceName}''''"',
+        '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    end
+    else
+    begin
+      LogToFile('  ⚠️ Could not register service (code: ' + IntToStr(ResultCode) + ')');
+    end;
+    
+    LogToFile('Installation completed at: ' + GetDateTimeString('yyyy-mm-dd hh:nn:ss', '-', ':'));
+    LogToFile('=======================================');
+  end;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  ResultCode: Integer;
 begin
   if CurUninstallStep = usUninstall then
-    StopAndRemoveService;
+  begin
+    // Stop and remove service
+    Exec('powershell.exe', 
+      '-NoProfile -NonInteractive -Command "Stop-Service -Name ''''{#ServiceName}'''' -Force -ErrorAction SilentlyContinue"', 
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    
+    Sleep(3000);
+    Exec('sc.exe', 'delete {#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  end;
 end;
 
-function InitializeSetup: Boolean;
-begin
-  // Stop existing service on upgrade/repair before files are replaced
-  StopAndRemoveService;
-  Result := True;
-end;
-
-// ---------------------------------------------------------------------------
-// Return Bar ID to be used as a parameter in [Run] section via {code:GetBarID}
-// ---------------------------------------------------------------------------
-function GetBarID(Param: string): string;
-begin
-  Result := BarIDValue;
-end;
-
-// ---------------------------------------------------------------------------
-// Check if this is a 64-bit OS for Node path selection
-// ---------------------------------------------------------------------------
-function Is64BitOS: Boolean;
-begin
-  Result := Is64BitInstallMode;
-end;
-
-// ===========================================================================
-// FILES
-// ===========================================================================
 [Files]
-; Node.js runtime bundle (TR-1: bundled runtime) - x64 only
-Source: "nodejs-bundle\*"; DestDir: "{app}\runtime"; Flags: recursesubdirs createallsubdirs
+Source: "dist-app\TabezaConnect.exe";       DestDir: "{app}"; Flags: ignoreversion
+Source: "dist-app\tabeza-service.exe";      DestDir: "{app}"; Flags: ignoreversion
+Source: "config-production.json";           DestDir: "{app}"; DestName: "config.json"; Flags: ignoreversion
+Source: "TabezaConnect-Launcher.bat";       DestDir: "{app}"; Flags: ignoreversion
+Source: "assets\icon-green.ico";            DestDir: "{app}"; Flags: ignoreversion
+Source: "src\installer\scripts\*.ps1";      DestDir: "{app}\scripts"; Flags: ignoreversion
 
-; Application files
-Source: "..\..\TabezaService.exe"; DestDir: "{app}"; Flags: ignoreversion
-
-; PowerShell scripts (TR-4)
-Source: "scripts\configure-printer.ps1"; DestDir: "{app}\scripts"
-Source: "scripts\register-service.ps1";  DestDir: "{app}\scripts"
-Source: "scripts\uninstall-service.ps1"; DestDir: "{app}\scripts"
-
-; Icon for uninstaller entry
-Source: "..\..\assets\icon.ico"; DestDir: "{app}"
-Source: "manage-antivirus-exclusions.ps1"; DestDir: "{app}\scripts"
-Source: "status-recovery.ps1"; DestDir: "{app}\scripts"
-
-; Create desktop shortcuts for easy access
-[Icons]
-Name: "TabezaConnect Status"; Filename: "{app}\scripts\status-recovery.ps1"; Parameters: "-Action Check"; IconFilename: "{app}\icon.ico"
-Name: "TabezaConnect Repair"; Filename: "{app}\scripts\status-recovery.ps1"; Parameters: "-Action Repair"; IconFilename: "{app}\icon.ico"
-
-; ===========================================================================
-; DIRECTORIES
-; ===========================================================================
 [Dirs]
-; Watch folder with permissive ACL so service and printer driver can write (TR-1)
-Name: "{#WatchFolder}";            Permissions: everyone-full
-Name: "{app}\logs";                Permissions: everyone-modify
-Name: "{app}\config";              Permissions: everyone-modify
+Name: "{#WatchFolder}";   Permissions: users-modify
+Name: "{app}\logs";       Permissions: users-modify
+Name: "{app}\scripts";    Permissions: users-read
 
-; ===========================================================================
-; REGISTRY
-; ===========================================================================
-[Registry]
-; Store Bar ID for the service to read (TR-1)
-Root: HKLM; Subkey: "SOFTWARE\Tabeza\TabezaConnect"; \
-  ValueType: string; ValueName: "BarID"; ValueData: "{code:GetBarID}"; Flags: createvalueifdoesntexist
-
-Root: HKLM; Subkey: "SOFTWARE\Tabeza\TabezaConnect"; \
-  ValueType: string; ValueName: "WatchFolder"; ValueData: "{#WatchFolder}"; Flags: createvalueifdoesntexist
-
-Root: HKLM; Subkey: "SOFTWARE\Tabeza\TabezaConnect"; \
-  ValueType: string; ValueName: "InstallDir"; ValueData: "{app}"
-
-Root: HKLM; Subkey: "SOFTWARE\Tabeza\TabezaConnect"; \
-  ValueType: string; ValueName: "Version"; ValueData: "{#AppVersion}"
-
-; ===========================================================================
-; RUN SECTION — post-install steps (US-2, TR-4)
-; ===========================================================================
-[Run]
-; Step 1: Configure virtual printer
-Filename: "powershell.exe"; \
-  Parameters: "-NonInteractive -ExecutionPolicy Bypass -File ""{app}\scripts\configure-printer.ps1"" -WatchFolder ""{#WatchFolder}"" -Silent"; \
-  StatusMsg: "Configuring virtual printer..."; \
-  Flags: runhidden waituntilterminated; \
-  Check: not WizardSilent
-
-Filename: "powershell.exe"; \
-  Parameters: "-NonInteractive -ExecutionPolicy Bypass -File ""{app}\scripts\configure-printer.ps1"" -WatchFolder ""{#WatchFolder}"" -Silent"; \
-  StatusMsg: "Configuring virtual printer..."; \
-  Flags: runhidden waituntilterminated; \
-  Check: WizardSilent
-
-; Step 2: Register & start Windows service
-Filename: "powershell.exe"; \
-  Parameters: "-NonInteractive -ExecutionPolicy Bypass -File ""{app}\scripts\register-service.ps1"" -InstallDir ""{app}"" -BarID ""{code:GetBarID}"" -WatchFolder ""{#WatchFolder}"" -ServiceName ""{#ServiceName}"" -Silent"; \
-  StatusMsg: "Registering and starting TabezaConnect service..."; \
-  Flags: runhidden waituntilterminated
-
-; Step 3: Verify service started
-Filename: "sc.exe"; \
-  Parameters: "query {#ServiceName}"; \
-  Flags: runhidden waituntilterminated
-
-; ===========================================================================
-; UNINSTALL RUN SECTION (US-4)
-; ===========================================================================
-[UninstallRun]
-; Stop and remove service
-Filename: "powershell.exe"; \
-  Parameters: "-NonInteractive -ExecutionPolicy Bypass -File ""{app}\scripts\uninstall-service.ps1"" -ServiceName ""{#ServiceName}"" -Silent"; \
-  Flags: runhidden waituntilterminated; \
-  RunOnceId: "StopService"
-
-; Remove virtual printer
-Filename: "powershell.exe"; \
-  Parameters: "-NonInteractive -ExecutionPolicy Bypass -Command ""Remove-Printer -Name 'Tabeza Virtual Printer' -ErrorAction SilentlyContinue"""; \
-  Flags: runhidden waituntilterminated; \
-  RunOnceId: "RemovePrinter"
-
-; ===========================================================================
-; ICONS (Start menu)
-; ===========================================================================
 [Icons]
+Name: "{group}\{#AppName}";           Filename: "{app}\TabezaConnect.exe"; WorkingDir: "{app}"
 Name: "{group}\Uninstall {#AppName}"; Filename: "{uninstallexe}"
+Name: "{commondesktop}\{#AppName}";   Filename: "{app}\TabezaConnect.exe"; WorkingDir: "{app}"
+Name: "{group}\View Installation Log"; Filename: "{app}\install.log"
+
+[Run]
+Filename: "{app}\TabezaConnect-Launcher.bat"; Description: "Launch TabezaConnect"; Flags: postinstall nowait skipifsilent

@@ -1,0 +1,16 @@
+{
+  "name": "monorepo-refactoring-audit-tests",
+  "version": "1.0.0",
+  "description": "Property-based tests for monorepo refactoring audit",
+  "private": true,
+  "scripts": {
+    "test": "jest preservation-tests.test.js --verbose",
+    "test:watch": "jest preservation-tests.test.js --watch",
+    "test:exploration": "node run-exploration-test.js",
+    "test:preservation": "node run-preservation-tests.js"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "fast-check": "^3.15.0"
+  }
+}

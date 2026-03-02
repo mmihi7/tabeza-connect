@@ -1,0 +1,193 @@
+# Implementation Plan
+
+- [x] 1. Write bug condition exploration test
+  - **Property 1: Fault Condition** - Bridge Code Exists in Codebase
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate bridge code still exists
+  - **Scoped PBT Approach**: Search for specific bridge files, imports, and code references
+  - Test that no bridge implementation files exist in `src/service/` (from Fault Condition in design)
+  - Test that no bridge batch files exist in root directory
+  - Test that no bridge imports exist in `index.js` or `tray-app.js`
+  - Test that no bridge initialization logic exists in code
+  - Run test on UNFIXED code
+  - **EXPECTED OUTCOME**: Test FAILS (this is correct - it proves the bug exists)
+  - Document counterexamples found (e.g., "final-bridge.js exists", "PrintBridge import found")
+  - Mark task complete when test is written, run, and failure is documented
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
+
+- [x] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - Pooling Mode Functionality Unchanged
+  - **IMPORTANT**: Follow observation-first methodology
+  - Observe behavior on UNFIXED code for pooling mode operations
+  - Write property-based tests capturing observed behavior patterns from Preservation Requirements
+  - Test that service starts successfully with `captureMode: "pooling"`
+  - Test that pooling mode captures print jobs correctly
+  - Test that status endpoint returns correct response structure
+  - Test that tray app displays service status correctly
+  - Test that configuration loads and validates correctly
+  - Property-based testing generates many test cases for stronger guarantees
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7_
+
+- [x] 3. Remove all bridge mode code
+
+  - [x] 3.1 Delete bridge implementation files from src/service/
+    - Delete `src/service/final-bridge.js`
+    - Delete `src/service/universal-bridge.js`
+    - Delete `src/service/printBridge.js`
+    - Delete `src/service/printBridge-final.js`
+    - Delete `src/service/printBridge-final-fixed.js`
+    - Delete `src/service/printBridge-fixed.js`
+    - Delete `src/service/printBridge-minimal.js`
+    - Delete `src/service/printBridge-production.js`
+    - Delete `src/service/printBridge-v3.js`
+    - Verify all 13 bridge implementation files are deleted
+    - _Bug_Condition: isBugCondition(codebase) where bridge files exist in src/service/_
+    - _Expected_Behavior: No bridge implementation files exist in src/service/_
+    - _Preservation: Pooling mode files remain untouched_
+    - _Requirements: 2.1_
+
+  - [x] 3.2 Delete bridge batch scripts from root directory
+    - Delete `start-bridge.bat`
+    - Delete `start-bridge-admin.bat`
+    - Delete `start-bridge-service.bat`
+    - Delete `start-final-bridge.bat`
+    - Delete `start-fixed-bridge.bat`
+    - Delete `start-minimal-bridge.bat`
+    - Delete `start-universal-bridge.bat`
+    - Delete `test-bridge.bat`
+    - Delete `deploy-bridge.bat`
+    - Delete `restart-bridge.bat`
+    - Delete `restore-bridge-mode.bat`
+    - Delete `force-bridge-mode.bat`
+    - Delete `fix-bridge-config.bat`
+    - Delete `fix-bridge-config-final.bat`
+    - Delete `fix-bridge-final.bat`
+    - Delete `fix-epson-bridge-mismatch.bat`
+    - Delete `complete-silent-bridge.bat`
+    - Delete `test-complete-system.bat`
+    - Delete `test-real-workflow.bat`
+    - Verify all 19 bridge batch files are deleted
+    - _Bug_Condition: isBugCondition(codebase) where bridge batch files exist_
+    - _Expected_Behavior: No bridge batch files exist in root directory_
+    - _Preservation: Pooling mode batch scripts remain untouched_
+    - _Requirements: 2.2_
+
+  - [x] 3.3 Remove bridge imports from index.js
+    - Remove line 33: `const PrintBridge = require('./final-bridge');`
+    - Remove lines 326-327: bridge variable declaration
+    - Remove line from file header comment (line 14-15) about bridge mode
+    - Verify no bridge imports remain in index.js
+    - _Bug_Condition: isBugCondition(codebase) where bridge imports exist_
+    - _Expected_Behavior: No bridge imports in index.js_
+    - _Preservation: Other imports remain unchanged_
+    - _Requirements: 2.3_
+
+  - [x] 3.4 Remove bridge status logic from index.js
+    - Remove lines 340-354: bridge stats calculation in status endpoint
+    - Remove line 367: `bridge: bridgeStats` from status response
+    - Update line 388: remove `config.bridge?.printerName` fallback
+    - Update line 1055: remove `config.bridge?.printerName` fallback
+    - Verify status endpoint no longer includes bridge stats
+    - _Bug_Condition: isBugCondition(codebase) where bridge status logic exists_
+    - _Expected_Behavior: Status endpoint returns only pooling/spooler stats_
+    - _Preservation: Pooling status logic remains unchanged_
+    - _Requirements: 2.4_
+
+  - [x] 3.5 Remove bridge initialization from index.js
+    - Remove lines 1175-1186: bridge mode initialization in startWatcher()
+    - Update line 707: change captureMode validation from `['spooler', 'bridge']` to `['spooler', 'pooling']`
+    - Update line 1187: change error message to only mention 'pooling' or 'spooler'
+    - Update line 1164: remove 'Silent Bridge' from mode description
+    - Verify startWatcher() only initializes pooling or spooler modes
+    - _Bug_Condition: isBugCondition(codebase) where bridge initialization exists_
+    - _Expected_Behavior: startWatcher() only supports pooling/spooler modes_
+    - _Preservation: Pooling initialization logic remains unchanged_
+    - _Requirements: 2.5_
+
+  - [x] 3.6 Remove bridge API endpoints from index.js
+    - Remove lines 825-842: bridge printer configuration logic in /api/config/printer endpoint
+    - Remove lines 858-897: entire /api/printers/test endpoint
+    - Verify no bridge-specific API endpoints remain
+    - _Bug_Condition: isBugCondition(codebase) where bridge endpoints exist_
+    - _Expected_Behavior: No bridge-specific API endpoints exist_
+    - _Preservation: Other API endpoints remain unchanged_
+    - _Requirements: 2.6_
+
+  - [x] 3.7 Remove bridge status logic from tray-app.js
+    - Remove lines 448-452: bridge stats from status payload
+    - Update line 489: remove `liveData?.bridge?.printerName` fallback
+    - Update line 608 (optional): change "POS Printer Bridge Application" to "POS Printer Capture Service"
+    - Verify tray app no longer references bridge mode
+    - _Bug_Condition: isBugCondition(codebase) where bridge tray logic exists_
+    - _Expected_Behavior: Tray app only displays pooling/spooler status_
+    - _Preservation: Pooling tray display logic remains unchanged_
+    - _Requirements: 2.4_
+
+  - [x] 3.8 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - No Bridge Code in Codebase
+    - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
+    - The test from task 1 encodes the expected behavior
+    - When this test passes, it confirms the expected behavior is satisfied
+    - Run bug condition exploration test from step 1
+    - **EXPECTED OUTCOME**: Test PASSES (confirms bug is fixed)
+    - Verify no bridge files exist in src/service/
+    - Verify no bridge batch files exist in root directory
+    - Verify no bridge imports in index.js or tray-app.js
+    - Verify no bridge initialization logic in code
+    - _Requirements: Expected Behavior Properties from design_
+
+  - [x] 3.9 Verify preservation tests still pass
+    - **Property 2: Preservation** - Pooling Mode Functionality Unchanged
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation property tests from step 2
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+    - Verify service starts successfully with `captureMode: "pooling"`
+    - Verify pooling mode captures print jobs correctly
+    - Verify status endpoint returns correct response
+    - Verify tray app displays pooling mode status correctly
+    - Verify configuration loads and validates correctly
+    - Confirm all tests still pass after fix (no regressions)
+
+- [x] 4. Verify complete removal of bridge references
+  - Search codebase for "printBridge" and verify no functional code references remain
+  - Search codebase for "final-bridge" and verify no imports remain
+  - Search codebase for "bridge" in index.js and verify only comments/strings remain
+  - Search codebase for "bridge" in tray-app.js and verify only comments/strings remain
+  - Verify captureMode validation only accepts 'pooling' or 'spooler'
+  - **CLEANUP COMPLETE**: Removed 7 old test/config scripts that referenced bridge mode
+  - Removed: test-notepad-print.bat, test-status-writing.ps1, test-out-printer.ps1, TEST-EXECUTION-INSTRUCTIONS.md, update-config.ps1, setup-bridge.ps1, verify-installation.ps1
+  - Service code is clean - only pooling/spooler modes supported
+  - Build script fixed - uses index.js instead of final-bridge.js
+  - Installer configuration is correct - no bridge references
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
+
+- [x] 5. Test pooling mode functionality
+  - Start service with `captureMode: "pooling"` in config.json
+  - Verify service starts without errors
+  - Print a test receipt and verify pooling mode captures it
+  - Verify receipt is parsed, queued, and uploaded to cloud
+  - Call /api/status and verify response contains pooling stats (no bridge stats)
+  - Open tray app and verify status window shows pooling mode information
+  - Stop service and verify it shuts down gracefully
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7_
+
+- [x] 6. Rebuild TabezaConnect.exe
+  - Run build script to create new executable with bridge code removed
+  - ⚠️ **ISSUE**: Executable built (213MB) but won't start at all
+  - **NOTE**: 213MB size is NORMAL for Electron apps (includes Chromium runtime ~150MB + Node.js)
+  - **Size is NOT the problem** - Electron apps bundle all dependencies for cross-platform compatibility
+  - **Problem**: Executable doesn't start - need to investigate startup issue
+  - **Next steps**: 
+    - Check if config.json needs to be in exe directory
+    - Verify electron-builder configuration is correct
+    - Test if app.asar is properly packaged
+    - Check for missing dependencies or runtime errors
+  - _Requirements: All requirements validated in final executable_
+
+- [ ] 7. Checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.

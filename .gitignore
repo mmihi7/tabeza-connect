@@ -81,3 +81,129 @@ Fix/
 
 # Duplicate license files (keep only LICENSE)
 LICENSE.txt
+
+# Archived scripts and documentation
+scripts/archive/
+docs/archive/
+docs/testing/
+docs/installer/
+
+# Test and development files in root
+test-*.js
+test-*.bat
+test-*.txt
+test-*.json
+debug-*.js
+debug-*.bat
+check-*.bat
+diagnose-*.bat
+diagnose-*.ps1
+fix-*.bat
+fix-*.ps1
+verify-*.ps1
+cleanup-*.bat
+cleanup-*.ps1
+setup-*.bat
+setup-*.ps1
+create-*.bat
+configure-*.bat
+correct-*.bat
+restore-*.bat
+manual-*.bat
+optimize-*.bat
+final-*.bat
+force-*.bat
+install-*.bat
+run-*.bat
+run-*.ps1
+start-*.bat
+restart-*.bat
+kill-*.bat
+delete-*.bat
+collect-*.bat
+complete-*.bat
+cmd-*.bat
+increase-*.ps1
+manage-*.ps1
+update-*.ps1
+status-recovery.ps1
+alternative-virtual-printer.bat
+git-push.bat
+push-to-github.bat
+rebuild-with-fix.bat
+setup-wizard.bat
+
+# Old build scripts (keep only build-all.bat and build-pkg.bat)
+build-installer-v*.bat
+build-v*.bat
+build-production*.bat
+build-wix*.bat
+build-nsis*.bat
+build-simple*.bat
+build-version*.bat
+build-with-version*.bat
+build-bootstrapper.bat
+build-complete-production.bat
+build-final.bat
+build-github.bat
+build-no-pause.bat
+build-now.bat
+build-service-exe.bat
+build-tray-app.bat
+
+# Old installer files (keep only installer-pkg.iss)
+installer-pkg-v*.iss
+github-*.iss
+PROFESSIONAL-BOOTSTRAPPER.iss
+installer-bootstrapper.iss
+TabezaConnect.iss
+test-minimal.iss
+
+# Old config backups
+config.json.backup
+config-production.json
+
+# Old installer artifacts
+TabezaConnect-Setup-*.exe
+TabezaConnect-fixed.exe
+TabezaConnect.exe.backup
+install-debug*.log
+
+# Old WiX files
+Product-*.wxs
+Tabeza*.wxs
+wix-theme.xml
+
+# Old NSIS files
+tabeza-bootstrap*.nsi
+installer-tray.nsh
+
+# VBS and other scripts
+*.vbs
+*.cs
+*.py
+DownloadScript.js
+
+# Old text files
+Advisor*.txt
+banner-tabeza.txt
+dialog-tabeza.txt
+placeholder.txt
+test-urls.txt
+test-receipt*.txt
+TabezaConnect.iss.txt
+build-inno.bat.txt
+
+# Old log files
+build.log
+run.log
+
+# Query and start files
+query
+start
+
+# Old Word docs
+*.docx
+
+# Cleanup script (generated)
+cleanup-workspace-files.bat

@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tabeza Template Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .wizard-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            width: 800px;
+            max-height: 80vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .wizard-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .wizard-header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .wizard-header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .progress-bar {
+            display: flex;
+            background: rgba(255,255,255,0.2);
+            padding: 4px;
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+
+        .progress-step {
+            flex: 1;
+            height: 4px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 2px;
+            margin: 0 2px;
+            transition: background 0.3s ease;
+        }
+
+        .progress-step.active {
+            background: white;
+        }
+
+        .wizard-content {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+        }
+
+        .step {
+            display: none;
+        }
+
+        .step.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .sample-receipt {
+            background: #f8f9fa;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            position: relative;
+        }
+
+        .sample-receipt h4 {
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .sample-receipt pre {
+            background: white;
+            padding: 12px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 11px;
+            line-height: 1.4;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .sample-actions {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #e1e5e9;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d1d5d9;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .wizard-footer {
+            padding: 24px;
+            border-top: 1px solid #e1e5e9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e1e5e9;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .template-preview {
+            background: #f8f9fa;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .template-preview h4 {
+            margin-bottom: 12px;
+            color: #333;
+        }
+
+        .field-item {
+            background: white;
+            border: 1px solid #e1e5e9;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 8px;
+        }
+
+        .field-item strong {
+            color: #667eea;
+        }
+
+        .test-results {
+            background: #f8f9fa;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .test-result {
+            background: white;
+            border: 1px solid #e1e5e9;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 8px;
+        }
+
+        .confidence-high { border-left: 4px solid #28a745; }
+        .confidence-medium { border-left: 4px solid #ffc107; }
+        .confidence-low { border-left: 4px solid #dc3545; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: white;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+        }
+
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="wizard-container">
+        <div class="wizard-header">
+            <h1>🧾 Template Generator</h1>
+            <p>Create custom receipt parsing templates with AI</p>
+            <div class="progress-bar">
+                <div class="progress-step active" data-step="1"></div>
+                <div class="progress-step" data-step="2"></div>
+                <div class="progress-step" data-step="3"></div>
+                <div class="progress-step" data-step="4"></div>
+            </div>
+        </div>
+
+        <div class="wizard-content">
+            <!-- Step 1: Capture Receipts -->
+            <div class="step active" id="step1">
+                <h2>Step 1: Capture Sample Receipts</h2>
+                <p>Capture 3-5 sample receipts from your POS system. The more varied the samples, the better the template will be.</p>
+                
+                <div class="form-group">
+                    <label>Sample Receipts:</label>
+                    <div id="samples-container">
+                        <div class="sample-receipt">
+                            <h4>Sample 1</h4>
+                            <div class="sample-actions">
+                                <button class="btn btn-sm btn-danger" onclick="removeSample(0)">Remove</button>
+                            </div>
+                            <textarea id="sample-0" placeholder="Paste receipt text here or use 'Capture Receipt' button..."></textarea>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="addSample()">+ Add Sample</button>
+                    <button class="btn btn-primary" onclick="captureReceipt()">📷 Capture Receipt</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Generate Template -->
+            <div class="step" id="step2">
+                <h2>Step 2: Generate Template</h2>
+                <p>Our AI will analyze your sample receipts and generate regex patterns for each field.</p>
+                
+                <div class="form-group">
+                    <label>Template Name:</label>
+                    <input type="text" id="template-name" placeholder="e.g., Restaurant POS Template">
+                </div>
+                
+                <div class="form-group">
+                    <label>Description:</label>
+                    <textarea id="template-description" placeholder="Optional description of this template..."></textarea>
+                </div>
+
+                <div id="generation-loading" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>🤖 AI is analyzing your receipts and generating template...</p>
+                </div>
+
+                <div id="template-preview" style="display: none;">
+                    <h3>Generated Template</h3>
+                    <div class="template-preview">
+                        <h4>Fields:</h4>
+                        <div id="template-fields"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Test Template -->
+            <div class="step" id="step3">
+                <h2>Step 3: Test Template</h2>
+                <p>Test the generated template against your sample receipts to ensure it works correctly.</p>
+                
+                <div id="test-loading" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>🧪 Testing template against samples...</p>
+                </div>
+
+                <div id="test-results" style="display: none;">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="avg-confidence">-</div>
+                            <div class="stat-label">Avg Confidence</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="success-rate">-</div>
+                            <div class="stat-label">Success Rate</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="field-matches">-</div>
+                            <div class="stat-label">Field Matches</div>
+                        </div>
+                    </div>
+                    
+                    <h3>Sample Results:</h3>
+                    <div id="test-results-list"></div>
+                </div>
+            </div>
+
+            <!-- Step 4: Save Template -->
+            <div class="step" id="step4">
+                <h2>Step 4: Save Template</h2>
+                <p>Review and save your template. It will be automatically applied to future receipt processing.</p>
+                
+                <div id="save-success" class="success" style="display: none;">
+                    ✅ Template saved successfully! It will be used for future receipt processing.
+                </div>
+
+                <div id="save-error" class="error" style="display: none;"></div>
+
+                <div class="template-preview">
+                    <h4>Final Template:</h4>
+                    <div id="final-template-summary"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="wizard-footer">
+            <button class="btn btn-secondary" id="prev-btn" onclick="previousStep()" style="display: none;">← Previous</button>
+            <button class="btn btn-primary" id="next-btn" onclick="nextStep()">Next →</button>
+            <button class="btn btn-success" id="save-btn" onclick="saveTemplate()" style="display: none;">💾 Save Template</button>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 1;
+        let samples = [''];
+        let generatedTemplate = null;
+        let testResults = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            updateProgressBar();
+        });
+
+        function updateProgressBar() {
+            document.querySelectorAll('.progress-step').forEach((step, index) => {
+                step.classList.toggle('active', index < currentStep);
+            });
+        }
+
+        function showStep(step) {
+            document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+            document.getElementById(`step${step}`).classList.add('active');
+            
+            // Update navigation buttons
+            document.getElementById('prev-btn').style.display = step > 1 ? 'block' : 'none';
+            document.getElementById('next-btn').style.display = step < 4 ? 'block' : 'none';
+            document.getElementById('save-btn').style.display = step === 4 ? 'block' : 'none';
+            
+            currentStep = step;
+            updateProgressBar();
+        }
+
+        function nextStep() {
+            if (currentStep === 1) {
+                if (!validateStep1()) return;
+                generateTemplate();
+            } else if (currentStep === 2) {
+                if (!generatedTemplate) return;
+                testTemplate();
+            } else if (currentStep === 3) {
+                showFinalTemplate();
+            }
+            showStep(currentStep + 1);
+        }
+
+        function previousStep() {
+            showStep(currentStep - 1);
+        }
+
+        function validateStep1() {
+            const validSamples = samples.filter(s => s.trim().length > 50);
+            if (validSamples.length < 3) {
+                alert('Please provide at least 3 sample receipts with meaningful content.');
+                return false;
+            }
+            return true;
+        }
+
+        function addSample() {
+            const index = samples.length;
+            samples.push('');
+            
+            const container = document.getElementById('samples-container');
+            const sampleDiv = document.createElement('div');
+            sampleDiv.className = 'sample-receipt';
+            sampleDiv.innerHTML = `
+                <h4>Sample ${index + 1}</h4>
+                <div class="sample-actions">
+                    <button class="btn btn-sm btn-danger" onclick="removeSample(${index})">Remove</button>
+                </div>
+                <textarea id="sample-${index}" placeholder="Paste receipt text here..."></textarea>
+            `;
+            container.appendChild(sampleDiv);
+        }
+
+        function removeSample(index) {
+            if (samples.length <= 1) {
+                alert('You need at least one sample receipt.');
+                return;
+            }
+            
+            samples.splice(index, 1);
+            rebuildSamplesContainer();
+        }
+
+        function rebuildSamplesContainer() {
+            const container = document.getElementById('samples-container');
+            container.innerHTML = '';
+            
+            samples.forEach((sample, index) => {
+                const sampleDiv = document.createElement('div');
+                sampleDiv.className = 'sample-receipt';
+                sampleDiv.innerHTML = `
+                    <h4>Sample ${index + 1}</h4>
+                    <div class="sample-actions">
+                        <button class="btn btn-sm btn-danger" onclick="removeSample(${index})">Remove</button>
+                    </div>
+                    <textarea id="sample-${index}" placeholder="Paste receipt text here...">${sample}</textarea>
+                `;
+                container.appendChild(sampleDiv);
+            });
+        }
+
+        async function captureReceipt() {
+            try {
+                const response = await fetch('/api/test-print', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to capture receipt');
+                }
+                
+                const result = await response.json();
+                
+                // Add captured text to the first empty sample
+                const emptyIndex = samples.findIndex(s => !s.trim());
+                if (emptyIndex >= 0) {
+                    samples[emptyIndex] = result.asciiText || result.rawText || 'Captured receipt text';
+                    document.getElementById(`sample-${emptyIndex}`).value = samples[emptyIndex];
+                } else {
+                    addSample();
+                    samples[samples.length - 1] = result.asciiText || result.rawText || 'Captured receipt text';
+                    document.getElementById(`sample-${samples.length - 1}`).value = samples[samples.length - 1];
+                }
+                
+                alert('Receipt captured successfully!');
+            } catch (error) {
+                alert('Failed to capture receipt: ' + error.message);
+            }
+        }
+
+        async function generateTemplate() {
+            // Collect samples
+            samples = samples.map((_, index) => 
+                document.getElementById(`sample-${index}`)?.value || ''
+            );
+            
+            const validSamples = samples.filter(s => s.trim().length > 50);
+            
+            document.getElementById('generation-loading').style.display = 'block';
+            document.getElementById('template-preview').style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/template/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        samples: validSamples,
+                        options: {
+                            name: document.getElementById('template-name').value || 'Generated Template',
+                            description: document.getElementById('template-description').value
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    generatedTemplate = result.data;
+                    displayTemplatePreview(generatedTemplate);
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                alert('Template generation failed: ' + error.message);
+                showStep(1); // Go back to step 1
+            } finally {
+                document.getElementById('generation-loading').style.display = 'none';
+            }
+        }
+
+        function displayTemplatePreview(template) {
+            const fieldsContainer = document.getElementById('template-fields');
+            fieldsContainer.innerHTML = '';
+            
+            if (template.fields && template.fields.length > 0) {
+                template.fields.forEach(field => {
+                    const fieldDiv = document.createElement('div');
+                    fieldDiv.className = 'field-item';
+                    fieldDiv.innerHTML = `
+                        <strong>${field.name}</strong> (${field.type})
+                        <br><small>Pattern: ${field.pattern}</small>
+                    `;
+                    fieldsContainer.appendChild(fieldDiv);
+                });
+            } else {
+                fieldsContainer.innerHTML = '<p>No fields generated</p>';
+            }
+            
+            document.getElementById('template-preview').style.display = 'block';
+        }
+
+        async function testTemplate() {
+            const validSamples = samples.filter(s => s.trim().length > 50);
+            
+            document.getElementById('test-loading').style.display = 'block';
+            document.getElementById('test-results').style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/template/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        template: generatedTemplate,
+                        samples: validSamples
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    testResults = result.data;
+                    displayTestResults(testResults);
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                alert('Template testing failed: ' + error.message);
+            } finally {
+                document.getElementById('test-loading').style.display = 'none';
+            }
+        }
+
+        function displayTestResults(data) {
+            // Update statistics
+            document.getElementById('avg-confidence').textContent = data.statistics.avgConfidence + '%';
+            document.getElementById('success-rate').textContent = data.statistics.successRate + '%';
+            document.getElementById('field-matches').textContent = 
+                `${data.statistics.totalFieldMatches}/${data.statistics.maxPossibleFields}`;
+            
+            // Display individual results
+            const resultsList = document.getElementById('test-results-list');
+            resultsList.innerHTML = '';
+            
+            data.results.forEach((result, index) => {
+                const resultDiv = document.createElement('div');
+                const confidenceClass = result.confidence >= 80 ? 'confidence-high' : 
+                                       result.confidence >= 60 ? 'confidence-medium' : 'confidence-low';
+                
+                resultDiv.className = `test-result ${confidenceClass}`;
+                resultDiv.innerHTML = `
+                    <h4>Sample ${result.sampleIndex + 1}</h4>
+                    <p><strong>Confidence:</strong> ${result.confidence}%</p>
+                    <p><strong>Field Matches:</strong> ${result.fieldMatches || 0}</p>
+                    <p><strong>Success:</strong> ${result.success ? '✅ Yes' : '❌ No'}</p>
+                    ${result.errors ? `<p><strong>Errors:</strong> ${result.errors.join(', ')}</p>` : ''}
+                `;
+                resultsList.appendChild(resultDiv);
+            });
+            
+            document.getElementById('test-results').style.display = 'block';
+        }
+
+        function showFinalTemplate() {
+            const summary = document.getElementById('final-template-summary');
+            summary.innerHTML = `
+                <p><strong>Name:</strong> ${generatedTemplate.name || 'Generated Template'}</p>
+                <p><strong>Fields:</strong> ${generatedTemplate.fields?.length || 0}</p>
+                <p><strong>Average Confidence:</strong> ${testResults?.statistics.avgConfidence || 0}%</p>
+                <p><strong>Success Rate:</strong> ${testResults?.statistics.successRate || 0}%</p>
+            `;
+        }
+
+        async function saveTemplate() {
+            const name = document.getElementById('template-name').value || 'Generated Template';
+            const description = document.getElementById('template-description').value || '';
+            
+            document.getElementById('save-success').style.display = 'none';
+            document.getElementById('save-error').style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/template/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        template: generatedTemplate,
+                        name,
+                        description
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('save-success').style.display = 'block';
+                    setTimeout(() => {
+                        window.close();
+                    }, 3000);
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                document.getElementById('save-error').textContent = 'Failed to save template: ' + error.message;
+                document.getElementById('save-error').style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>

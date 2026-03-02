@@ -1,0 +1,151 @@
+# Implementation Plan
+
+- [x] 1. Write bug condition exploration test
+  - **Property 1: Fault Condition** - Workspace Configuration Validation
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate workspace misconfiguration exists
+  - **Scoped PBT Approach**: Test concrete failing cases - workspace yaml without proper structure, duplicate packages, broken imports
+  - Test implementation details from Fault Condition in design:
+    - Verify tabeza-customer has workspace yaml but no packages/ directory
+    - Verify tabeza-staff has workspace yaml but packages in lib/packages/ instead of root
+    - Verify tabeza-connect has workspace yaml but no workspace structure
+    - Verify workspace:* protocol used without proper workspace links
+    - Verify duplicate node_modules in nested packages
+    - Verify @tabeza/* imports fail to resolve correctly
+  - The test assertions should match the Expected Behavior Properties from design
+  - Run test on UNFIXED code
+  - **EXPECTED OUTCOME**: Test FAILS (this is correct - it proves the bug exists)
+  - Document counterexamples found to understand root cause
+  - Mark task complete when test is written, run, and failure is documented
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 1.10, 1.14, 1.15, 1.16_
+
+- [x] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - Functional Behavior Unchanged
+  - **IMPORTANT**: Follow observation-first methodology
+  - Observe behavior on UNFIXED code for all runtime functionality:
+    - Customer app: QR scanning, menu browsing, order placement, payments work
+    - Staff app: Order management, payment processing, bar configuration work
+    - tabeza-connect: Print job capture and processing works
+    - Development workflow: pnpm dev starts correctly on ports 3002/3003
+    - Type safety: TypeScript compiles (even with module resolution warnings)
+    - Production builds: Build process completes (even with warnings)
+  - Write property-based tests capturing observed behavior patterns from Preservation Requirements
+  - Property-based testing generates many test cases for stronger guarantees
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10, 3.11, 3.12, 3.13_
+
+- [x] 3. Fix monorepo refactoring issues
+
+  - [x] 3.1 Phase 1: Fix tabeza-connect (Simplest - Already Standalone)
+    - Delete `tabeza-connect/pnpm-workspace.yaml` (serves no purpose)
+    - Verify no workspace dependencies in package.json
+    - Run `pnpm install` to verify installation works without workspace
+    - Run build scripts to verify they succeed
+    - Check for TypeScript errors (should be none)
+    - _Bug_Condition: hasWorkspaceYaml(tabeza-connect) AND NOT hasProperWorkspaceStructure(tabeza-connect)_
+    - _Expected_Behavior: isStandaloneApp(tabeza-connect) AND buildSucceeds(tabeza-connect)_
+    - _Preservation: Print job capture and processing continue to work correctly_
+    - _Requirements: 1.3, 2.1, 2.4, 3.3_
+
+  - [x] 3.2 Phase 2: Convert tabeza-customer to Standalone
+    - Delete `tabeza-customer/pnpm-workspace.yaml`
+    - Simplify `tabeza-customer/turbo.json` to remove workspace-specific configurations
+    - Update `tabeza-customer/package.json` to replace `@tabeza/shared: workspace:*` with `file:./lib/shared`
+    - Add TypeScript path mappings in `tabeza-customer/tsconfig.json` for all @tabeza/* imports
+    - Update all package.json files in lib/ to use `file:` protocol instead of `workspace:*`
+    - Delete all nested node_modules in lib/ directories
+    - Run `pnpm install` to verify installation works
+    - Run `pnpm type-check` to verify TypeScript resolution
+    - Run `pnpm build` to verify build succeeds
+    - Run `pnpm dev` to verify development server starts on port 3002
+    - _Bug_Condition: hasWorkspaceYaml(tabeza-customer) AND NOT hasProperWorkspaceStructure(tabeza-customer) AND hasDuplicatePackages(tabeza-customer)_
+    - _Expected_Behavior: isStandaloneApp(tabeza-customer) AND allImportsResolve(tabeza-customer) AND typeCheckingPasses(tabeza-customer) AND buildSucceeds(tabeza-customer)_
+    - _Preservation: All customer app functionality (QR scanning, menu browsing, order placement, payments) continues to work_
+    - _Requirements: 1.1, 1.3, 1.5, 1.6, 1.8, 1.14, 2.1, 2.2, 2.4, 2.5, 2.7, 2.8, 2.9, 2.14, 2.15, 3.1, 3.5, 3.11_
+
+  - [x] 3.3 Phase 3: Convert tabeza-staff to Standalone
+    - Delete `tabeza-staff/pnpm-workspace.yaml`
+    - Simplify `tabeza-staff/turbo.json` to remove workspace-specific configurations
+    - Update `tabeza-staff/package.json` to replace `@tabeza/shared: workspace:*` with `file:./lib/packages/shared`
+    - Add TypeScript path mappings in `tabeza-staff/tsconfig.json` for all @tabeza/* imports
+    - Update all package.json files in lib/packages/ to use `file:` protocol instead of `workspace:*`
+    - Delete all nested node_modules in lib/packages/ directories
+    - Run `pnpm install` to verify installation works
+    - Run `pnpm type-check` to verify TypeScript resolution
+    - Run `pnpm build` to verify build succeeds
+    - Run `pnpm dev` to verify development server starts on port 3003
+    - _Bug_Condition: hasWorkspaceYaml(tabeza-staff) AND NOT hasProperWorkspaceStructure(tabeza-staff) AND hasDuplicatePackages(tabeza-staff)_
+    - _Expected_Behavior: isStandaloneApp(tabeza-staff) AND allImportsResolve(tabeza-staff) AND typeCheckingPasses(tabeza-staff) AND buildSucceeds(tabeza-staff)_
+    - _Preservation: All staff app functionality (order management, payment processing, bar configuration, onboarding) continues to work_
+    - _Requirements: 1.2, 1.3, 1.5, 1.6, 1.8, 1.14, 2.1, 2.3, 2.4, 2.5, 2.7, 2.8, 2.9, 2.14, 2.15, 3.2, 3.5, 3.11_
+
+  - [x] 3.4 Phase 4: Establish Shared Code Synchronization Strategy
+    - Designate tabeza-staff as source of truth for all shared packages
+    - Create sync script `dev-tools/scripts/sync-shared-packages.js` in each project
+    - Create documentation file `SHARED_CODE_SYNC.md` in each project explaining:
+      - Which project is source of truth
+      - How to sync changes between projects
+      - Process for making changes to shared code
+      - Alternative strategies for future (git submodules, private npm registry)
+    - Test sync script by copying packages from tabeza-staff to tabeza-customer
+    - Verify synced packages work correctly in target project
+    - _Bug_Condition: hasDuplicatePackages(allProjects) AND NOT hasSyncStrategy(allProjects)_
+    - _Expected_Behavior: hasClearSyncStrategy(allProjects) AND canSyncSharedCode(allProjects)_
+    - _Preservation: Development workflow remains smooth with clear process for shared code updates_
+    - _Requirements: 1.5, 1.7, 2.10, 2.11, 2.12, 2.13_
+
+  - [x] 3.5 Phase 5: Update Next.js Configuration
+    - Update `tabeza-customer/next.config.js` to ensure transpilePackages includes all local @tabeza/* packages
+    - Update `tabeza-staff/next.config.js` to ensure transpilePackages includes all local @tabeza/* packages
+    - Verify Next.js can properly transpile and bundle local packages
+    - Test hot module replacement works correctly
+    - _Bug_Condition: hasBrokenImportPaths(nextJsConfig)_
+    - _Expected_Behavior: nextJsTranspilesLocalPackages(config) AND hotReloadWorks(config)_
+    - _Preservation: Hot module replacement and development workflow continue to work smoothly_
+    - _Requirements: 2.5, 2.6, 2.7, 3.6_
+
+  - [x] 3.6 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - Workspace Configuration Correctness
+    - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
+    - The test from task 1 encodes the expected behavior
+    - When this test passes, it confirms the expected behavior is satisfied
+    - Run bug condition exploration test from step 1
+    - **EXPECTED OUTCOME**: Test PASSES (confirms bug is fixed)
+    - Verify all assertions pass:
+      - No workspace yaml in standalone apps OR proper workspace structure if workspace
+      - No duplicate node_modules in nested packages
+      - All @tabeza/* imports resolve correctly
+      - TypeScript type-checking passes
+      - Builds succeed for all three projects
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.7, 2.8, 2.9, 2.14, 2.15, 2.16_
+
+  - [x] 3.7 Verify preservation tests still pass
+    - **Property 2: Preservation** - Functional Behavior Unchanged
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation property tests from step 2
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+    - Verify all functionality preserved:
+      - Customer app: QR scanning, menu browsing, order placement, payments work
+      - Staff app: Order management, payment processing, bar configuration, onboarding work
+      - tabeza-connect: Print job capture and processing works
+      - Development workflow: pnpm dev starts correctly on ports 3002/3003
+      - Hot reload: Changes trigger hot module replacement
+      - Type safety: TypeScript compiles without errors
+      - Production builds: Build process completes successfully
+      - PWA features: Offline functionality and service workers work
+    - Confirm all tests still pass after fix (no regressions)
+    - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10, 3.11, 3.12, 3.13_
+
+- [x] 4. Checkpoint - Ensure all tests pass
+  - Run full test suite for tabeza-customer
+  - Run full test suite for tabeza-staff
+  - Run full test suite for tabeza-connect
+  - Verify all three projects can run simultaneously without conflicts
+  - Verify production builds work for all projects
+  - Verify CI/CD pipelines pass
+  - Document any remaining issues or follow-up tasks
+  - Ask the user if questions arise
