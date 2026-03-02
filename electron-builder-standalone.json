@@ -1,0 +1,21 @@
+{
+  "appId": "com.tabeza.connect",
+  "productName": "TabezaConnect",
+  "directories": {
+    "output": "dist-tray"
+  },
+  "files": [
+    "src/tray/**/*",
+    "assets/**/*",
+    "node_modules/**/*",
+    "package.json"
+  ],
+  "win": {
+    "target": "portable",
+    "icon": "assets/icon.ico"
+  },
+  "portable": {
+    "artifactName": "TabezaTray.exe"
+  },
+  "main": "src/tray/standalone-tray.js"
+}

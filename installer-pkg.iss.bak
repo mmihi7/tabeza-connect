@@ -71,7 +71,7 @@ Name: "docs"; Description: "Documentation"; Types: full custom
 Source: "TabezaConnect.exe"; DestDir: "{app}"; Flags: ignoreversion; Components: core
 
 ; Compiled Tray Application (Electron app)
-Source: "TabezaTray.exe"; DestDir: "{app}"; Flags: ignoreversion; Components: core
+Source: "TabezaTray.exe"; DestDir: "{app}"; Flags: ignoreversion; Components: core; Check: FileExists("TabezaTray.exe")
 
 ; PowerShell Scripts
 Source: "src\installer\scripts\*"; DestDir: "{app}\scripts"; Flags: recursesubdirs; Components: core
@@ -118,7 +118,8 @@ Root: HKLM; Subkey: "SOFTWARE\Tabeza\TabezaConnect"; ValueType: string; ValueNam
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
   ValueType: string; ValueName: "TabezaTray"; \
   ValueData: """{app}\TabezaTray.exe"""; \
-  Flags: uninsdeletevalue
+  Flags: uninsdeletevalue; \
+  Check: FileExists(ExpandConstant('{app}\TabezaTray.exe'))
 
 [Code]
 var
@@ -217,21 +218,83 @@ end;
 
 [Run]
 ; ============================================================================
-; ONE-STEP INSTALLATION - Complete setup in single step
+; Step 1: Create watch folders
 ; ============================================================================
 Filename: "powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\complete-setup.ps1"" -InstallPath ""{app}"" -BarId ""{code:GetBarId}"" -ApiUrl ""{code:GetApiUrl}"""; \
-  StatusMsg: "Installing Tabeza POS Connect..."; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\create-folders.ps1"" -WatchFolder ""C:\ProgramData\Tabeza\TabezaPrints"""; \
+  StatusMsg: "Creating watch folders..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
 ; ============================================================================
-; Launch Management UI (only user-facing step)
+; Step 2: Configure automatic printer pooling
+; FIX: Removed "Check: IsAdminInstallMode" - that caused this step to be
+; silently skipped on normal (non-/ALLUSERS) installs. Since PrivilegesRequired=admin,
+; the installer always runs as admin — the Check was redundant and harmful.
+; ============================================================================
+Filename: "powershell.exe"; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\configure-pooling-printer.ps1"" -CaptureFilePath ""C:\ProgramData\Tabeza\TabezaPrints\order.prn"""; \
+  StatusMsg: "Configuring Tabeza POS Printer (automatic pooling)..."; \
+  Flags: runhidden waituntilterminated; \
+  Components: printer
+
+; ============================================================================
+; Step 3: Register Windows service
+; FIX: register-service-pkg.ps1 hardcodes TABEZA_WATCH_FOLDER=C:\TabezaPrints
+; but the actual folder is C:\ProgramData\Tabeza\TabezaPrints.
+; We pass it explicitly here so the service env var is correct.
+; ============================================================================
+Filename: "powershell.exe"; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\register-service-pkg.ps1"" -InstallPath ""{app}"" -BarId ""{code:GetBarId}"" -ApiUrl ""{code:GetApiUrl}"" -WatchFolder ""C:\ProgramData\Tabeza\TabezaPrints"""; \
+  StatusMsg: "Registering Tabeza POS Connect service..."; \
+  Flags: runhidden waituntilterminated; \
+  Components: core
+
+; ============================================================================
+; NEW: Wait 5 seconds after service registration
+; ============================================================================
+Filename: "powershell.exe"; \
+  Parameters: "-NoProfile -Command Start-Sleep -Seconds 5"; \
+  StatusMsg: "Finalizing service registration..."; \
+  Flags: runhidden waituntilterminated; \
+  Components: core
+
+; ============================================================================
+; Step 4: Start the service
+; ============================================================================
+Filename: "sc.exe"; \
+  Parameters: "start TabezaConnect"; \
+  StatusMsg: "Starting Tabeza POS Connect service..."; \
+  Flags: runhidden waituntilterminated; \
+  Components: core
+
+; ============================================================================
+; Step 5: Verify installation
+; ============================================================================
+Filename: "powershell.exe"; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\verify-installation.ps1"" -InstallPath ""{app}"""; \
+  StatusMsg: "Verifying installation..."; \
+  Flags: runhidden waituntilterminated; \
+  Components: core
+
+; ============================================================================
+; Step 6: Launch TabezaTray.exe so the system tray appears immediately
+; (It's also set to auto-start via registry Run key above)
+; ============================================================================
+Filename: "{app}\TabezaTray.exe"; \
+  StatusMsg: "Starting Tabeza system tray..."; \
+  Description: "Start Tabeza POS Connect now"; \
+  Flags: postinstall nowait skipifsilent; \
+  Components: core; \
+  Check: FileExists(ExpandConstant('{app}\TabezaTray.exe'))
+
+; ============================================================================
+; Step 7: Open Management UI in browser
 ; ============================================================================
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -Command Start-Process http://localhost:8765"; \
-  StatusMsg: "Setup complete! Opening Management UI..."; \
-  Description: "Open Tabeza Management UI"; \
+  StatusMsg: "Opening Management UI..."; \
+  Description: "Open Tabeza Management UI in browser"; \
   Flags: postinstall shellexec nowait skipifsilent; \
   Components: core
 
@@ -251,7 +314,8 @@ Filename: "{win}\notepad.exe"; \
 Filename: "taskkill.exe"; \
   Parameters: "/F /IM TabezaTray.exe"; \
   Flags: runhidden; \
-  RunOnceId: "KillTray"
+  RunOnceId: "KillTray"; \
+  Check: FileExists(ExpandConstant('{app}\TabezaTray.exe'))
 
 ; Fallback: kill TabezaConnect.exe (for older installations)
 Filename: "taskkill.exe"; \

@@ -9,7 +9,6 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios');
 
 const router = express.Router();
 
@@ -99,17 +98,24 @@ router.post('/generate', async (req, res) => {
     const apiUrl = `${config.apiUrl}/api/receipts/generate-template`;
     
     try {
-      const response = await axios.post(apiUrl, {
-        receipts,
-        barId: config.barId
-      }, {
-        timeout: 60000, // 60 second timeout for AI processing
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({
+          receipts,
+          barId: config.barId
+        }),
+        signal: controller.signal
       });
 
-      const template = response.data.template;
+      clearTimeout(timeoutId);
+      const result = await response.json();
+      const template = result.template;
 
       if (!template || !template.patterns) {
         return res.status(500).json({

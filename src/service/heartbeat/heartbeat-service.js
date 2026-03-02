@@ -20,19 +20,23 @@ class HeartbeatService {
     this.version = this._loadVersion();
     this.driverId = HeartbeatService.generateDriverId();
     
-    // Lazy load axios to avoid import issues during testing
-    this.axios = null;
+    // Use native fetch - no external dependencies
+    this.fetchController = new AbortController();
   }
 
   /**
-   * Load axios dynamically
+   * Get fetch options for heartbeat requests
    * @private
    */
-  _getAxios() {
-    if (!this.axios) {
-      this.axios = require('axios');
-    }
-    return this.axios;
+  _getFetchOptions() {
+    return {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': `TabezaConnect/${this.version}`
+      },
+      signal: this.fetchController.signal
+    };
   }
 
   /**
@@ -123,15 +127,25 @@ class HeartbeatService {
     const endpoint = `${this.config.apiUrl}/api/printer/heartbeat`;
 
     try {
-      const axios = this._getAxios();
-      const response = await axios.post(endpoint, payload, {
-        timeout: 10000, // 10 seconds
-        headers: {
-          'Content-Type': 'application/json'
-        }
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      const options = this._getFetchOptions();
+      const response = await fetch(endpoint, {
+        ...options,
+        body: JSON.stringify(payload),
+        signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${result.message || 'Unknown error'}`);
+      }
+
       console.log(`[HeartbeatService] Heartbeat sent successfully (status: ${response.status})`);
+      return result;
     } catch (error) {
       // Log warning but don't throw - will retry on next interval
       if (error.response) {

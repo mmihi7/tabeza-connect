@@ -34,7 +34,7 @@ const ReceiptParser = require('./receiptParser');
 const LocalQueue = require('./localQueue');
 const UploadWorker = require('./uploadWorker');
 const HeartbeatService = require('./heartbeat/heartbeat-service');
-const HTTPServer = require('../server/simple-http-server');
+// const HTTPServer = require('../server/simple-http-server');
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -191,9 +191,9 @@ class IntegratedCaptureService {
       info('✅ Heartbeat service started');
 
       // Start HTTP server with fault isolation
-      this.httpServer = new HTTPServer(this.config, this);
+      // this.httpServer = new HTTPServer(this.config, this);
       try {
-        await this.httpServer.start();
+        // await this.httpServer.start();
         info('✅ HTTP server started');
       } catch (serverErr) {
         warn(`HTTP server failed to start (non-fatal): ${serverErr.message}`);
@@ -356,7 +356,7 @@ class IntegratedCaptureService {
     // Stop components in reverse order
     if (this.httpServer) {
       try {
-        await this.httpServer.stop();
+        // await this.httpServer.stop();
         info('HTTP server stopped');
       } catch (err) {
         warn(`Error stopping HTTP server: ${err.message}`);

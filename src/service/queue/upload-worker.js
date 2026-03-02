@@ -14,7 +14,7 @@
  * - 30s timeout per request
  */
 
-const axios = require('axios');
+// Using native fetch - no external dependencies
 
 class UploadWorker {
   /**
@@ -31,13 +31,7 @@ class UploadWorker {
     this.backoffDelays = [5000, 10000, 20000, 40000]; // ms
     this.maxAttempts = 4;
     
-    // Configure axios with timeout
-    this.httpClient = axios.create({
-      timeout: 30000, // 30 seconds
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
+    // Using native fetch - no external dependencies needed
   }
 
   /**
@@ -164,8 +158,21 @@ class UploadWorker {
     };
 
     try {
-      const response = await this.httpClient.post(endpoint, payload);
-      return response.data;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      const result = await response.json();
+      return result;
     } catch (error) {
       // Enhance error with status code if available
       if (error.response) {

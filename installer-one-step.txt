@@ -1,0 +1,19 @@
+[Run]
+; ============================================================================
+; ONE-STEP INSTALLATION - Everything happens automatically
+; ============================================================================
+
+; Step 1: Complete setup in one go
+Filename: "powershell.exe"; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\complete-setup.ps1"" -InstallPath ""{app}"" -BarId ""{code:GetBarId}"" -ApiUrl ""{code:GetApiUrl}"""; \
+  StatusMsg: "Installing Tabeza POS Connect..."; \
+  Flags: runhidden waituntilterminated; \
+  Components: core
+
+; Step 2: Launch Management UI (only step user sees)
+Filename: "powershell.exe"; \
+  Parameters: "-NoProfile -Command Start-Process http://localhost:8765"; \
+  StatusMsg: "Setup complete! Opening Management UI..."; \
+  Description: "Open Tabeza Management UI"; \
+  Flags: postinstall shellexec nowait skipifsilent; \
+  Components: core

@@ -1,0 +1,16 @@
+{
+  "name": "tabeza-connect",
+  "version": "1.7.0",
+  "main": "src/service/index.js",
+  "bin": "src/service/index.js",
+  "pkg": {
+    "assets": [
+      "src/server/public/**/*",
+      "assets/**/*",
+      "src/package.json"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ]
+  }
+}
