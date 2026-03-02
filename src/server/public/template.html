@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tabeza Connect - Template Generator</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        /* Modal Overlay */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        /* Modal Content */
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Modal Header */
+        .modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 24px;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.75rem;
+            border: none;
+            padding: 0;
+        }
+
+        .modal-header p {
+            margin: 8px 0 0 0;
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+
+        /* Progress Indicator */
+        .progress-indicator {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            padding: 24px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .progress-step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .progress-circle {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #e9ecef;
+            color: #6b7280;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .progress-circle.active {
+            background: #667eea;
+            color: white;
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+        }
+
+        .progress-circle.completed {
+            background: #10b981;
+            color: white;
+        }
+
+        .progress-divider {
+            width: 40px;
+            height: 2px;
+            background: #e9ecef;
+        }
+
+        /* Modal Body */
+        .modal-body {
+            padding: 32px;
+        }
+
+        .step-content {
+            display: none;
+        }
+
+        .step-content.active {
+            display: block;
+        }
+
+        .step-title {
+            font-size: 1.5rem;
+            color: #2d3748;
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+
+        .step-description {
+            color: #6b7280;
+            margin-bottom: 24px;
+            line-height: 1.6;
+        }
+
+        .step-instruction {
+            background: #f0f4ff;
+            border-left: 4px solid #667eea;
+            padding: 16px;
+            border-radius: 4px;
+            margin-bottom: 24px;
+        }
+
+        .step-instruction strong {
+            color: #667eea;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        /* Receipt Status */
+        .receipt-status {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+
+        .receipt-status.captured {
+            background: #d1fae5;
+            border-color: #10b981;
+        }
+
+        .receipt-icon {
+            font-size: 2rem;
+        }
+
+        .receipt-text {
+            flex: 1;
+        }
+
+        .receipt-label {
+            font-weight: 600;
+            color: #2d3748;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .receipt-state {
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .receipt-state.captured {
+            color: #10b981;
+            font-weight: 600;
+        }
+
+        .checkmark {
+            font-size: 2rem;
+            color: #10b981;
+            display: none;
+        }
+
+        .receipt-status.captured .checkmark {
+            display: block;
+        }
+
+        /* Loading Spinner */
+        .loading-container {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #e9ecef;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #6b7280;
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+        }
+
+        .loading-subtext {
+            color: #9ca3af;
+            font-size: 0.9rem;
+        }
+
+        /* Success/Error Messages */
+        .message-container {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .message-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+
+        .message-icon.success {
+            color: #10b981;
+        }
+
+        .message-icon.error {
+            color: #ef4444;
+        }
+
+        .message-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #2d3748;
+        }
+
+        .message-text {
+            color: #6b7280;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+
+        /* Buttons */
+        .button-group {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 24px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .btn-secondary:hover {
+            background: #dee2e6;
+        }
+
+        /* Template Status Display */
+        .template-info {
+            background: #f8f9fa;
+            padding: 24px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .template-info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .template-info-item:last-child {
+            border-bottom: none;
+        }
+
+        .template-info-label {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .template-info-value {
+            color: #667eea;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>Tabeza Connect</h1>
+            <p class="subtitle">Template Generator</p>
+        </header>
+
+        <nav class="navigation">
+            <a href="/" class="nav-link">Dashboard</a>
+            <a href="/template.html" class="nav-link active">Template Generator</a>
+        </nav>
+
+        <main class="main-content">
+            <section>
+                <h2>Receipt Template</h2>
+                <div id="template-display" class="template-info">
+                    <div class="template-info-item">
+                        <span class="template-info-label">Status:</span>
+                        <span id="display-status" class="template-info-value">Loading...</span>
+                    </div>
+                    <div class="template-info-item">
+                        <span class="template-info-label">Version:</span>
+                        <span id="display-version" class="template-info-value">-</span>
+                    </div>
+                    <div class="template-info-item">
+                        <span class="template-info-label">POS System:</span>
+                        <span id="display-pos-system" class="template-info-value">-</span>
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button id="generate-btn" class="btn btn-primary">Generate New Template</button>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <p>Tabeza Connect v1.7.0</p>
+        </footer>
+    </div>
+
+    <!-- Template Generator Modal -->
+    <div id="template-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Generate Receipt Template</h2>
+                <p>Follow the steps below to create your receipt parsing template</p>
+            </div>
+
+            <!-- Progress Indicator -->
+            <div class="progress-indicator">
+                <div class="progress-step">
+                    <div id="progress-1" class="progress-circle active">1</div>
+                </div>
+                <div class="progress-divider"></div>
+                <div class="progress-step">
+                    <div id="progress-2" class="progress-circle">2</div>
+                </div>
+                <div class="progress-divider"></div>
+                <div class="progress-step">
+                    <div id="progress-3" class="progress-circle">3</div>
+                </div>
+            </div>
+
+            <div class="modal-body">
+                <!-- Step 1 -->
+                <div id="step-1" class="step-content active">
+                    <h3 class="step-title">Step 1 of 3</h3>
+                    <p class="step-description">
+                        We need to analyze your POS receipt format to create an accurate parsing template.
+                    </p>
+                    <div class="step-instruction">
+                        <strong>📄 Print your first test receipt from your POS</strong>
+                        Print any receipt with items and prices. This will be captured automatically.
+                    </div>
+                    <div id="receipt-1-status" class="receipt-status">
+                        <span class="receipt-icon">📄</span>
+                        <div class="receipt-text">
+                            <span class="receipt-label">Receipt 1</span>
+                            <span class="receipt-state">Waiting for receipt...</span>
+                        </div>
+                        <span class="checkmark">✓</span>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div id="step-2" class="step-content">
+                    <h3 class="step-title">Step 2 of 3</h3>
+                    <p class="step-description">
+                        Great! Now we need a second receipt with different items to verify the pattern.
+                    </p>
+                    <div class="step-instruction">
+                        <strong>📄 Print a DIFFERENT receipt (different items/prices)</strong>
+                        Make sure this receipt has different items than the first one.
+                    </div>
+                    <div id="receipt-2-status" class="receipt-status">
+                        <span class="receipt-icon">📄</span>
+                        <div class="receipt-text">
+                            <span class="receipt-label">Receipt 2</span>
+                            <span class="receipt-state">Waiting for receipt...</span>
+                        </div>
+                        <span class="checkmark">✓</span>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div id="step-3" class="step-content">
+                    <h3 class="step-title">Step 3 of 3</h3>
+                    <p class="step-description">
+                        Almost done! One more receipt to ensure accuracy.
+                    </p>
+                    <div class="step-instruction">
+                        <strong>📄 Print one more DIFFERENT receipt</strong>
+                        Again, use different items to help us identify the pattern.
+                    </div>
+                    <div id="receipt-3-status" class="receipt-status">
+                        <span class="receipt-icon">📄</span>
+                        <div class="receipt-text">
+                            <span class="receipt-label">Receipt 3</span>
+                            <span class="receipt-state">Waiting for receipt...</span>
+                        </div>
+                        <span class="checkmark">✓</span>
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loading-state" class="step-content">
+                    <div class="loading-container">
+                        <div class="spinner"></div>
+                        <div class="loading-text">Generating template with AI...</div>
+                        <div class="loading-subtext">This may take 30-60 seconds</div>
+                    </div>
+                </div>
+
+                <!-- Success State -->
+                <div id="success-state" class="step-content">
+                    <div class="message-container">
+                        <div class="message-icon success">✓</div>
+                        <h3 class="message-title">Success!</h3>
+                        <p class="message-text">
+                            Template parser created successfully. You can now print normally and manage digital receipts on the Tabeza Platform.
+                        </p>
+                        <div class="button-group">
+                            <button id="close-success-btn" class="btn btn-primary">Close</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error State -->
+                <div id="error-state" class="step-content">
+                    <div class="message-container">
+                        <div class="message-icon error">✗</div>
+                        <h3 class="message-title">Generation Failed</h3>
+                        <p id="error-message" class="message-text">
+                            Unable to generate template. Please try again.
+                        </p>
+                        <div class="button-group">
+                            <button id="retry-btn" class="btn btn-primary">Retry</button>
+                            <button id="cancel-btn" class="btn btn-secondary">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/template.js"></script>
+</body>
+</html>
