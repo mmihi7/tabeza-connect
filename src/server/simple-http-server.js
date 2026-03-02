@@ -36,8 +36,8 @@ class SimpleHTTPServer {
     // Start server
     return new Promise((resolve, reject) => {
       console.log(`Attempting to bind to port: ${this.port}`);
-      this.server = this.app.listen(this.port, '0.0.0.0', () => {
-        console.log(`Simple HTTP server started on http://localhost:${this.port}`);
+      this.server = this.app.listen(this.port, '127.0.0.1', () => {
+        console.log(`Simple HTTP server started on http://127.0.0.1:${this.port}`);
         resolve();
       });
       
