@@ -49,12 +49,13 @@
   },
   "pkg": {
     "scripts": [
-      "**/*.js",
-      "../server/**/*.js"
+      "*.js",
+      "config/**/*.js",
+      "heartbeat/**/*.js"
     ],
     "assets": [
       "node_modules/**/*",
-      "../public/**/*"
+      "public/**/*"
     ],
     "targets": [
       "node18-win-x64"
