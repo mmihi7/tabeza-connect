@@ -1,8 +1,0 @@
-Beer    1    300
-Wine    2    800
-Soda    1    150
---------------------
-TOTAL       1250
-
-Thank you for your visit!
-Tabeza POS System

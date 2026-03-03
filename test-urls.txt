@@ -1,8 +1,0 @@
-Test URLs for TabezaConnect.exe download:
-
-1. https://github.com/billoapp/TabezaConnect/releases/download/v1.1.1/TabezaConnect.exe
-2. https://github.com/billoapp/TabezaConnect/releases/download/v1.1.1/tabezaconnect.exe
-3. https://github.com/billoapp/TabezaConnect/releases/download/v1.1.1/TabezaConnect.exe
-4. https://github.com/billoapp/TabezaConnect/releases/tag/v1.1.1/TabezaConnect.exe
-
-Try these URLs in browser to see which one works.

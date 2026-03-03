@@ -1,8 +1,0 @@
-Beer    1    300
-Wine    2    800
-Soda    1    150
---------------------
-TOTAL       1250
-
-Test Receipt - $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-Tabeza POS System
