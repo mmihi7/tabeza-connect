@@ -20,7 +20,7 @@ This document provides a quick reference for all technical and user-facing names
 | Installer Executable | `TabezaConnect-Setup-v1.3.0.exe` | `OutputBaseFilename` in installer.iss |
 | Installation Directory | `C:\Program Files\TabezaConnect` | `DefaultDirName={autopf}\TabezaConnect` |
 | Config File | `config.json` | `{app}\config.json` |
-| Icon File | `icon.ico` | `{app}\icon.ico` |
+| Icon File | `icon-green.ico` | `{app}\icon-green.ico` |
 
 ### Windows Service
 

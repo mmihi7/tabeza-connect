@@ -68,7 +68,7 @@
     "productName": "Tabeza Connect",
     "win": {
       "target": "nsis",
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon-green.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -76,8 +76,8 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "runAfterFinish": true,
-      "installerIcon": "assets/icon.ico",
-      "uninstallerIcon": "assets/icon.ico"
+      "installerIcon": "assets/icon-green.ico",
+      "uninstallerIcon": "assets/icon-green.ico"
     },
     "files": [
       "**/*",

@@ -93,7 +93,7 @@ function createSetupWindow() {
     resizable: false,
     center: true,
     title: 'Tabeza Connect Setup',
-    icon: path.join(__dirname, 'assets', 'icon.ico'),
+    icon: path.join(__dirname, 'assets', 'icon-green.ico'),
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
@@ -212,8 +212,8 @@ function createTrayIcon(config) {
   try {
     console.log('Creating tray icon...');
     
-    // Use icon.ico for tray icon (Windows requires ICO format)
-    const iconPath = path.join(__dirname, 'assets', 'icon.ico');
+    // Use icon-green.ico for tray icon (Windows requires ICO format)
+    const iconPath = path.join(__dirname, 'assets', 'icon-green.ico');
     console.log('Icon path:', iconPath);
     console.log('Icon exists:', fs.existsSync(iconPath));
     

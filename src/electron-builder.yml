@@ -1,0 +1,63 @@
+# Electron Builder Configuration for Tabeza Connect
+# This file provides additional build configuration beyond package.json
+
+appId: com.tabeza.connect
+productName: Tabeza Connect
+copyright: Copyright © 2026 Tabeza
+
+# Output directory
+directories:
+  output: dist
+  buildResources: assets
+
+# Files to include in the build
+files:
+  - main.js
+  - src/**/*
+  - package.json
+  - assets/**/*
+  - "!**/*."
+  - "map!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
+  - "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}"
+  - "!**/node_modules/.bin"
+  - "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}"
+
+# Extra metadata
+extraMetadata:
+  main: main.js
+
+# Windows build configuration
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: assets/icon-green.ico
+  artifactName: "${productName}-Setup-${version}.${ext}"
+
+# NSIS Installer Configuration
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Tabeza Connect
+  runAfterFinish: true
+  installerIcon: assets/icon-green.ico
+  uninstallerIcon: assets/icon-green.ico
+  installerHeaderIcon: assets/icon-green.ico
+  deleteAppDataOnUninstall: false
+  license: ""
+  installerInstdDir: "{app}"
+
+# Asar packaging
+asar: true
+asarUnpack:
+  - "**/*.node"
+
+# Compression
+compression: maximum
+
+# Publish configuration (empty = local build only)
+# publish: null

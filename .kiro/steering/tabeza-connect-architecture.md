@@ -383,7 +383,7 @@ Configuration is loaded in this priority order (highest wins):
 C:\Program Files\TabezaConnect\
 ├── TabezaConnect.exe            <- single compiled binary (~45 MB)
 ├── assets\
-│   └── icon.ico
+│   └── icon-green.ico
 └── scripts\                    <- PowerShell scripts called by installer
     ├── create-folders.ps1
     ├── configure-pooling-printer.ps1

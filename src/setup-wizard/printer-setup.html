@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tabeza Connect - Printer Setup</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .wizard-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 550px;
+            overflow: hidden;
+        }
+
+        .wizard-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .wizard-header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .wizard-header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .wizard-content {
+            padding: 30px;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            color: #ccc;
+        }
+
+        .step.active {
+            color: #667eea;
+        }
+
+        .step.completed {
+            color: #28a745;
+        }
+
+        .step-number {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #eee;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+
+        .step.active .step-number {
+            background: #667eea;
+            color: white;
+        }
+
+        .step.completed .step-number {
+            background: #28a745;
+            color: white;
+        }
+
+        .step-line {
+            width: 40px;
+            height: 2px;
+            background: #eee;
+            margin: 0 10px;
+        }
+
+        .step.completed + .step-line,
+        .step-line.completed {
+            background: #28a745;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .form-group small {
+            color: #666;
+            font-size: 12px;
+        }
+
+        select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: border-color 0.2s;
+            background: white;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .printer-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+
+        .printer-info p {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .printer-info strong {
+            color: #333;
+        }
+
+        .wizard-footer {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            display: flex;
+            justify-content: space-between;
+            border-top: 1px solid #eee;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .step-content {
+            display: none;
+        }
+
+        .step-content.active {
+            display: block;
+        }
+
+        .check-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .check-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-size: 14px;
+        }
+
+        .check-icon.success {
+            background: #28a745;
+            color: white;
+        }
+
+        .check-icon.pending {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .check-icon.error {
+            background: #dc3545;
+            color: white;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .success-animation {
+            text-align: center;
+            padding: 30px 0;
+        }
+
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            background: #28a745;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 40px;
+            color: white;
+            animation: scaleIn 0.5s ease;
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(0); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .info-box {
+            background: #e7f1ff;
+            border: 1px solid #b6d4fe;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .info-box h4 {
+            color: #084298;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .info-box p {
+            color: #084298;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .info-box code {
+            background: #084298;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .path-display {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 13px;
+            color: #333;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="wizard-container">
+        <div class="wizard-header">
+            <h1>🖨️ Printer Setup</h1>
+            <p>Configure printer pooling for Tabeza Connect</p>
+        </div>
+
+        <div class="wizard-content">
+            <!-- Step Indicator -->
+            <div class="step-indicator">
+                <div class="step active" id="step1-indicator">
+                    <div class="step-number">1</div>
+                    <span>Select Printer</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step" id="step2-indicator">
+                    <div class="step-number">2</div>
+                    <span>Configure</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step" id="step3-indicator">
+                    <div class="step-number">3</div>
+                    <span>Complete</span>
+                </div>
+            </div>
+
+            <!-- Step 1: Select Printer -->
+            <div class="step-content active" id="step1">
+                <div class="form-group">
+                    <label>Select your receipt printer</label>
+                    <small>This printer will be configured for pooling with Tabeza Connect</small>
+                </div>
+
+                <div class="form-group">
+                    <select id="printerSelect">
+                        <option value="">Loading printers...</option>
+                    </select>
+                </div>
+
+                <div class="printer-info" id="printerInfo" style="display: none;">
+                    <p><strong>Port:</strong> <span id="printerPort">-</span></p>
+                    <p><strong>Driver:</strong> <span id="printerDriver">-</span></p>
+                </div>
+
+                <div class="info-box">
+                    <h4>📋 How it works</h4>
+                    <p>
+                        Tabeza Connect will create a new virtual printer called <code>Tabeza POS Printer</code> 
+                        that sends print jobs to both:
+                    </p>
+                    <ul style="margin: 10px 0 0 20px; color: #084298;">
+                        <li>Your physical printer (paper receipt)</li>
+                        <li>Tabeza Connect capture file (digital receipt)</li>
+                    </ul>
+                </div>
+
+                <div class="info-box" style="background: #d4edda; border-color: #c3e6cb;">
+                    <h4 style="color: #155724;">📁 Capture Location</h4>
+                    <p style="color: #155724;">
+                        Print jobs will be captured to:<br>
+                        <code style="background: #28a745; font-size: 14px;">C:\TabezaPrints\order.prn</code>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Step 2: Configure -->
+            <div class="step-content" id="step2">
+                <h3 style="margin-bottom: 20px; text-align: center;">Configuring Printer Pooling...</h3>
+
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" id="progressBar"></div>
+                </div>
+
+                <div id="setupSteps">
+                    <div class="check-item" id="check-port">
+                        <div class="check-icon pending">⏳</div>
+                        <span>Creating TabezaCapturePort...</span>
+                    </div>
+                    <div class="check-item" id="check-printer">
+                        <div class="check-icon pending">⏳</div>
+                        <span>Creating Tabeza POS Printer...</span>
+                    </div>
+                    <div class="check-item" id="check-pooling">
+                        <div class="check-icon pending">⏳</div>
+                        <span>Enabling printer pooling...</span>
+                    </div>
+                </div>
+
+                <div class="path-display" id="capturePathDisplay" style="display: none;">
+                    Capture File: C:\TabezaPrints\order.prn
+                </div>
+            </div>
+
+            <!-- Step 3: Complete -->
+            <div class="step-content" id="step3">
+                <div class="success-animation">
+                    <div class="success-icon">✓</div>
+                    <h2 style="margin-bottom: 10px;">Setup Complete!</h2>
+                    <p style="color: #666; margin-bottom: 20px;">Printer pooling has been configured successfully.</p>
+                </div>
+
+                <div class="info-box">
+                    <h4>✅ Next Steps</h4>
+                    <p>
+                        1. In your POS software, select <strong>"Tabeza POS Printer"</strong> as your printer<br>
+                        2. Print a test receipt to verify everything works<br>
+                        3. Tabeza Connect will automatically capture receipts to <code>C:\TabezaPrints\order.prn</code>
+                    </p>
+                </div>
+
+                <div class="check-item" style="margin-top: 15px;">
+                    <div class="check-icon success">✓</div>
+                    <div>
+                        <strong>Printer Created:</strong> Tabeza POS Printer<br>
+                        <small style="color: #666;">Sends to physical printer + C:\TabezaPrints\order.prn</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="wizard-footer">
+            <button class="btn btn-secondary" id="btnBack" style="visibility: hidden;">← Back</button>
+            <button class="btn btn-primary" id="btnNext">Next →</button>
+        </div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        let currentStep = 1;
+        let selectedPrinter = null;
+        let printers = [];
+
+        // Elements
+        const step1 = document.getElementById('step1');
+        const step2 = document.getElementById('step2');
+        const step3 = document.getElementById('step3');
+        const step1Indicator = document.getElementById('step1-indicator');
+        const step2Indicator = document.getElementById('step2-indicator');
+        const step3Indicator = document.getElementById('step3-indicator');
+        const printerSelect = document.getElementById('printerSelect');
+        const printerInfo = document.getElementById('printerInfo');
+        const printerPort = document.getElementById('printerPort');
+        const printerDriver = document.getElementById('printerDriver');
+        const btnBack = document.getElementById('btnBack');
+        const btnNext = document.getElementById('btnNext');
+        const progressBar = document.getElementById('progressBar');
+
+        // Load printers
+        async function loadPrinters() {
+            try {
+                printers = await ipcRenderer.invoke('get-printers');
+                
+                printerSelect.innerHTML = '';
+                
+                if (printers.length === 0) {
+                    printerSelect.innerHTML = '<option value="">No receipt printers found</option>';
+                    btnNext.disabled = true;
+                    return;
+                }
+
+                printerSelect.innerHTML = '<option value="">Select a printer...</option>';
+                printers.forEach(printer => {
+                    const option = document.createElement('option');
+                    option.value = printer.Name;
+                    option.textContent = printer.Name;
+                    option.dataset.port = printer.PortName;
+                    option.dataset.driver = printer.DriverName;
+                    printerSelect.appendChild(option);
+                });
+            } catch (error) {
+                printerSelect.innerHTML = '<option value="">Error loading printers</option>';
+                console.error('Error loading printers:', error);
+            }
+        }
+
+        // Show step
+        function showStep(step) {
+            step1.classList.remove('active');
+            step2.classList.remove('active');
+            step3.classList.remove('active');
+            step1Indicator.classList.remove('active');
+            step2Indicator.classList.remove('active');
+            step3Indicator.classList.remove('active');
+
+            if (step === 1) {
+                step1.classList.add('active');
+                step1Indicator.classList.add('active');
+                btnBack.style.visibility = 'hidden';
+                btnNext.textContent = 'Next →';
+            } else if (step === 2) {
+                step2.classList.add('active');
+                step2Indicator.classList.add('active');
+                step1Indicator.classList.add('completed');
+                btnBack.style.visibility = 'hidden';
+                btnNext.style.display = 'none';
+            } else if (step === 3) {
+                step3.classList.add('active');
+                step3Indicator.classList.add('active');
+                step2Indicator.classList.add('completed');
+                btnBack.style.visibility = 'hidden';
+                btnNext.textContent = 'Finish';
+                btnNext.style.display = 'block';
+            }
+
+            currentStep = step;
+        }
+
+        // Update progress
+        function updateProgress(step, success) {
+            const checkElement = document.getElementById(`check-${step}`);
+            const icon = checkElement.querySelector('.check-icon');
+            
+            if (success) {
+                icon.className = 'check-icon success';
+                icon.textContent = '✓';
+            } else {
+                icon.className = 'check-icon error';
+                icon.textContent = '✗';
+            }
+        }
+
+        // Run setup
+        async function runSetup() {
+            showStep(2);
+            
+            try {
+                // Step 1: Create port
+                progressBar.style.width = '25%';
+                await new Promise(resolve => setTimeout(resolve, 500));
+                updateProgress('port', true);
+                
+                // Step 2: Create printer
+                progressBar.style.width = '50%';
+                await new Promise(resolve => setTimeout(resolve, 500));
+                updateProgress('printer', true);
+                
+                // Step 3: Enable pooling
+                progressBar.style.width = '75%';
+                const result = await ipcRenderer.invoke('setup-printer', selectedPrinter);
+                
+                if (result.success) {
+                    updateProgress('pooling', true);
+                    progressBar.style.width = '100%';
+                    
+                    // Show capture path
+                    document.getElementById('capturePathDisplay').style.display = 'block';
+                    
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    showStep(3);
+                } else {
+                    updateProgress('pooling', false);
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                console.error('Setup error:', error);
+                alert('Setup failed: ' + error.message);
+                showStep(1);
+                btnNext.style.display = 'block';
+            }
+        }
+
+        // Event listeners
+        printerSelect.addEventListener('change', (e) => {
+            selectedPrinter = e.target.value;
+            
+            if (selectedPrinter) {
+                const printer = printers.find(p => p.Name === selectedPrinter);
+                if (printer) {
+                    printerPort.textContent = printer.PortName;
+                    printerDriver.textContent = printer.DriverName;
+                    printerInfo.style.display = 'block';
+                }
+                btnNext.disabled = false;
+            } else {
+                printerInfo.style.display = 'none';
+                btnNext.disabled = true;
+            }
+        });
+
+        btnNext.addEventListener('click', async () => {
+            if (currentStep === 1) {
+                if (!selectedPrinter) {
+                    alert('Please select a printer');
+                    return;
+                }
+                await runSetup();
+            } else if (currentStep === 3) {
+                // Notify main process that setup is complete before closing
+                try {
+                    await ipcRenderer.invoke('printer-setup-wizard-complete');
+                } catch (err) {
+                    console.error('Error notifying setup complete:', err);
+                }
+                window.close();
+            }
+        });
+
+        btnBack.addEventListener('click', () => {
+            if (currentStep > 1) {
+                showStep(currentStep - 1);
+            }
+        });
+
+        // Initialize
+        loadPrinters();
+    </script>
+</body>
+</html>

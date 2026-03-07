@@ -1,0 +1,8 @@
+# Ignore the clawPDF MSI installer (too large for git)
+# Download manually from: https://github.com/clawsoftware/clawPDF/releases/download/v0.9.3/clawPDF-0.9.3-setup.msi
+*.msi
+
+# Keep documentation and license files
+!README.md
+!LICENSE.txt
+!.gitignore

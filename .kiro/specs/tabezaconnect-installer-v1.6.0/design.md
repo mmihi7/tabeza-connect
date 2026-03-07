@@ -394,7 +394,7 @@ Source: "Plan\README.txt"; DestDir: "{app}\docs"
 Source: "Plan\AFTER-INSTALL.txt"; DestDir: "{app}\docs"
 
 ; Icon and License
-Source: "icon.ico"; DestDir: "{app}"
+Source: "icon-green.ico"; DestDir: "{app}"
 Source: "LICENSE.txt"; DestDir: "{app}"
 ```
 

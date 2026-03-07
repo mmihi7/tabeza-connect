@@ -23,8 +23,8 @@ DisableProgramGroupPage=yes
 
 OutputDir=dist
 OutputBaseFilename=TabezaConnect-Setup-v1.7.0
-SetupIconFile=icon.ico
-UninstallDisplayIcon={app}\icon.ico
+SetupIconFile=icon-green.ico
+UninstallDisplayIcon={app}\icon-green.ico
 
 Compression=lzma2/max
 SolidCompression=yes
@@ -81,7 +81,7 @@ Source: "Plan\BEFORE-INSTALL.txt"; DestDir: "{app}\docs"; Components: docs
 Source: "Plan\AFTER-INSTALL.txt"; DestDir: "{app}\docs"; Components: docs
 
 ; Icon
-Source: "icon.ico"; DestDir: "{app}"; Components: core
+Source: "icon-green.ico"; DestDir: "{app}"; Components: core
 
 ; License
 Source: "LICENSE.txt"; DestDir: "{app}"; Components: core
@@ -97,7 +97,7 @@ Name: "{commonappdata}\Tabeza\TabezaPrints\failed"; Permissions: users-modify
 
 [Icons]
 ; Start menu shortcut
-Name: "{group}\Tabeza POS Connect"; Filename: "{app}\TabezaConnect.exe"; IconFilename: "{app}\icon.ico"
+Name: "{group}\Tabeza POS Connect"; Filename: "{app}\TabezaConnect.exe"; IconFilename: "{app}\icon-green.ico"
 Name: "{group}\Uninstall Tabeza POS Connect"; Filename: "{uninstallexe}"
 
 [Registry]

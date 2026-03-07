@@ -87,7 +87,7 @@ Based on previous tasks:
 - **Product Name**: TabezaConnect
 - **Output Directory**: dist-tray
 - **Target**: NSIS installer (x64)
-- **Icon**: assets/icon.ico
+- **Icon**: assets/icon-green.ico
 
 ### Files Included
 - src/tray/**/* (tray application code)

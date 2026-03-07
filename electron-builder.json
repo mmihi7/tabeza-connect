@@ -18,11 +18,24 @@
   "win": {
     "target": [
       {
-        "target": "dir",
+        "target": "nsis",
         "arch": ["x64"]
       }
     ],
-    "requestedExecutionLevel": "asInvoker"
+    "requestedExecutionLevel": "asInvoker",
+    "icon": "assets/icon-green.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "TabezaConnect",
+    "installerIcon": "assets/icon-green.ico",
+    "uninstallerIcon": "assets/icon-green.ico",
+    "installerHeaderIcon": "assets/icon-green.ico",
+    "runAfterFinish": false,
+    "perMachine": false
   },
   "publish": null
 }

@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tabeza Connect - Template Generator</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+    
+    .subtitle {
+      color: #666;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    
+    .card h2 {
+      color: #333;
+      font-size: 18px;
+      margin-bottom: 16px;
+    }
+    
+    .info-box {
+      background: #e7f1ff;
+      border: 1px solid #b6d4fe;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    
+    .info-box h3 {
+      color: #084298;
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+    
+    .info-box p {
+      color: #084298;
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+    
+    .info-box ol {
+      color: #084298;
+      margin-left: 20px;
+    }
+    
+    .step {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    
+    .step h3 {
+      color: #333;
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+    
+    .step p {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+    
+    .step-status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    .step-status.pending {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    
+    .step-status.complete {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    .btn:hover {
+      background: #5568d3;
+    }
+    
+    .btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    .btn-secondary {
+      background: #6b7280;
+    }
+    
+    .btn-secondary:hover {
+      background: #4b5563;
+    }
+    
+    .alert {
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      display: none;
+    }
+    
+    .alert.success {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    
+    .alert.error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    
+    .alert.show {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🧾 Template Generator</h1>
+      <p class="subtitle">Create a receipt parsing template for your POS system</p>
+    </div>
+    
+    <div class="alert" id="alert"></div>
+    
+    <div class="card">
+      <div class="info-box">
+        <h3>📋 How it works</h3>
+        <p>The template generator needs 3 sample receipts from your POS to learn the format:</p>
+        <ol>
+          <li>Print 3 different receipts from your POS (different items, prices)</li>
+          <li>Tabeza Connect will capture each receipt automatically</li>
+          <li>AI will analyze the receipts and create a parsing template</li>
+          <li>Future receipts will be parsed automatically using this template</li>
+        </ol>
+      </div>
+      
+      <h2>Setup Steps</h2>
+      
+      <div class="step">
+        <h3>Step 1: Configure Printer Pooling</h3>
+        <p>Before generating a template, you need to set up printer pooling so Tabeza Connect can capture receipts.</p>
+        <span class="step-status" id="printerStatus">Checking...</span>
+        <div style="margin-top: 12px;">
+          <button class="btn" onclick="openPrinterSetup()">Configure Printer</button>
+        </div>
+      </div>
+      
+      <div class="step">
+        <h3>Step 2: Print Test Receipts</h3>
+        <p>Print 3 different receipts from your POS. Each receipt should have different items and prices.</p>
+        <span class="step-status pending">Waiting for receipts...</span>
+        <div style="margin-top: 12px;">
+          <p style="font-size: 13px; color: #666;">
+            Receipts captured: <strong id="receiptCount">0</strong> / 3
+          </p>
+        </div>
+      </div>
+      
+      <div class="step">
+        <h3>Step 3: Generate Template</h3>
+        <p>Once 3 receipts are captured, click the button below to generate your parsing template.</p>
+        <span class="step-status pending">Not ready</span>
+        <div style="margin-top: 12px;">
+          <button class="btn" id="generateBtn" disabled onclick="generateTemplate()">Generate Template</button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>Current Status</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div>
+          <p style="color: #666; font-size: 13px; margin-bottom: 4px;">Template Status</p>
+          <p style="color: #333; font-weight: 600;" id="templateStatus">Not configured</p>
+        </div>
+        <div>
+          <p style="color: #666; font-size: 13px; margin-bottom: 4px;">Receipts Captured</p>
+          <p style="color: #333; font-weight: 600;" id="capturedCount">0</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const { ipcRenderer } = require('electron');
+    const fs = require('fs');
+    const path = require('path');
+    
+    const TEMPLATE_PATH = 'C:\\TabezaPrints\\templates\\template.json';
+    const PROCESSED_DIR = 'C:\\TabezaPrints\\processed';
+    
+    function showAlert(message, type = 'success') {
+      const alert = document.getElementById('alert');
+      alert.textContent = message;
+      alert.className = `alert ${type} show`;
+      setTimeout(() => {
+        alert.className = 'alert';
+      }, 5000);
+    }
+    
+    async function checkPrinterStatus() {
+      try {
+        console.log('[Template Generator] Checking printer status...');
+        const result = await ipcRenderer.invoke('check-printer-setup');
+        console.log('[Template Generator] Printer status result:', result);
+        
+        const status = document.getElementById('printerStatus');
+        
+        if (result.status === 'FullyConfigured' || result.Status === 'FullyConfigured') {
+          console.log('[Template Generator] Printer is configured!');
+          status.textContent = 'Configured ✓';
+          status.className = 'step-status complete';
+        } else {
+          console.log('[Template Generator] Printer not configured:', result.status || result.Status);
+          status.textContent = 'Not configured';
+          status.className = 'step-status pending';
+        }
+      } catch (err) {
+        console.error('[Template Generator] Failed to check printer status:', err);
+      }
+    }
+    
+    function checkTemplateStatus() {
+      try {
+        if (fs.existsSync(TEMPLATE_PATH)) {
+          const template = JSON.parse(fs.readFileSync(TEMPLATE_PATH, 'utf8'));
+          document.getElementById('templateStatus').textContent = `Configured (v${template.version || '1.0'})`;
+        } else {
+          document.getElementById('templateStatus').textContent = 'Not configured';
+        }
+      } catch (err) {
+        console.error('Failed to check template:', err);
+      }
+    }
+    
+    function countCapturedReceipts() {
+      try {
+        if (fs.existsSync(PROCESSED_DIR)) {
+          const files = fs.readdirSync(PROCESSED_DIR);
+          const count = files.length;
+          document.getElementById('receiptCount').textContent = count;
+          document.getElementById('capturedCount').textContent = count;
+          
+          if (count >= 3) {
+            document.getElementById('generateBtn').disabled = false;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to count receipts:', err);
+      }
+    }
+    
+    function openPrinterSetup() {
+      ipcRenderer.send('open-printer-setup');
+    }
+    
+    function generateTemplate() {
+      showAlert('Template generation requires the background service to be running with cloud connectivity. This feature will be available in a future update.', 'error');
+    }
+    
+    // Listen for broadcast events from main process
+    ipcRenderer.on('config-updated', (event, config) => {
+      console.log('Config updated event received in template generator:', config);
+      // Refresh status when config changes
+      checkPrinterStatus();
+      checkTemplateStatus();
+    });
+    
+    ipcRenderer.on('printer-setup-complete', () => {
+      console.log('Printer setup complete event received in template generator');
+      // Immediately check printer status
+      checkPrinterStatus();
+      showAlert('Printer setup completed successfully!', 'success');
+    });
+    
+    // Initial checks
+    checkPrinterStatus();
+    checkTemplateStatus();
+    countCapturedReceipts();
+    
+    // Refresh every 5 seconds
+    setInterval(() => {
+      countCapturedReceipts();
+      checkTemplateStatus();
+      checkPrinterStatus();
+    }, 5000);
+  </script>
+</body>
+</html>

@@ -190,6 +190,8 @@
 
   <div class="footer">
     <button class="btn-outline" id="btn-config">Open Configuration</button>
+    <button class="btn-outline" id="btn-template">Template Generator</button>
+    <button class="btn-outline" id="btn-printer">Printer Setup</button>
     <button class="btn-outline" id="btn-test">Test Print</button>
     <button class="btn-green"   id="btn-ok">OK</button>
   </div>
@@ -256,6 +258,14 @@
 
     document.getElementById('btn-config').addEventListener('click', () => {
       ipcRenderer.send('open-config');
+    });
+
+    document.getElementById('btn-template').addEventListener('click', () => {
+      ipcRenderer.send('open-template-wizard');
+    });
+
+    document.getElementById('btn-printer').addEventListener('click', () => {
+      ipcRenderer.send('open-printer-setup');
     });
 
     document.getElementById('btn-test').addEventListener('click', () => {

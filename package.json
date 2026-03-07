@@ -1,19 +1,135 @@
 {
-  "name": "tabeza-connect",
-  "version": "1.7.0",
-  "main": "src/tray/main.js",
-  "description": "Tabeza Connect - Windows installer for POS integration with local receipt parsing and AI template generation",
+  "name": "@tabeza/connect",
+  "version": "1.7.14",
+  "description": "Tabeza Connect - Bridges your POS system with Tabeza cloud for digital receipts",
+  "main": "src/electron-main.js",
+  "author": "Tabeza",
+  "license": "MIT",
+  "homepage": "https://tabeza.co.ke",
   "scripts": {
-    "build": "build-production.bat",
-    "build:production": "build-production.bat",
-    "build:installer": "build-installer.bat",
+    "start": "electron .",
+    "start:service": "node src/service/index.js",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:win:x64": "electron-builder --win --x64",
+    "build:installer": "electron-builder --win --x64 -c.target=nsis",
+    "build:portable": "electron-builder --win --x64 -c.target=portable",
+    "build:all": "electron-builder --win --x64 -c.target=nsis -c.target=portable",
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "postinstall": "electron-builder install-app-deps",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "lint": "eslint src/",
+    "create-folders": "powershell -ExecutionPolicy Bypass -File src/installer/printer-pooling-setup.ps1 -Action CreateFolders"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/billoapp/TabezaConnect.git"
+  "dependencies": {
+    "better-sqlite3": "^9.2.2",
+    "chokidar": "^3.5.3",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1",
+    "electron-rebuild": "^3.2.9",
+    "eslint": "^8.56.0",
+    "jest": "^29.7.0"
+  },
+  "build": {
+    "appId": "com.tabeza.connect",
+    "productName": "TabezaConnect",
+    "copyright": "Copyright © 2024 Tabeza",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets",
+        "filter": [
+          "**/*.ico",
+          "**/*.svg"
+        ]
+      },
+      {
+        "from": "src/service",
+        "to": "service",
+        "filter": [
+          "**/*.js",
+          "**/*.json"
+        ]
+      },
+      {
+        "from": "src/installer",
+        "to": "installer",
+        "filter": [
+          "**/*.ps1"
+        ]
+      },
+      {
+        "from": "src/public",
+        "to": "public",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "src/setup-wizard",
+        "to": "setup-wizard",
+        "filter": [
+          "**/*.html"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon-green.ico",
+      "requestedExecutionLevel": "requireAdministrator"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "assets/icon-green.ico",
+      "uninstallerIcon": "assets/icon-green.ico",
+      "installerHeaderIcon": "assets/icon-green.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "TabezaConnect",
+      "include": "src/installer/installer.nsh",
+      "perMachine": true,
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "displayLanguageSelector": false,
+      "installerLanguages": [
+        "en_US"
+      ],
+      "language": "1033",
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "uninstallDisplayName": "${productName}"
+    },
+    "portable": {
+      "artifactName": "${productName}-Portable-${version}.exe"
+    },
+    "publish": null
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/__tests__/**/*.test.js"
+    ]
   },
   "keywords": [
     "tabeza",
@@ -21,33 +137,7 @@
     "printer",
     "pos",
     "receipt",
-    "windows",
-    "installer"
-  ],
-  "author": "Tabeza",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/billoapp/TabezaConnect/issues"
-  },
-  "homepage": "https://github.com/billoapp/TabezaConnect#readme",
-  "dependencies": {
-    "chokidar": "^3.5.3",
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
-    "fs-extra": "^11.1.1",
-    "node-machine-id": "^1.1.12",
-    "readdirp": "^3.0.2",
-    "uuid": "^9.0.0",
-    "winreg": "^1.2.4",
-    "ws": "^8.14.2"
-  },
-  "packageManager": "pnpm@10.25.0+sha512.5e82639027af37cf832061bcc6d639c219634488e0f2baebe785028a793de7b525ffcd3f7ff574f5e9860654e098fe852ba8ac5dd5cefe1767d23a020a92f501",
-  "devDependencies": {
-    "electron": "^40.6.1",
-    "electron-builder": "^26.8.1",
-    "fast-check": "^3.15.0",
-    "jest": "^29.7.0",
-    "js-yaml": "^4.1.1",
-    "supertest": "^6.3.3"
-  }
+    "thermal",
+    "digital-receipts"
+  ]
 }

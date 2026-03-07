@@ -1,0 +1,76 @@
+{
+  "name": "tabeza-connect",
+  "version": "1.7.0",
+  "description": "Tabeza Connect - Bridges POS system with Tabeza cloud for digital receipts",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --enable-logging",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:installer": "electron-builder --win nsis",
+    "pack": "electron-builder --dir"
+  },
+  "build": {
+    "appId": "com.tabeza.connect",
+    "productName": "Tabeza Connect",
+    "copyright": "Copyright © 2026 Tabeza",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.js",
+      "src/**/*",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "main.js"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon-green.ico",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Tabeza Connect",
+      "runAfterFinish": true,
+      "installerIcon": "assets/icon-green.ico",
+      "uninstallerIcon": "assets/icon-green.ico",
+      "installerHeaderIcon": "assets/icon-green.ico",
+      "deleteAppDataOnUninstall": false
+    },
+    "asar": true,
+    "compression": "maximum"
+  },
+  "keywords": [
+    "tabeza",
+    "pos",
+    "receipt",
+    "printer",
+    "escpos",
+    "digital-receipts"
+  ],
+  "author": "Tabeza",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "chokidar": "^3.5.3",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "uuid": "^9.0.0"
+  }
+}

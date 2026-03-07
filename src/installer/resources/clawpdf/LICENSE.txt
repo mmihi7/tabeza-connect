@@ -1,0 +1,57 @@
+ClawPDF License Information
+============================
+
+ClawPDF is licensed under the GNU Affero General Public License v3.0 (AGPL v3).
+
+Project: https://github.com/clawsoftware/clawPDF
+License: https://github.com/clawsoftware/clawPDF/blob/master/LICENSE
+
+Full License Text: https://www.gnu.org/licenses/agpl-3.0.en.html
+
+Summary of AGPL v3 License
+---------------------------
+
+The GNU Affero General Public License is a free, copyleft license for software and other kinds of works, specifically designed to ensure cooperation with the community in the case of network server software.
+
+Key Points:
+- You are free to use, modify, and distribute this software
+- If you modify the software, you must release your modifications under AGPL v3
+- If you run a modified version on a server, you must make the source code available to users
+- This license ensures that improvements to the software remain open source
+
+Tabeza Connect Usage
+--------------------
+
+Tabeza Connect bundles and uses clawPDF as-is without modifications. We:
+- Bundle the official clawPDF 0.9.3 MSI installer
+- Install it silently during Tabeza Connect installation
+- Configure it via registry settings (not code modifications)
+- Provide attribution and license information to end users
+
+Source Code Availability
+------------------------
+
+The complete source code for clawPDF is available at:
+https://github.com/clawsoftware/clawPDF
+
+Users can:
+- Download the source code
+- Build clawPDF from source
+- Modify and redistribute under AGPL v3 terms
+
+Attribution
+-----------
+
+ClawPDF is developed and maintained by:
+- clawSoft (https://github.com/clawsoftware)
+- Original project: PDFCreator (https://www.pdfforge.org/)
+
+Tabeza Connect is grateful to the clawPDF developers for creating and maintaining this excellent open-source virtual printer solution.
+
+Disclaimer
+----------
+
+ClawPDF is provided "as is" without warranty of any kind, express or implied. See the full AGPL v3 license for complete terms and conditions.
+
+For the complete license text, visit:
+https://www.gnu.org/licenses/agpl-3.0.en.html

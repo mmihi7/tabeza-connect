@@ -45,8 +45,8 @@ const VALID_TRANSITIONS = {
 
 // ── Icon paths (using full-size icons; Windows will downscale for tray) ─────
 const ICON_PATHS = {
-  green: path.join(__dirname, '../../assets/icon-green.ico'),
-  grey:  path.join(__dirname, '../../assets/icon-grey.ico'),
+  green: path.join(__dirname, '../../../assets/icon-green.ico'),
+  grey:  path.join(__dirname, '../../../assets/icon-grey.ico'),
 };
 
 // ── State → icon / tooltip mapping ───────────────────────────────────────────
@@ -265,6 +265,9 @@ class TrayApp {
     // Renderer "Template Generator" button
     ipcMain.on('open-template-wizard', () => this._showWizardWindow());
 
+    // Renderer "Printer Setup" button
+    ipcMain.on('open-printer-setup', () => this._openPrinterSetup());
+
     // Renderer "OK" button → hide window
     ipcMain.on('hide-window', () => this._hideWindow());
   }
@@ -323,6 +326,11 @@ class TrayApp {
         label:   'Template Generator',
         enabled: !shutting && configured,
         click:   () => this._showWizardWindow(),
+      },
+      {
+        label:   'Printer Setup Guide',
+        enabled: !shutting,
+        click:   () => this._openPrinterSetup(),
       },
       {
         label:   'View Logs',
@@ -510,6 +518,14 @@ class TrayApp {
       dialog.showErrorBox('Cannot Open Dashboard',
         'Could not retrieve API URL from service.\nPlease ensure the service is running.');
     }
+  }
+
+  _openPrinterSetup() {
+    const setupPath = path.join(__dirname, '../../docs/PRINTER_POOLING_SETUP.md');
+    shell.openPath(setupPath).catch(err => {
+      dialog.showErrorBox('Cannot Open Printer Setup Guide',
+        `Failed to open setup guide.\nPlease open manually: docs/PRINTER_POOLING_SETUP.md\n\n${err.message}`);
+    });
   }
 
   async _testPrint() {

@@ -123,7 +123,7 @@ TabezaConnect/
 │   ├── BEFORE-INSTALL.txt
 │   └── AFTER-INSTALL.txt
 ├── LICENSE.txt
-├── icon.ico
+├── icon-green.ico
 └── config.template.json
 ```
 

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tabeza Connect - Management Dashboard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      background: white;
+      border-radius: 16px;
+      padding: 30px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      text-align: center;
+    }
+    
+    .logo {
+      font-size: 64px;
+      margin-bottom: 10px;
+    }
+    
+    h1 {
+      color: #333;
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+    
+    .subtitle {
+      color: #666;
+      font-size: 18px;
+    }
+    
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+    
+    .card h2 {
+      color: #333;
+      font-size: 20px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .status-item:last-child {
+      border-bottom: none;
+    }
+    
+    .status-label {
+      color: #666;
+      font-weight: 500;
+    }
+    
+    .status-value {
+      color: #333;
+      font-weight: 600;
+    }
+    
+    .status-value.online {
+      color: #10b981;
+    }
+    
+    .status-value.offline {
+      color: #ef4444;
+    }
+    
+    .status-value.warning {
+      color: #f59e0b;
+    }
+    
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: transform 0.2s, box-shadow 0.2s;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+      width: 100%;
+      margin-top: 10px;
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-secondary {
+      background: #6b7280;
+    }
+    
+    .alert {
+      background: #fee2e2;
+      border: 1px solid #ef4444;
+      color: #991b1b;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    
+    .alert.show {
+      display: block;
+    }
+    
+    .alert.success {
+      background: #d1fae5;
+      border-color: #10b981;
+      color: #065f46;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">🖨️</div>
+      <h1>Tabeza Connect</h1>
+      <p class="subtitle">Receipt Capture Service - Management Dashboard</p>
+      <p class="subtitle" style="margin-top: 10px; font-size: 14px;">Version 1.7.0</p>
+    </div>
+    
+    <div class="alert" id="alert"></div>
+    
+    <div class="grid">
+      <div class="card">
+        <h2>📊 Service Status</h2>
+        <div class="status-item">
+          <span class="status-label">Service</span>
+          <span class="status-value online" id="serviceStatus">Loading...</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Uptime</span>
+          <span class="status-value" id="uptime">-</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Jobs Processed</span>
+          <span class="status-value" id="jobsProcessed">-</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Version</span>
+          <span class="status-value" id="version">-</span>
+        </div>
+      </div>
+      
+      <div class="card">
+        <h2>⚙️ Configuration</h2>
+        <div class="status-item">
+          <span class="status-label">Bar ID</span>
+          <span class="status-value" id="barId">Not configured</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">API URL</span>
+          <span class="status-value" id="apiUrl">-</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Watch Folder</span>
+          <span class="status-value" id="watchFolder">-</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Driver ID</span>
+          <span class="status-value" id="driverId">-</span>
+        </div>
+        <a href="/configure.html" class="btn">Configure Bar ID</a>
+      </div>
+      
+      <div class="card">
+        <h2>📦 Queue Status</h2>
+        <div class="status-item">
+          <span class="status-label">Pending</span>
+          <span class="status-value warning" id="queuePending">-</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Uploaded</span>
+          <span class="status-value online" id="queueUploaded">-</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Total</span>
+          <span class="status-value" id="queueTotal">-</span>
+        </div>
+      </div>
+      
+      <div class="card">
+        <h2>📝 Template Parser</h2>
+        <div class="status-item">
+          <span class="status-label">Template</span>
+          <span class="status-value" id="templateStatus">-</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Version</span>
+          <span class="status-value" id="templateVersion">-</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Receipts Parsed</span>
+          <span class="status-value" id="receiptsParsed">-</span>
+        </div>
+        <a href="/template.html" class="btn">Template Generator</a>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>🔗 Quick Links</h2>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+        <a href="/configure.html" class="btn">Configure Bar ID</a>
+        <a href="/template.html" class="btn">Template Generator</a>
+        <a href="/printer-settings.html" class="btn btn-secondary">Printer Settings</a>
+        <button onclick="refreshStatus()" class="btn btn-secondary">Refresh Status</button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const API_BASE = 'http://localhost:8765/api';
+    
+    function formatUptime(seconds) {
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      return `${hours}h ${minutes}m`;
+    }
+    
+    function showAlert(message, type = 'error') {
+      const alert = document.getElementById('alert');
+      alert.textContent = message;
+      alert.className = `alert ${type} show`;
+      setTimeout(() => {
+        alert.className = 'alert';
+      }, 5000);
+    }
+    
+    async function loadStatus() {
+      try {
+        const response = await fetch(`${API_BASE}/status`);
+        const data = await response.json();
+        
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to load status');
+        }
+        
+        // Service status
+        document.getElementById('serviceStatus').textContent = data.service?.isRunning ? 'Running' : 'Stopped';
+        document.getElementById('serviceStatus').className = data.service?.isRunning ? 'status-value online' : 'status-value offline';
+        document.getElementById('uptime').textContent = formatUptime(data.service?.uptime || 0);
+        document.getElementById('jobsProcessed').textContent = data.service?.jobsProcessed || 0;
+        document.getElementById('version').textContent = data.service?.version || '1.7.0';
+        
+        // Configuration
+        document.getElementById('barId').textContent = data.barId || 'Not configured';
+        document.getElementById('barId').className = data.barId ? 'status-value online' : 'status-value warning';
+        document.getElementById('apiUrl').textContent = data.apiUrl || '-';
+        document.getElementById('watchFolder').textContent = data.queue?.watchFolder || '-';
+        document.getElementById('driverId').textContent = data.system?.hostname ? `driver-${data.system.hostname}` : '-';
+        
+        // Queue status
+        document.getElementById('queuePending').textContent = data.queue?.pending || 0;
+        document.getElementById('queueUploaded').textContent = data.queue?.uploaded || 0;
+        document.getElementById('queueTotal').textContent = data.queue?.total || 0;
+        
+        // Template parser
+        const hasTemplate = data.parser?.hasTemplate;
+        document.getElementById('templateStatus').textContent = hasTemplate ? 'Configured' : 'Not configured';
+        document.getElementById('templateStatus').className = hasTemplate ? 'status-value online' : 'status-value warning';
+        document.getElementById('templateVersion').textContent = data.parser?.templateVersion || 'None';
+        document.getElementById('receiptsParsed').textContent = data.parser?.receiptsParsed || 0;
+        
+        // Show warning if Bar ID not configured
+        if (!data.barId) {
+          showAlert('⚠️ Bar ID not configured. Please configure it to start uploading receipts.', 'error');
+        }
+        
+      } catch (error) {
+        console.error('Failed to load status:', error);
+        document.getElementById('serviceStatus').textContent = 'Error';
+        document.getElementById('serviceStatus').className = 'status-value offline';
+        showAlert('Cannot connect to service. Make sure Tabeza Connect is running.', 'error');
+      }
+    }
+    
+    function refreshStatus() {
+      loadStatus();
+      showAlert('Status refreshed', 'success');
+    }
+    
+    // Load status on page load
+    loadStatus();
+    
+    // Auto-refresh every 10 seconds
+    setInterval(loadStatus, 10000);
+  </script>
+</body>
+</html>

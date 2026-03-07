@@ -6,14 +6,14 @@
 ```bash
 # Go to: https://convertio.co/svg-ico/
 # Upload: assets/logo-green.svg
-# Download as: icon.ico
-# Save to: assets/icon.ico
+# Download as: icon-green.ico
+# Save to: assets/icon-green.ico
 ```
 
 **Or use ImageMagick:**
 ```bash
 cd assets
-magick convert logo-green.svg -define icon:auto-resize=256,128,64,48,32,16 icon.ico
+magick convert logo-green.svg -define icon:auto-resize=256,128,64,48,32,16 icon-green.ico
 ```
 
 ### Step 2: Install Dependencies (2 minutes)
@@ -63,7 +63,7 @@ start "Tabeza Connect Setup 1.0.0.exe"
 
 After completing all steps:
 
-- [ ] `icon.ico` file exists in `assets/`
+- [ ] `icon-green.ico` file exists in `assets/`
 - [ ] Dependencies installed (`node_modules/` exists)
 - [ ] Electron app runs (`npm run start:electron`)
 - [ ] Setup window appears and works
@@ -82,7 +82,7 @@ After completing all steps:
 npm install
 ```
 
-### "icon.ico not found"
+### "icon-green.ico not found"
 Create the icon file first (Step 1)
 
 ### Setup window doesn't appear

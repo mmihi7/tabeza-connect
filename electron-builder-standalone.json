@@ -12,7 +12,7 @@
   ],
   "win": {
     "target": "portable",
-    "icon": "assets/icon.ico"
+    "icon": "assets/icon-green.ico"
   },
   "portable": {
     "artifactName": "TabezaTray.exe"

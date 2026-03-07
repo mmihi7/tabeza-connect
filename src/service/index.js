@@ -35,6 +35,7 @@ const ReceiptParser = require('./receiptParser');
 const LocalQueue = require('./localQueue');
 const UploadWorker = require('./uploadWorker');
 const HeartbeatService = require('./heartbeat/heartbeat-service');
+const SpoolWatcher = require('./spool-watcher');
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // INLINED HTTP SERVER - Fixes PKG bundling issue
@@ -54,10 +55,22 @@ class SimpleHTTPServer {
     // Basic middleware
     this.app.use(express.json());
     
-    // Serve static files from public directory (relative to this file's location)
-    const publicPath = path.join(__dirname, 'public');
+    // Serve static files from public directory
+    // In development: src/public
+    // In production: process.resourcesPath/public
+    const isDev = process.env.NODE_ENV === 'development' || !process.pkg;
+    const publicPath = isDev 
+      ? path.join(__dirname, '../public')
+      : path.join(process.resourcesPath, 'public');
+    
+    console.log(`[SimpleHTTPServer] Public path: ${publicPath}`);
+    console.log(`[SimpleHTTPServer] Public path exists: ${fs.existsSync(publicPath)}`);
+    
     if (fs.existsSync(publicPath)) {
       this.app.use(express.static(publicPath));
+      console.log(`[SimpleHTTPServer] Serving static files from: ${publicPath}`);
+    } else {
+      console.warn(`[SimpleHTTPServer] Public directory not found at: ${publicPath}`);
     }
 
     // CORS headers
@@ -101,18 +114,18 @@ class SimpleHTTPServer {
         const stats = await this.service.getStats();
         res.json({
           success: true,
-          data: {
-            service: stats.service,
-            queue: stats.queue,
-            upload: stats.upload,
-            parser: stats.parser,
-            escpos: stats.escpos,
-            system: {
-              hostname: os.hostname(),
-              platform: os.platform(),
-              uptime: os.uptime(),
-              memory: process.memoryUsage()
-            }
+          barId: this.config.barId,
+          apiUrl: this.config.apiUrl,
+          service: stats.service,
+          queue: stats.queue,
+          upload: stats.upload,
+          parser: stats.parser,
+          escpos: stats.escpos,
+          system: {
+            hostname: os.hostname(),
+            platform: os.platform(),
+            uptime: os.uptime(),
+            memory: process.memoryUsage()
           }
         });
       } catch (err) {
@@ -137,10 +150,55 @@ class SimpleHTTPServer {
       });
     });
 
+    // Update configuration endpoint
+    this.app.post('/api/configure', async (req, res) => {
+      try {
+        const { barId, apiUrl } = req.body;
+        
+        if (!barId) {
+          return res.status(400).json({
+            success: false,
+            error: 'Bar ID is required'
+          });
+        }
+
+        // Update config file
+        const configPath = 'C:\\TabezaPrints\\config.json';
+        let config = {};
+        
+        if (fs.existsSync(configPath)) {
+          config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        }
+        
+        config.barId = barId;
+        if (apiUrl) {
+          config.apiUrl = apiUrl;
+        }
+        
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+        
+        // Update in-memory config
+        this.config.barId = barId;
+        if (apiUrl) {
+          this.config.apiUrl = apiUrl;
+        }
+        
+        res.json({
+          success: true,
+          message: 'Configuration updated successfully'
+        });
+      } catch (err) {
+        res.status(500).json({
+          success: false,
+          error: err.message
+        });
+      }
+    });
+
     // Template endpoints
     this.app.get('/api/templates', (req, res) => {
       try {
-        const templatePath = path.join('C:\\ProgramData\\Tabeza\\templates', 'template.json');
+        const templatePath = path.join('C:\\TabezaPrints\\templates', 'template.json');
         if (fs.existsSync(templatePath)) {
           const template = JSON.parse(fs.readFileSync(templatePath, 'utf8'));
           res.json({
@@ -165,7 +223,7 @@ class SimpleHTTPServer {
     this.app.post('/api/templates', (req, res) => {
       try {
         const template = req.body;
-        const templatesDir = 'C:\\ProgramData\\Tabeza\\templates';
+        const templatesDir = 'C:\\TabezaPrints\\templates';
         
         if (!fs.existsSync(templatesDir)) {
           fs.mkdirSync(templatesDir, { recursive: true });
@@ -228,12 +286,12 @@ class SimpleHTTPServer {
         }
 
         // Save template to disk
-        const templateDir = path.dirname('C:\\ProgramData\\Tabeza\\template.json');
+        const templateDir = path.dirname('C:\\TabezaPrints\\template.json');
         if (!fs.existsSync(templateDir)) {
           fs.mkdirSync(templateDir, { recursive: true });
         }
 
-        fs.writeFileSync('C:\\ProgramData\\Tabeza\\template.json', JSON.stringify(template, null, 2), 'utf8');
+        fs.writeFileSync('C:\\TabezaPrints\\template.json', JSON.stringify(template, null, 2), 'utf8');
 
         res.json({
           success: true,
@@ -486,7 +544,7 @@ Test Data: ${JSON.stringify(testData)}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const DATA_DIR      = 'C:\\ProgramData\\Tabeza';
+const DATA_DIR      = 'C:\\TabezaPrints';
 const CONFIG_PATH   = path.join(DATA_DIR, 'config.json');
 const LOG_DIR       = path.join(DATA_DIR, 'logs');
 const LOG_FILE      = path.join(LOG_DIR, 'service.log');
@@ -554,6 +612,7 @@ class IntegratedCaptureService {
     this.uploadWorker = null;
     this.heartbeatService = null;
     this.httpServer = null;
+    this.spoolWatcher = null;
   }
 
   async start() {
@@ -596,6 +655,7 @@ class IntegratedCaptureService {
       this.config.watchFolder,
       path.join(this.config.watchFolder, 'processed'),
       path.join(this.config.watchFolder, 'failed'),
+      path.join(DATA_DIR, 'spool'),
       QUEUE_DIR,
       path.join(QUEUE_DIR, 'pending'),
       path.join(QUEUE_DIR, 'uploaded'),
@@ -640,6 +700,25 @@ class IntegratedCaptureService {
       this.heartbeatService = new HeartbeatService(this.config);
       this.heartbeatService.start();
       info('✅ Heartbeat service started');
+
+      // Initialize SpoolWatcher for clawPDF integration
+      this.spoolWatcher = new SpoolWatcher({
+        spoolFolder: path.join(DATA_DIR, 'spool'),
+        stabilizationDelay: 500,
+        filePattern: /\.ps$/i
+      });
+      
+      // Set up SpoolWatcher event handlers
+      this.spoolWatcher.on('fileProcessed', (jobData) => {
+        info(`SpoolWatcher processed file: ${jobData.fileName}`);
+      });
+      
+      this.spoolWatcher.on('error', (error) => {
+        error(`SpoolWatcher error: ${error.message}`);
+      });
+      
+      await this.spoolWatcher.start();
+      info('✅ SpoolWatcher initialized and started');
 
       // Start HTTP server (NOW INLINED - PKG WILL BUNDLE THIS)
       this.httpServer = new SimpleHTTPServer(this.config, this);
@@ -804,6 +883,16 @@ class IntegratedCaptureService {
       this.watcher = null;
     }
 
+    // Stop SpoolWatcher
+    if (this.spoolWatcher) {
+      try {
+        await this.spoolWatcher.stop();
+        info('SpoolWatcher stopped');
+      } catch (err) {
+        warn(`Error stopping SpoolWatcher: ${err.message}`);
+      }
+    }
+
     // Stop components in reverse order
     if (this.httpServer) {
       try {
@@ -841,6 +930,7 @@ class IntegratedCaptureService {
     const uploadStats = await this.uploadWorker?.getStats();
     const parserStats = this.receiptParser.getStats();
     const escposStats = this.escposProcessor.getStats();
+    const spoolStats = this.spoolWatcher?.getStats();
 
     return {
       service: {
@@ -852,7 +942,8 @@ class IntegratedCaptureService {
       queue: queueStats,
       upload: uploadStats,
       parser: parserStats,
-      escpos: escposStats
+      escpos: escposStats,
+      spool: spoolStats
     };
   }
 }

@@ -2,13 +2,43 @@
 
 **Version:** 1.7.0  
 **Audience:** Developers  
-**Last Updated:** 2026-03-02
+**Last Updated:** 2026-03-04
 
 ---
 
 ## What Is Tabeza Connect?
 
-Tabeza Connect is a Windows desktop application installed at a bar or restaurant. Its job is to watch for receipts printed by the venue's existing POS system, parse them into structured data, and upload that data to the Tabeza cloud platform so customers can receive digital receipts.
+Tabeza Connect is a **set-and-forget Windows agent** that bridges POS systems to the Tabeza platform. It's infrastructure, not a user-facing app — designed for reliability, auto-start, and minimal operator intervention.
+
+### Platform Role
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Tabeza Platform                          │
+│                                                             │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
+│  │   Tabeza     │  │    Staff     │  │   Customer   │    │
+│  │   Connect    │→ │     App      │  │    Wallet    │    │
+│  │  (Ingestion) │  │  (Control)   │  │ (Experience) │    │
+│  └──────────────┘  └──────────────┘  └──────────────┘    │
+│         ↓                                                   │
+│  ┌─────────────────────────────────────────────────────┐  │
+│  │              Supabase (Single Source of Truth)      │  │
+│  │  • Receipts  • Venues  • Staff  • Loyalty Events   │  │
+│  └─────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Tabeza Connect's Job:**
+- Capture receipt data from POS systems via Windows Printer Pooling
+- Parse receipts into structured JSON
+- Stream events reliably to Supabase
+- Run 24/7 without user intervention
+
+**What It's NOT:**
+- Not a user-facing dashboard (that's the Staff App)
+- Not a customer experience (that's the Wallet)
+- Not a configuration UI (setup happens once, then it's invisible)
 
 The venue's POS and physical printer work exactly as they always have. Tabeza Connect runs silently alongside them, observing every print job without interfering.
 
@@ -16,7 +46,15 @@ The venue's POS and physical printer work exactly as they always have. Tabeza Co
 
 ## The Problem It Solves
 
-When a POS prints a receipt, the output is raw ESC/POS — a printer command format full of binary control codes. The Tabeza platform needs clean structured data: what items were ordered, at what prices, and what the total was. Tabeza Connect bridges that gap locally on the venue's Windows machine, then sends the result to the cloud.
+When a POS prints a receipt, the output is raw ESC/POS — a printer command format full of binary control codes. The Tabeza platform needs clean structured data: what items were ordered, at what prices, and what the total was. Tabeza Connect bridges that gap locally on the venue's Windows machine, then streams the result to Supabase.
+
+### Design Principles
+
+1. **Infrastructure-grade reliability** - Auto-start on boot, survive crashes, queue offline
+2. **Zero operator attention** - Once configured, it should never need manual intervention
+3. **Minimal footprint** - Small installer (~45MB), low memory, no visible UI during normal operation
+4. **Safe auto-update** - Can update itself without breaking the venue's workflow
+5. **Supabase-first** - All data flows to Supabase; Connect is just the ingestion agent
 
 ---
 
@@ -383,7 +421,7 @@ Configuration is loaded in this priority order (highest wins):
 C:\Program Files\TabezaConnect\
 ├── TabezaConnect.exe            <- single compiled binary (~45 MB)
 ├── assets\
-│   └── icon.ico
+│   └── icon-green.ico
 └── scripts\                    <- PowerShell scripts called by installer
     ├── create-folders.ps1
     ├── configure-pooling-printer.ps1
@@ -424,13 +462,25 @@ Windows Service: TabezaConnect
 | Layer | Choice | Reason |
 |---|---|---|
 | Language | Node.js v20 | Strong file-system and HTTP libraries |
-| Packaging | `pkg` | Compiles to a single `.exe`; no runtime install needed on venue PC |
+| Packaging | **PKG** | Single .exe, native Windows Service support, 45MB footprint |
 | File watching | `chokidar` | Reliable watcher with write-stability threshold support |
 | HTTP server | `express` | Serves the management UI on localhost:8765 |
-| Installer | Inno Setup 6 + PowerShell | Standard Windows installer toolchain |
+| Installer | **Inno Setup 6 + PowerShell** | Full control over Windows Service registration, printer setup |
 | Cloud platform | Vercel (Next.js) | Hosts the API routes |
-| Database | Supabase (PostgreSQL) | Stores receipts, device status, templates |
+| Database | **Supabase (PostgreSQL)** | Single source of truth for all Tabeza data |
 | AI (setup only) | DeepSeek via OpenAI SDK | Generates regex template from sample receipts |
+
+### Why PKG Instead of Electron?
+
+Tabeza Connect is a **Windows Service with printer integration**, not a GUI desktop app. PKG is the right tool because:
+
+- ✅ **Native Windows Service** - Registers with `sc.exe`, runs as LocalService, auto-starts on boot
+- ✅ **Smaller footprint** - 45MB vs 80-120MB for Electron
+- ✅ **PowerShell integration** - Installer can run printer configuration scripts directly
+- ✅ **Simpler architecture** - One executable, one purpose, no Chromium overhead
+- ✅ **Production-proven** - Already deployed and working in venues
+
+Electron is designed for GUI apps with complex UIs. Tabeza Connect's UI is minimal (system tray + localhost dashboard), so PKG's simplicity wins.
 
 ---
 
