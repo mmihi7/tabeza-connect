@@ -1,17 +1,16 @@
 /***
- * Tabeza POS Connect - Pooling Capture Service v1.7.0
+ * Tabeza POS Connect - RedMon Capture Service v1.7.0
  *
- * Architecture: Windows Printer Pooling (NO BRIDGE)
+ * Architecture: RedMon Port Monitor Capture
  * ─────────────────────────────────────────────────
  * POS prints to "Tabeza POS Printer"
- *   → Windows Printer Pooling sends job to TWO ports simultaneously:
- *       1. Physical printer port (USB001, etc.) → Receipt prints on paper  ✅
- *       2. TabezaCapturePort (file port → order.prn) → File written here   ✅
- *   → This service watches the capture folder for new/changed files
- *   → Uploads raw print data to Tabeza cloud
+ *   → RedMon port monitor intercepts print job
+ *   → RedMon pipes raw ESC/POS bytes to capture.exe via stdin
+ *   → Capture script processes and forwards to physical printer
+ *   → Parsed receipts queued for cloud upload
  *
- * The service does NOT forward to a physical printer.
- * Windows handles the physical print via pooling. We only do the cloud upload.
+ * This service handles upload queue, template management, and physical printer forwarding.
+ * RedMon handles print job interception and capture script invocation.
  *
  * Exit Codes:
  *   0 - Clean shutdown
@@ -23,10 +22,12 @@
 const fs      = require('fs');
 const path    = require('path');
 const https   = require('https');
-const chokidar = require('chokidar');
 const os = require('os');
-const { v4: uuidv4 } = require('uuid');
 const express = require('express');
+
+// Use crypto.randomUUID() instead of uuid package to avoid ES Module issues
+const { randomUUID } = require('crypto');
+const uuidv4 = randomUUID;
 
 // Import service components
 const RegistryReader = require('./config/registry-reader');
@@ -36,6 +37,7 @@ const LocalQueue = require('./localQueue');
 const UploadWorker = require('./uploadWorker');
 const HeartbeatService = require('./heartbeat/heartbeat-service');
 const SpoolWatcher = require('./spool-watcher');
+const PhysicalPrinterAdapter = require('./printer-adapter');
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // INLINED HTTP SERVER - Fixes PKG bundling issue
@@ -136,6 +138,32 @@ class SimpleHTTPServer {
       }
     });
 
+    // Recent logs endpoint
+    this.app.get('/api/logs/recent', async (req, res) => {
+      const lines = parseInt(req.query.lines) || 20;
+      const logFile = 'C:\\TabezaPrints\\logs\\service.log';
+      try {
+        if (fs.existsSync(logFile)) {
+          const content = fs.readFileSync(logFile, 'utf8');
+          const allLines = content.split('\n').filter(l => l.trim());
+          const recent = allLines.slice(-lines).map(line => {
+            // Parse log line: [timestamp][LEVEL] message
+            const match = line.match(/\[([^\]]+)\]\[(\w+)\]\s*(.*)/);
+            if (match) {
+              const time = match[1].split('T')[1]?.split('.')[0] || match[1];
+              return { time, level: match[2].toLowerCase(), msg: match[3] };
+            }
+            return { time: new Date().toLocaleTimeString(), level: 'info', msg: line };
+          });
+          res.json(recent);
+        } else {
+          res.json([]);
+        }
+      } catch (e) {
+        res.json([]);
+      }
+    });
+
     // Configuration endpoint
     this.app.get('/api/config', (req, res) => {
       res.json({
@@ -232,6 +260,13 @@ class SimpleHTTPServer {
         const templatePath = path.join(templatesDir, 'template.json');
         fs.writeFileSync(templatePath, JSON.stringify(template, null, 2));
         
+        // Update service template status (Requirement 15A.4)
+        this.service.templateMissing = false;
+        if (this.service.spoolWatcher) {
+          this.service.spoolWatcher.setTemplateMissing(false);
+          console.log('[SimpleHTTPServer] Updated SpoolWatcher template status: template now exists');
+        }
+        
         res.json({
           success: true,
           message: 'Template saved successfully'
@@ -245,9 +280,43 @@ class SimpleHTTPServer {
     });
 
     // Template generation endpoint
+    // Get template capture status - how many samples collected, template exists?
+    this.app.get('/api/template/status', (req, res) => {
+      try {
+        const rawDir = path.join(DATA_DIR, 'raw');
+        const capturedReceipts = fs.existsSync(rawDir)
+          ? fs.readdirSync(rawDir).filter(f => f.endsWith('.prn')).length
+          : 0;
+
+        const templatePath = path.join(DATA_DIR, 'templates', 'template.json');
+        const templateGenerated = fs.existsSync(templatePath);
+
+        res.json({
+          success: true,
+          capturedReceipts,
+          templateGenerated,
+          templateMissing: this.service.templateMissing
+        });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     this.app.post('/api/template/generate', async (req, res) => {
       try {
-        const { receipts } = req.body;
+        let { receipts } = req.body;
+
+        // If no receipts passed, load from raw folder
+        if (!receipts || receipts.length < 3) {
+          const samplesDir = path.join(DATA_DIR, 'samples');
+          if (fs.existsSync(samplesDir)) {
+            const files = fs.readdirSync(samplesDir).filter(f => f.endsWith('.txt'));
+            receipts = files.map(f => {
+              const content = fs.readFileSync(path.join(samplesDir, f), 'utf8');
+              return content.trim();
+            });
+          }
+        }
         
         if (!receipts || !Array.isArray(receipts) || receipts.length < 3) {
           return res.status(400).json({
@@ -293,6 +362,13 @@ class SimpleHTTPServer {
 
         fs.writeFileSync('C:\\TabezaPrints\\template.json', JSON.stringify(template, null, 2), 'utf8');
 
+        // Update service template status (Requirement 15A.4)
+        this.service.templateMissing = false;
+        if (this.service.spoolWatcher) {
+          this.service.spoolWatcher.setTemplateMissing(false);
+          console.log('[SimpleHTTPServer] Updated SpoolWatcher template status: template now exists');
+        }
+
         res.json({
           success: true,
           message: 'Template generated and saved successfully',
@@ -322,6 +398,50 @@ class SimpleHTTPServer {
         res.status(500).json({
           success: false,
           error: error.message
+        });
+      }
+    });
+
+    // Printer status endpoint
+    this.app.get('/api/printer/status', async (req, res) => {
+      try {
+        // Check if Tabeza POS Printer exists using PowerShell
+        const { exec } = require('child_process');
+        const util = require('util');
+        const execPromise = util.promisify(exec);
+        
+        try {
+          const { stdout } = await execPromise('powershell -Command "Get-Printer -Name \'Tabeza POS Printer\' -ErrorAction SilentlyContinue | Select-Object Name, DriverName, PortName | ConvertTo-Json"');
+          
+          if (stdout && stdout.trim()) {
+            const printerInfo = JSON.parse(stdout);
+            res.json({
+              success: true,
+              status: 'configured',
+              printer: {
+                name: printerInfo.Name,
+                driver: printerInfo.DriverName,
+                port: printerInfo.PortName
+              }
+            });
+          } else {
+            res.json({
+              success: true,
+              status: 'not_configured',
+              message: 'Tabeza POS Printer not found'
+            });
+          }
+        } catch (psError) {
+          res.json({
+            success: true,
+            status: 'not_configured',
+            message: 'Printer check failed or printer not found'
+          });
+        }
+      } catch (err) {
+        res.status(500).json({
+          success: false,
+          error: err.message
         });
       }
     });
@@ -468,11 +588,67 @@ class SimpleHTTPServer {
       }
     });
 
+    // Printer detection endpoint
+    this.app.get('/api/printers/detect', async (req, res) => {
+      try {
+        if (!this.service.printerAdapter) {
+          return res.status(503).json({
+            success: false,
+            error: 'Printer adapter not initialized'
+          });
+        }
+        
+        const printers = await this.service.printerAdapter.detectPrinters();
+        res.json({
+          success: true,
+          data: printers
+        });
+      } catch (err) {
+        res.status(500).json({
+          success: false,
+          error: err.message
+        });
+      }
+    });
+
+    // Get configured printers
+    this.app.get('/api/printers', async (req, res) => {
+      try {
+        if (!this.service.printerAdapter) {
+          return res.status(503).json({
+            success: false,
+            error: 'Printer adapter not initialized'
+          });
+        }
+        
+        const stats = this.service.printerAdapter.getStats();
+        const queue = this.service.printerAdapter.getQueue();
+        
+        res.json({
+          success: true,
+          data: {
+            stats,
+            queueDepth: queue.length,
+            printers: Array.from(this.service.printerAdapter.printers.entries()).map(([name, printer]) => ({
+              name,
+              type: printer.config.type,
+              enabled: printer.enabled,
+              isDefault: printer.isDefault
+            }))
+          }
+        });
+      } catch (err) {
+        res.status(500).json({
+          success: false,
+          error: err.message
+        });
+      }
+    });
+
     // Test print endpoint
     this.app.post('/api/test-print', (req, res) => {
       try {
         const testData = req.body;
-        const orderPrnPath = path.join(this.config.watchFolder, 'order.prn');
         
         // Create test receipt data
         const testReceipt = `TEST RECEIPT
@@ -482,11 +658,193 @@ Bar ID: ${this.config.barId}
 Test Data: ${JSON.stringify(testData)}
 ================`;
 
-        fs.writeFileSync(orderPrnPath, testReceipt);
+        // For RedMon mode, just return success (capture.exe handles test prints)
+        res.json({
+          success: true,
+          message: 'RedMon capture ready - test prints will be processed by capture.exe'
+        });
+      } catch (err) {
+        res.status(500).json({
+          success: false,
+          error: err.message
+        });
+      }
+    });
+
+    // Test printer endpoint
+    this.app.post('/api/printers/test', async (req, res) => {
+      try {
+        if (!this.service.printerAdapter) {
+          return res.status(503).json({
+            success: false,
+            error: 'Printer adapter not initialized'
+          });
+        }
+        
+        const { printerName } = req.body;
+        
+        if (!printerName) {
+          return res.status(400).json({
+            success: false,
+            error: 'Printer name is required'
+          });
+        }
+        
+        // Create test print job
+        const testData = Buffer.from(`
+TEST PRINT
+==========
+Date: ${new Date().toLocaleString()}
+Printer: ${printerName}
+Bar ID: ${this.config.barId}
+==========
+`);
+        
+        const testJob = {
+          jobId: `test-${Date.now()}`,
+          rawData: testData,
+          timestamp: new Date().toISOString()
+        };
+        
+        this.service.printerAdapter.enqueueJob(testJob);
         
         res.json({
           success: true,
-          message: 'Test print sent to order.prn'
+          message: `Test print queued for ${printerName}`
+        });
+      } catch (err) {
+        res.status(500).json({
+          success: false,
+          error: err.message
+        });
+      }
+    });
+
+    // Configure printer endpoint
+    this.app.post('/api/printers/configure', async (req, res) => {
+      try {
+        const { printers } = req.body;
+        
+        if (!printers || !Array.isArray(printers)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Printers array is required'
+          });
+        }
+        
+        // Update config file
+        const configPath = 'C:\\TabezaPrints\\config.json';
+        let config = {};
+        
+        if (fs.existsSync(configPath)) {
+          config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        }
+        
+        config.printers = printers;
+        
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+        
+        // Restart printer adapter to reload config
+        if (this.service.printerAdapter) {
+          await this.service.printerAdapter.stop();
+          await this.service.printerAdapter.start();
+        }
+        
+        res.json({
+          success: true,
+          message: 'Printer configuration updated successfully'
+        });
+      } catch (err) {
+        res.status(500).json({
+          success: false,
+          error: err.message
+        });
+      }
+    });
+
+    // Get forwarding queue
+    this.app.get('/api/queue/forward', async (req, res) => {
+      try {
+        if (!this.service.printerAdapter) {
+          return res.status(503).json({
+            success: false,
+            error: 'Printer adapter not initialized'
+          });
+        }
+        
+        const queue = this.service.printerAdapter.getQueue();
+        
+        res.json({
+          success: true,
+          data: {
+            queueDepth: queue.length,
+            jobs: queue.map(job => ({
+              jobId: job.jobId,
+              timestamp: job.timestamp,
+              forwardAttempts: job.forwardAttempts || 0,
+              lastForwardError: job.lastForwardError || null
+            }))
+          }
+        });
+      } catch (err) {
+        res.status(500).json({
+          success: false,
+          error: err.message
+        });
+      }
+    });
+
+    // Retry failed jobs
+    this.app.post('/api/queue/retry', async (req, res) => {
+      try {
+        if (!this.service.printerAdapter) {
+          return res.status(503).json({
+            success: false,
+            error: 'Printer adapter not initialized'
+          });
+        }
+        
+        // Clear queue and reload from failed folder
+        const failedDir = path.join('C:\\TabezaPrints', 'failed_prints');
+        
+        if (!fs.existsSync(failedDir)) {
+          return res.json({
+            success: true,
+            message: 'No failed jobs to retry',
+            retriedCount: 0
+          });
+        }
+        
+        const files = fs.readdirSync(failedDir);
+        let retriedCount = 0;
+        
+        for (const file of files) {
+          if (file.endsWith('.json')) {
+            try {
+              const filePath = path.join(failedDir, file);
+              const jobData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+              
+              // Reset retry count
+              jobData.forwardAttempts = 0;
+              jobData.lastForwardError = null;
+              
+              // Re-enqueue
+              this.service.printerAdapter.enqueueJob(jobData);
+              
+              // Delete from failed folder
+              fs.unlinkSync(filePath);
+              
+              retriedCount++;
+            } catch (err) {
+              console.error(`Failed to retry job ${file}:`, err.message);
+            }
+          }
+        }
+        
+        res.json({
+          success: true,
+          message: `Retried ${retriedCount} failed job(s)`,
+          retriedCount
         });
       } catch (err) {
         res.status(500).json({
@@ -550,7 +908,6 @@ const LOG_DIR       = path.join(DATA_DIR, 'logs');
 const LOG_FILE      = path.join(LOG_DIR, 'service.log');
 const QUEUE_DIR     = path.join(DATA_DIR, 'queue');
 const TEMPLATES_DIR = path.join(DATA_DIR, 'templates');
-const ORDER_PRN_FILE = 'order.prn';
 
 // ─── Logging ──────────────────────────────────────────────────────────────────
 
@@ -600,10 +957,9 @@ function generateDriverId() {
 class IntegratedCaptureService {
   constructor() {
     this.config = loadConfig();
-    this.watcher = null;
-    this.processingFiles = new Set();
     this.isRunning = false;
     this.jobsProcessed = 0;
+    this.templateMissing = false; // Track template status (Requirement 15A)
     
     // Initialize components
     this.escposProcessor = new ESCPOSProcessor();
@@ -613,12 +969,13 @@ class IntegratedCaptureService {
     this.heartbeatService = null;
     this.httpServer = null;
     this.spoolWatcher = null;
+    this.printerAdapter = null;
   }
 
   async start() {
     info('========================================');
-    info('Tabeza POS Connect - Integrated Service v1.7.0');
-    info('*** INLINE HTTP SERVER VERSION ***');
+    info('Tabeza POS Connect - RedMon Capture Service v1.7.0');
+    info('*** REDMON PORT MONITOR VERSION ***');
     info('========================================');
     
     // Log configuration with source
@@ -644,18 +1001,12 @@ class IntegratedCaptureService {
     this.isRunning = true;
     info('Service signaled ready to Windows SCM');
 
-    // Start file watcher
-    this.startFileWatcher();
-    
     info('All components started. Service ready.');
   }
 
   async createDirectories() {
     const directories = [
       this.config.watchFolder,
-      path.join(this.config.watchFolder, 'processed'),
-      path.join(this.config.watchFolder, 'failed'),
-      path.join(DATA_DIR, 'spool'),
       QUEUE_DIR,
       path.join(QUEUE_DIR, 'pending'),
       path.join(QUEUE_DIR, 'uploaded'),
@@ -678,6 +1029,19 @@ class IntegratedCaptureService {
 
   async initializeComponents() {
     try {
+      // Check for template existence (Requirement 15A.1)
+      const templatePath = path.join('C:\\TabezaPrints', 'templates', 'template.json');
+      const templateExists = fs.existsSync(templatePath);
+      
+      if (!templateExists) {
+        warn('⚠️  WARNING: No receipt template found - receipts will be captured but not parsed');
+        warn('⚠️  Setup Required: Generate receipt template to enable cloud integration');
+        this.templateMissing = true;
+      } else {
+        info('✅ Receipt template found');
+        this.templateMissing = false;
+      }
+
       // Initialize receipt parser
       await this.receiptParser.initialize();
       info('✅ Receipt parser initialized');
@@ -701,20 +1065,45 @@ class IntegratedCaptureService {
       this.heartbeatService.start();
       info('✅ Heartbeat service started');
 
-      // Initialize SpoolWatcher for clawPDF integration
+      // Initialize SpoolWatcher for virtual printer integration
       this.spoolWatcher = new SpoolWatcher({
-        spoolFolder: path.join(DATA_DIR, 'spool'),
+        spoolFolder: path.join(DATA_DIR, 'raw'),
         stabilizationDelay: 500,
-        filePattern: /\.ps$/i
+        filePattern: /\.prn$/i,
+        templateMissing: this.templateMissing // Requirement 15A.4: Pass template status
+      });
+      
+      // Initialize PhysicalPrinterAdapter
+      this.printerAdapter = new PhysicalPrinterAdapter(this.config);
+      await this.printerAdapter.start();
+      info('✅ PhysicalPrinterAdapter started');
+      
+      // Connect SpoolWatcher to PhysicalPrinterAdapter
+      this.spoolWatcher.on('forwardJob', (jobData) => {
+        info(`SpoolWatcher forwarding job: ${jobData.jobId}`);
+        this.printerAdapter.enqueueJob(jobData);
       });
       
       // Set up SpoolWatcher event handlers
-      this.spoolWatcher.on('fileProcessed', (jobData) => {
-        info(`SpoolWatcher processed file: ${jobData.fileName}`);
+      this.spoolWatcher.on('printJobProcessed', (jobData) => {
+        info(`SpoolWatcher processed file: ${jobData.jobId}`);
+        
+        // If no template yet, just count raw files - no need to copy
+        if (this.templateMissing) {
+          try {
+            const rawDir = path.join(DATA_DIR, 'raw');
+            const existing = fs.existsSync(rawDir) 
+              ? fs.readdirSync(rawDir).filter(f => f.endsWith('.prn')).length 
+              : 0;
+            info(`[TemplateCapture] Raw receipts count: ${existing} (template not ready)`);
+          } catch (e) {
+            warn(`[TemplateCapture] Failed to count raw receipts: ${e.message}`);
+          }
+        }
       });
       
       this.spoolWatcher.on('error', (error) => {
-        error(`SpoolWatcher error: ${error.message}`);
+        error(`SpoolWatcher error: ${error.message || error}`);
       });
       
       await this.spoolWatcher.start();
@@ -737,151 +1126,9 @@ class IntegratedCaptureService {
     }
   }
 
-  startFileWatcher() {
-    const orderPrnPath = path.join(this.config.watchFolder, ORDER_PRN_FILE);
-    
-    // Ensure order.prn exists
-    if (!fs.existsSync(orderPrnPath)) {
-      fs.writeFileSync(orderPrnPath, '');
-      info(`Created ${ORDER_PRN_FILE}`);
-    }
-
-    info(`Starting file watcher: ${orderPrnPath}`);
-
-    this.watcher = chokidar.watch(orderPrnPath, {
-      persistent: true,
-      ignoreInitial: true,
-      awaitWriteFinish: {
-        stabilityThreshold: 1500, // 1.5 second delay
-        pollInterval: 300,
-      },
-    });
-
-    this.watcher.on('change', () => this.processOrderPrn());
-    this.watcher.on('error', (err) => error(`Watcher error: ${err.message}`));
-
-    info(`Watching: ${orderPrnPath}`);
-    info('Ready. Waiting for print jobs from Tabeza POS Printer...');
-  }
-
-  async processOrderPrn() {
-    const orderPrnPath = path.join(this.config.watchFolder, ORDER_PRN_FILE);
-    
-    // Skip if already being processed
-    if (this.processingFiles.has(orderPrnPath)) {
-      info('Already processing order.prn - skipping');
-      return;
-    }
-
-    this.processingFiles.add(orderPrnPath);
-
-    try {
-      info('New print job detected');
-
-      const data = fs.readFileSync(orderPrnPath);
-      if (!data || data.length === 0) {
-        info('Empty order.prn — skipping');
-        return;
-      }
-
-      info(`Job size: ${data.length} bytes`);
-      this.jobsProcessed++;
-
-      // Process with ESC/POS stripper
-      const escposResult = await this.escposProcessor.processFile(orderPrnPath);
-      info(`ESC/POS processing complete: ${escposResult.isESCPOS ? 'ESC/POS detected' : 'Plain text'}`);
-
-      // Parse with template parser
-      let parsedReceipt = null;
-      let parseSuccess = false;
-      
-      if (escposResult.text) {
-        try {
-          const parseResult = await this.receiptParser.parse(escposResult.text);
-          parsedReceipt = parseResult.data;
-          parseSuccess = parseResult.success;
-          info(`Template parsing: ${parseSuccess ? 'SUCCESS' : 'FAILED'} (confidence: ${parseResult.confidence}%)`);
-        } catch (parseErr) {
-          warn(`Template parsing failed: ${parseErr.message}`);
-        }
-      }
-
-      // Create receipt object for queue
-      const receipt = {
-        barId: this.config.barId,
-        deviceId: this.config.driverId,
-        timestamp: new Date().toISOString(),
-        escposBytes: escposResult.escposBytes,
-        text: escposResult.text,
-        parsed: parseSuccess,
-        confidence: parsedReceipt?.confidence || 0,
-        receipt: parsedReceipt,
-        metadata: {
-          fileSize: data.length,
-          isESCPOS: escposResult.isESCPOS,
-          parseTime: parsedReceipt?.parseTime || 0,
-          templateVersion: this.receiptParser.template?.version || 'none'
-        }
-      };
-
-      // Enqueue for upload
-      if (this.config.barId) {
-        const receiptId = await this.localQueue.enqueue(receipt);
-        info(`Receipt enqueued: ${receiptId}`);
-      } else {
-        warn('Bar ID not configured - receipt not enqueued');
-      }
-
-      // Archive and truncate order.prn
-      await this.archiveOrderPrn(data, parseSuccess);
-
-      info(`Job complete. Total processed: ${this.jobsProcessed}`);
-
-    } catch (err) {
-      error(`Failed to process order.prn: ${err.message}`);
-      
-      // Archive to failed folder
-      try {
-        const failedData = fs.readFileSync(orderPrnPath);
-        await this.archiveOrderPrn(failedData, false);
-      } catch (archiveErr) {
-        warn(`Failed to archive to failed folder: ${archiveErr.message}`);
-      }
-      
-    } finally {
-      this.processingFiles.delete(orderPrnPath);
-    }
-  }
-
-  async archiveOrderPrn(data, success) {
-    const orderPrnPath = path.join(this.config.watchFolder, ORDER_PRN_FILE);
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const archiveDir = path.join(this.config.watchFolder, success ? 'processed' : 'failed');
-    const archiveFile = path.join(archiveDir, `${timestamp}_${ORDER_PRN_FILE}`);
-
-    try {
-      // Copy to archive
-      fs.copyFileSync(orderPrnPath, archiveFile);
-      info(`Archived to: ${success ? 'processed' : 'failed'}/${timestamp}_${ORDER_PRN_FILE}`);
-
-      // Truncate order.prn to 0 bytes (never delete)
-      fs.writeFileSync(orderPrnPath, Buffer.alloc(0));
-      info('Truncated order.prn to 0 bytes');
-      
-    } catch (err) {
-      error(`Failed to archive order.prn: ${err.message}`);
-    }
-  }
-
   async stop() {
-    info('Stopping Tabeza POS Connect Integrated Service...');
+    info('Stopping Tabeza POS Connect RedMon Service...');
     this.isRunning = false;
-
-    // Stop file watcher
-    if (this.watcher) {
-      this.watcher.close();
-      this.watcher = null;
-    }
 
     // Stop SpoolWatcher
     if (this.spoolWatcher) {
@@ -890,6 +1137,16 @@ class IntegratedCaptureService {
         info('SpoolWatcher stopped');
       } catch (err) {
         warn(`Error stopping SpoolWatcher: ${err.message}`);
+      }
+    }
+
+    // Stop PhysicalPrinterAdapter
+    if (this.printerAdapter) {
+      try {
+        await this.printerAdapter.stop();
+        info('PhysicalPrinterAdapter stopped');
+      } catch (err) {
+        warn(`Error stopping PhysicalPrinterAdapter: ${err.message}`);
       }
     }
 

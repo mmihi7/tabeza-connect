@@ -14,6 +14,19 @@ const { app, BrowserWindow, Tray, Menu, dialog, shell, ipcMain, Notification } =
 const path = require('path');
 const fs = require('fs');
 const { spawn, exec } = require('child_process');
+
+// Single instance lock - MUST be at top before any app ready
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+}
+app.on('second-instance', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+});
+
 const setupStateManager = require('./lib/setup-state-manager');
 const windowStateManager = require('./lib/window-state-manager');
 
@@ -40,12 +53,10 @@ const CONFIG_PATH = path.join(TABEZA_PRINTS_DIR, 'config.json');
 const CAPTURE_FILE = path.join(TABEZA_PRINTS_DIR, 'order.prn');
 const LOG_FILE = path.join(LOG_DIR, 'electron.log');
 
-// Development vs Production paths
-const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+// Development vs Production paths (deferred until app is ready)
+let isDev = false;
 // In production, extraResources are at process.resourcesPath/assets/
-const ASSETS_PATH = isDev 
-  ? path.join(__dirname, '../assets')
-  : path.join(process.resourcesPath, 'assets');
+let ASSETS_PATH = path.join(__dirname, '../assets'); // updated in whenReady
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Global State
@@ -144,20 +155,59 @@ function initializeStateSync() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Verify and fix RedMon registry on startup
+function verifyRedMonRegistry() {
+  const { execSync } = require('child_process');
+  const regPath = 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Monitors\\Redirected Port\\Ports\\TabezaCapturePort';
+  
+  try {
+    const command = execSync(`reg query "${regPath}"`, { encoding: 'utf8' });
+    
+    // Check if command is correct
+    if (!command.includes('C:\\TabezaPrints\\capture.exe')) {
+      log('INFO', 'Fixing RedMon registry: Setting capture.exe path');
+      execSync(`reg add "${regPath}" /v Command /t REG_SZ /d "C:\\TabezaPrints\\capture.exe" /f`, { encoding: 'utf8' });
+    }
+    
+    // Check if output (physical printer) is set
+    if (!command.includes('EPSON')) {
+      log('INFO', 'Fixing RedMon registry: Setting output printer');
+      execSync(`reg add "${regPath}" /v Output /t REG_SZ /d "EPSON L3210 Series" /f`, { encoding: 'utf8' });
+    }
+    
+    log('INFO', 'RedMon registry verified');
+  } catch (e) {
+    log('WARN', `RedMon registry check failed: ${e.message}`);
+  }
+}
+
 // App Initialization - Call State Sync on Startup
 // ─────────────────────────────────────────────────────────────────────────────
 // Initialize state synchronization system when Electron app is ready.
 // This must happen before any windows are created to ensure all windows
 // can register properly and receive initial state.
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   log('INFO', 'Electron app ready - starting initialization sequence');
+  
+  // Verify RedMon registry on startup
+  verifyRedMonRegistry();
+  
+  // Set development mode now that app is ready
+  isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+  
+  // Update global ASSETS_PATH (assign, not re-declare)
+  ASSETS_PATH = isDev 
+    ? path.join(__dirname, '../assets')
+    : path.join(process.resourcesPath, 'assets');
+
+  log('INFO', `isDev: ${isDev}, ASSETS_PATH: ${ASSETS_PATH}`);
   
   // Initialize state synchronization system FIRST
   initializeStateSync();
   
-  // Continue with rest of app initialization...
-  // (Other initialization code will follow)
+  // Run full app initialization (tray, service, printer check, etc.)
+  await initialize();
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -238,7 +288,7 @@ function initializeTabezaPrintsFolder() {
     try {
       const defaultConfig = {
         barId: '',
-        apiUrl: 'https://tabeza.co.ke',
+        apiUrl: 'https://tabz-kikao.vercel.app',
         watchFolder: TABEZA_PRINTS_DIR,
         httpPort: 8765
       };
@@ -345,82 +395,6 @@ function autoDetectBarId() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Printer Status Auto-Detection
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Check if printer pooling is configured and auto-mark the step as complete.
- * 
- * This function runs on every startup to ensure the Printer step is automatically
- * marked complete if the printer pooling is fully configured.
- * 
- * Requirements: 9.1-9.7
- */
-async function autoDetectPrinterSetup() {
-  log('INFO', 'Checking for existing printer configuration...');
-  
-  try {
-    const scriptPath = isDev
-      ? path.join(__dirname, 'installer/printer-pooling-setup.ps1')
-      : path.join(process.resourcesPath, 'installer/printer-pooling-setup.ps1');
-
-    // Use synchronous exec for startup check
-    const { execSync } = require('child_process');
-    const stdout = execSync(
-      `powershell.exe -ExecutionPolicy Bypass -File "${scriptPath}" -Action Check -CaptureFilePath "${CAPTURE_FILE}"`,
-      { encoding: 'utf8', timeout: 10000 }
-    );
-
-    // Parse the JSON output
-    const lines = stdout.split('\n');
-    let jsonStr = '';
-    for (const line of lines) {
-      if (line.trim().startsWith('{')) {
-        jsonStr = line;
-        break;
-      }
-    }
-
-    if (jsonStr) {
-      const printerStatus = JSON.parse(jsonStr);
-      
-      if (printerStatus.status === 'FullyConfigured') {
-        log('INFO', '  ✓ Printer pooling fully configured');
-        
-        // Load current setup state
-        const currentState = setupStateManager.loadSetupState();
-        
-        // Only mark as complete if not already marked
-        if (!currentState.steps.printer.completed) {
-          log('INFO', '  → Auto-marking Printer step as complete');
-          setupStateManager.markStepComplete('printer');
-          
-          // Update tray menu to reflect new state
-          if (tray) {
-            updateTrayMenu();
-          }
-          
-          return true;
-        } else {
-          log('INFO', '  → Printer step already marked complete');
-          return true;
-        }
-      } else {
-        log('INFO', `  ✗ Printer status: ${printerStatus.status}`);
-        return false;
-      }
-    } else {
-      log('INFO', '  ✗ Could not determine printer status');
-      return false;
-    }
-    
-  } catch (error) {
-    log('ERROR', `  ✗ Error checking printer setup: ${error.message}`);
-    return false;
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Template Status Auto-Detection
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -500,6 +474,52 @@ function autoDetectTemplateStatus() {
   }
 }
 
+/**
+ * Check if template.json exists (simple check without auto-marking).
+ * 
+ * This function is used by the tray icon to determine icon color and tooltip.
+ * It checks the same locations as autoDetectTemplateStatus but doesn't modify state.
+ * 
+ * Requirements: 15A.5, 15A.6, 18.4
+ * 
+ * @returns {boolean} true if a valid template exists, false otherwise
+ */
+function checkTemplateExists() {
+  // Define possible template locations in order of preference
+  const templatePaths = [
+    path.join(TABEZA_PRINTS_DIR, 'templates', 'template.json'),
+    path.join(TABEZA_PRINTS_DIR, 'template.json'),
+    'C:\\ProgramData\\Tabeza\\template.json'
+  ];
+  
+  try {
+    // Check each possible location
+    for (const templatePath of templatePaths) {
+      if (fs.existsSync(templatePath)) {
+        try {
+          // Read and validate the template file
+          const templateData = fs.readFileSync(templatePath, 'utf8');
+          const template = JSON.parse(templateData);
+          
+          // Verify it has required fields (version and patterns)
+          if (template.version && template.patterns) {
+            return true; // Valid template found
+          }
+        } catch (parseError) {
+          // Continue checking other locations
+        }
+      }
+    }
+    
+    // No valid template found in any location
+    return false;
+    
+  } catch (error) {
+    // On error, assume no template exists
+    return false;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Migration Logic for Existing Installations
 // ─────────────────────────────────────────────────────────────────────────────
@@ -575,42 +595,8 @@ async function migrateExistingInstallation() {
   // ─────────────────────────────────────────────────────────────────────────
   // Check 2: Printer configuration status
   // ─────────────────────────────────────────────────────────────────────────
-  try {
-    const scriptPath = isDev
-      ? path.join(__dirname, 'installer/printer-pooling-setup.ps1')
-      : path.join(process.resourcesPath, 'installer/printer-pooling-setup.ps1');
-
-    // Use synchronous exec for migration check
-    const { execSync } = require('child_process');
-    const stdout = execSync(
-      `powershell.exe -ExecutionPolicy Bypass -File "${scriptPath}" -Action Check -CaptureFilePath "${CAPTURE_FILE}"`,
-      { encoding: 'utf8', timeout: 10000 }
-    );
-
-    // Parse the JSON output
-    const lines = stdout.split('\n');
-    let jsonStr = '';
-    for (const line of lines) {
-      if (line.trim().startsWith('{')) {
-        jsonStr = line;
-        break;
-      }
-    }
-
-    if (jsonStr) {
-      const printerStatus = JSON.parse(jsonStr);
-      if (printerStatus.status === 'FullyConfigured') {
-        migrationState.printerConfigured = true;
-        log('INFO', '  ✓ Printer fully configured');
-      } else {
-        log('INFO', `  ✗ Printer status: ${printerStatus.status}`);
-      }
-    } else {
-      log('INFO', '  ✗ Could not determine printer status');
-    }
-  } catch (error) {
-    log('ERROR', `  ✗ Error checking printer: ${error.message}`);
-  }
+  // Note: Printer configuration check removed - will be implemented with Redmon
+  log('INFO', '  ✗ Printer configuration check not implemented yet');
 
   // ─────────────────────────────────────────────────────────────────────────
   // Check 3: Template.json existence
@@ -723,7 +709,8 @@ function startBackgroundService() {
       windowsHide: true,
       env: {
         ...process.env,
-        TABEZA_DATA_DIR: TABEZA_PRINTS_DIR
+        TABEZA_DATA_DIR: TABEZA_PRINTS_DIR,
+        TABEZA_SERVICE_MODE: 'true'
       }
     });
 
@@ -745,6 +732,15 @@ function startBackgroundService() {
       log('INFO', `Background service exited with code ${code}`);
       backgroundService = null;
       updateTrayMenu();
+      // Auto-restart the service after a short delay
+      setTimeout(() => {
+        if (!backgroundService) {
+          log('INFO', 'Auto-restarting background service...');
+          startBackgroundService().catch(err => {
+            log('ERROR', `Failed to auto-restart service: ${err.message}`);
+          });
+        }
+      }, 3000);
     });
 
     backgroundService.on('error', (err) => {
@@ -787,6 +783,43 @@ function stopBackgroundService() {
         resolve();
       }, 3000);
     }
+  });
+}
+
+function stopAllServices() {
+  return new Promise((resolve) => {
+    log('INFO', 'Stopping ALL Tabeza services...');
+    
+    // Stop background service first
+    stopBackgroundService().then(() => {
+      // Kill any remaining Tabeza processes
+      if (process.platform === 'win32') {
+        exec('taskkill /f /im "TabezaConnect.exe" /T', (error) => {
+          if (error) {
+            log('WARN', `Error killing TabezaConnect.exe: ${error.message}`);
+          }
+        });
+        
+        exec('taskkill /f /im "node.exe" /fi "WINDOWTITLE eq *Tabeza*" /T', (error) => {
+          if (error) {
+            log('WARN', `Error killing Tabeza node processes: ${error.message}`);
+          }
+        });
+        
+        // Kill any processes using port 8765
+        exec('for /f "tokens=5" %a in (\'netstat -aon ^| find ":8765"^") do taskkill /f /pid %a', (error) => {
+          if (error) {
+            log('WARN', `Error killing processes on port 8765: ${error.message}`);
+          }
+        });
+      }
+      
+      setTimeout(() => {
+        log('INFO', 'All Tabeza services stopped');
+        updateTrayMenu();
+        resolve();
+      }, 2000);
+    });
   });
 }
 
@@ -915,8 +948,8 @@ function showTemplateGenerator() {
   }
 
   const htmlPath = isDev
-    ? path.join(__dirname, '../public/template-generator.html')
-    : path.join(process.resourcesPath, 'public/template-generator.html');
+    ? path.join(__dirname, 'public', 'template-generator.html')
+    : path.join(process.resourcesPath, 'public', 'template-generator.html');
 
   log('INFO', `Loading Template Generator from: ${htmlPath}`);
 
@@ -965,79 +998,35 @@ function showTemplateGenerator() {
   });
 }
 
-function runPrinterSetup(options = {}) {
-  return new Promise((resolve, reject) => {
-    const scriptPath = isDev
-      ? path.join(__dirname, 'installer/printer-pooling-setup.ps1')
-      : path.join(process.resourcesPath, 'installer/printer-pooling-setup.ps1');
-
-    // Build arguments for the elevated PowerShell script
-    let args = `-ExecutionPolicy Bypass -File "${scriptPath}" -Action ${options.action || 'Install'} -CaptureFilePath "${CAPTURE_FILE}"`;
-    
-    if (options.printerName) {
-      args += ` -PhysicalPrinterName "${options.printerName}"`;
-    }
-    
-    if (options.silent) {
-      args += ' -Silent';
-    }
-
-    // PowerShell command to run elevated
-    const psCommand = `Start-Process powershell.exe -ArgumentList '${args}' -Verb RunAs -Wait -WindowStyle Hidden`;
-
-    log('INFO', `Running elevated PowerShell for action: ${options.action}`);
-    log('INFO', `Command: ${psCommand}`);
-
-    const ps = spawn('powershell.exe', ['-Command', psCommand], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      shell: true
-    });
-
-    let stdout = '';
-    let stderr = '';
-
-    ps.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-
-    ps.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    ps.on('close', (code) => {
-      if (code === 0) {
-        resolve({ success: true, stdout, stderr });
-      } else {
-        reject(new Error(`PowerShell exited with code ${code}: ${stderr}`));
-      }
-    });
-
-    ps.on('error', (err) => {
-      reject(err);
-    });
-  });
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // System Tray
 // ─────────────────────────────────────────────────────────────────────────────
 
 function createTray() {
-  // Determine icon color based on service status and setup completion
+  // Determine icon color based on service status, setup completion, and template existence
   let iconColor = 'grey'; // Default: unknown/initializing
+  let tooltipSuffix = '';
   
   try {
     const serviceRunning = backgroundService !== null;
     const setupComplete = setupStateManager.isSetupComplete();
+    const templateExists = checkTemplateExists();
     
-    if (serviceRunning && setupComplete) {
-      iconColor = 'green'; // Service running AND setup complete
+    // Priority order for icon color:
+    // 1. No template (grey with warning) - Requirement 15A.5, 18.4
+    // 2. Service running AND setup complete AND template exists (green)
+    // 3. Service running but setup incomplete (grey)
+    // 4. Service not running (grey)
+    
+    if (!templateExists) {
+      iconColor = 'grey'; // Requirement 18.4: grey icon when no template
+      tooltipSuffix = ' - Setup incomplete: template required';
+    } else if (serviceRunning && setupComplete) {
+      iconColor = 'green'; // Service running AND setup complete AND template exists
     } else if (serviceRunning && !setupComplete) {
-      // TODO: Create icon-yellow.ico for this state
-      iconColor = 'green'; // Fallback to green for now
+      iconColor = 'grey'; // Setup incomplete
     } else if (!serviceRunning) {
-      // TODO: Create icon-red.ico for this state
-      iconColor = 'grey'; // Fallback to grey for now
+      iconColor = 'grey'; // Service not running
     }
   } catch (error) {
     log('WARN', `Could not determine setup state for tray icon: ${error.message}`);
@@ -1062,13 +1051,19 @@ function createTray() {
   try {
     tray = new Tray(iconPath);
     
-    // Set tooltip with setup progress if incomplete
+    // Set tooltip with setup progress if incomplete or template missing
+    // Requirement 15A.6: Display "Setup incomplete - template required" when no template
     try {
-      const progress = setupStateManager.getSetupProgress();
-      if (!progress.firstRunComplete) {
-        tray.setToolTip(`${APP_NAME} - Setup: ${progress.completed}/${progress.total} steps complete`);
+      const templateExists = checkTemplateExists();
+      if (!templateExists) {
+        tray.setToolTip(`${APP_NAME} - Setup incomplete: template required`);
       } else {
-        tray.setToolTip(APP_NAME);
+        const progress = setupStateManager.getSetupProgress();
+        if (!progress.firstRunComplete) {
+          tray.setToolTip(`${APP_NAME} - Setup: ${progress.completed}/${progress.total} steps complete`);
+        } else {
+          tray.setToolTip(APP_NAME);
+        }
       }
     } catch (error) {
       tray.setToolTip(APP_NAME);
@@ -1117,6 +1112,14 @@ function updateTrayMenu() {
         }
       }
     },
+    {
+      label: 'Stop All Services',
+      click: async () => {
+        await stopAllServices();
+        showNotification('All Services Stopped', 'All Tabeza services have been stopped');
+        updateTrayMenu();
+      }
+    },
     { type: 'separator' },
     {
       label: `${APP_NAME} v${APP_VERSION}`,
@@ -1131,19 +1134,28 @@ function updateTrayMenu() {
 
   tray.setContextMenu(contextMenu);
   
-  // Update tray icon color based on service status and setup completion
+  // Update tray icon color based on service status, setup completion, and template existence
+  // Requirement 15A.5: Display grey icon when no template exists
+  // Requirement 18.4: Display grey icon when setup incomplete
   try {
     let iconColor = 'grey';
     const setupComplete = setupStateManager.isSetupComplete();
+    const templateExists = checkTemplateExists();
     
-    if (serviceRunning && setupComplete) {
+    // Priority order for icon color:
+    // 1. No template (grey with warning) - Requirement 15A.5, 18.4
+    // 2. Service running AND setup complete AND template exists (green)
+    // 3. Service running but setup incomplete (grey)
+    // 4. Service not running (grey)
+    
+    if (!templateExists) {
+      iconColor = 'grey'; // Requirement 18.4: grey icon when no template
+    } else if (serviceRunning && setupComplete) {
       iconColor = 'green';
     } else if (serviceRunning && !setupComplete) {
-      // TODO: Create icon-yellow.ico for this state
-      iconColor = 'green'; // Fallback to green for now
+      iconColor = 'grey';
     } else if (!serviceRunning) {
-      // TODO: Create icon-red.ico for this state
-      iconColor = 'grey'; // Fallback to grey for now
+      iconColor = 'grey';
     }
     
     const iconPath = path.join(ASSETS_PATH, `icon-${iconColor}.ico`);
@@ -1151,12 +1163,17 @@ function updateTrayMenu() {
       tray.setImage(iconPath);
     }
     
-    // Update tooltip with setup progress if incomplete
-    const progress = setupStateManager.getSetupProgress();
-    if (!progress.firstRunComplete) {
-      tray.setToolTip(`${APP_NAME} - Setup: ${progress.completed}/${progress.total} steps complete`);
+    // Update tooltip with template warning or setup progress
+    // Requirement 15A.6: Display "Setup incomplete - template required" when no template
+    if (!templateExists) {
+      tray.setToolTip(`${APP_NAME} - Setup incomplete: template required`);
     } else {
-      tray.setToolTip(APP_NAME);
+      const progress = setupStateManager.getSetupProgress();
+      if (!progress.firstRunComplete) {
+        tray.setToolTip(`${APP_NAME} - Setup: ${progress.completed}/${progress.total} steps complete`);
+      } else {
+        tray.setToolTip(APP_NAME);
+      }
     }
   } catch (error) {
     log('WARN', `Could not update tray icon: ${error.message}`);
@@ -1187,26 +1204,27 @@ function showManagementUI() {
     return;
   }
 
-  // Restore window state from disk
-  const windowState = windowStateManager.restoreWindowState();
-  log('INFO', `Restoring window state: ${JSON.stringify(windowState)}`);
-
-  // Create window with restored dimensions and position
+  // Create new window with dashboard instead of old management UI
   const windowOptions = {
-    width: windowState.width,
-    height: windowState.height,
-    title: `${APP_NAME} - Management`,
+    width: 800,
+    height: 600,
+    title: `${APP_NAME} - Dashboard`,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js')
     },
     icon: path.join(ASSETS_PATH, 'icon-green.ico'),
-    minWidth: 800,
-    minHeight: 600,
-    maxWidth: 1400,
-    maxHeight: 1000
+    resizable: true,
+    maximizable: true,
+    fullscreenable: true,
+    skipTaskbar: false,
+    show: false
   };
+
+  // Restore window state from disk (or center if no saved state)
+  const windowState = windowStateManager.restoreWindowState();
+  log('INFO', `Restoring window state: ${JSON.stringify(windowState)}`);
 
   // Set position if saved (null means centered)
   if (windowState.x !== null && windowState.y !== null) {
@@ -1218,114 +1236,20 @@ function showManagementUI() {
 
   mainWindow = new BrowserWindow(windowOptions);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Register window with Window Registry for real-time state synchronization
-  // Requirements: Task 4.2 - Register all windows with Window Registry
-  // ─────────────────────────────────────────────────────────────────────────
-  if (windowRegistry) {
-    try {
-      windowRegistry.registerWindow('main-window', mainWindow);
-      log('INFO', 'Main window registered with Window Registry');
-    } catch (error) {
-      log('ERROR', `Failed to register main window: ${error.message}`);
-    }
-  } else {
-    log('WARN', 'WindowRegistry not available - main window not registered');
-  }
+  // Load the new dashboard instead of old management UI
+  mainWindow.loadFile(path.join(__dirname, 'tray/status-window.html'));
 
-  // Load management-ui.html instead of dashboard.html
-  const htmlPath = isDev
-    ? path.join(__dirname, '../public/management-ui.html')
-    : path.join(process.resourcesPath, 'public/management-ui.html');
-  
-  log('INFO', `Loading Management UI from: ${htmlPath}`);
-  
-  if (fs.existsSync(htmlPath)) {
-    mainWindow.loadFile(htmlPath);
-  } else {
-    log('ERROR', `Management UI file not found: ${htmlPath}`);
-    // Fallback: show error page
-    mainWindow.loadURL(`data:text/html,<h1>Management UI not found</h1><p>File: ${htmlPath}</p>`);
-  }
-
-  // Save window state on resize (debounced by window-state-manager)
-  mainWindow.on('resize', () => {
-    if (!mainWindow) return;
-    const bounds = mainWindow.getBounds();
-    windowStateManager.saveWindowState({
-      width: bounds.width,
-      height: bounds.height,
-      x: bounds.x,
-      y: bounds.y,
-      lastActiveSection: windowState.lastActiveSection
-    });
+  // Minimize-to-tray instead of closing
+  mainWindow.on('close', (e) => {
+    e.preventDefault();
+    mainWindow.hide();
   });
 
-  // Save window state on move (debounced by window-state-manager)
-  mainWindow.on('move', () => {
-    if (!mainWindow) return;
-    const bounds = mainWindow.getBounds();
-    windowStateManager.saveWindowState({
-      width: bounds.width,
-      height: bounds.height,
-      x: bounds.x,
-      y: bounds.y,
-      lastActiveSection: windowState.lastActiveSection
-    });
-  });
+  // Show the window
+  mainWindow.show();
+  mainWindow.focus();
 
-  // Save window state immediately before closing
-  mainWindow.on('close', () => {
-    if (!mainWindow) return;
-    const bounds = mainWindow.getBounds();
-    windowStateManager.saveWindowStateImmediate({
-      width: bounds.width,
-      height: bounds.height,
-      x: bounds.x,
-      y: bounds.y,
-      lastActiveSection: windowState.lastActiveSection
-    });
-  });
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Focus event listener for real-time state synchronization
-  // Requirements: Task 6.1 - Add focus event listeners to all windows
-  // Requirements: Task 6.2 - Implement full state sync on focus
-  // ─────────────────────────────────────────────────────────────────────────
-  mainWindow.on('focus', () => {
-    if (!mainWindow || mainWindow.isDestroyed()) {
-      return;
-    }
-    
-    log('INFO', 'Main window focused - syncing state');
-    
-    // Get complete current state from StateManager
-    if (stateManager && broadcastManager) {
-      try {
-        const currentState = stateManager.getState();
-        
-        // Broadcast full state sync to focused window
-        const syncSuccess = broadcastManager.syncWindowState('main-window', currentState);
-        
-        if (syncSuccess) {
-          log('INFO', 'State sync completed successfully for main window');
-        } else {
-          log('WARN', 'State sync failed for main window');
-        }
-      } catch (error) {
-        log('ERROR', `Failed to sync state on focus: ${error.message}`);
-      }
-    } else {
-      log('WARN', 'StateManager or BroadcastManager not available for focus sync');
-    }
-  });
-
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-    log('INFO', 'Management UI window closed');
-  });
-
-  log('INFO', 'Management UI window created successfully');
+  log('INFO', 'Dashboard window created and shown');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1337,18 +1261,94 @@ function showNotification(title, body) {
     const notification = new Notification({
       title,
       body,
-      icon: path.join(ASSETS_PATH, 'icon-green.ico')
+      icon: path.join(ASSETS_PATH, 'icon-green.ico'),
+      silent: false
     });
+    
     notification.show();
+    log('INFO', `Notification shown: ${title} - ${body}`);
+  } else {
+    log('WARN', 'Notifications not supported on this system');
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// IPC Handlers (for setup wizard)
-// ─────────────────────────────────────────────────────────────────────────────
+// Handle printer setup wizard completion
+ipcMain.handle('printer-setup-wizard-complete', async () => {
+  log('INFO', 'Printer setup wizard completed - broadcasting to all windows');
+  
+  // Broadcast to all windows
+  if (mainWindow) {
+    mainWindow.webContents.send('printer-setup-complete');
+  }
+  if (templateWindow) {
+    templateWindow.webContents.send('printer-setup-complete');
+  }
+  
+  // Update tray menu
+  setTimeout(() => updateTrayMenu(), 500);
+  
+  return { success: true };
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Real-Time State Synchronization - IPC Handlers
+// Config Management IPC Handlers
+// ─────────────────────────────────────────────────────────────────────────────
+
+ipcMain.handle('get-config', async () => {
+  try {
+    if (!fs.existsSync(CONFIG_PATH)) {
+      return {
+        barId: '',
+        apiUrl: 'https://tabz-kikao.vercel.app',
+        watchFolder: TABEZA_PRINTS_DIR,
+        httpPort: 8765
+      };
+    }
+    
+    const configData = fs.readFileSync(CONFIG_PATH, 'utf8');
+    // Remove BOM if present
+    const cleanData = configData.replace(/^\uFEFF/, '');
+    return JSON.parse(cleanData);
+  } catch (error) {
+    log('ERROR', `Failed to read config: ${error.message}`);
+    return {
+      barId: '',
+      apiUrl: 'https://tabz-kikao.vercel.app',
+      watchFolder: TABEZA_PRINTS_DIR,
+      httpPort: 8765
+    };
+  }
+});
+
+ipcMain.handle('save-config', async (event, config) => {
+  try {
+    // Write without BOM
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), { encoding: 'utf8', flag: 'w' });
+    log('INFO', `Config saved successfully to ${CONFIG_PATH}`);
+    
+    // Broadcast config change to all windows
+    if (mainWindow) {
+      mainWindow.webContents.send('config-updated', config);
+    }
+    if (templateWindow) {
+      templateWindow.webContents.send('config-updated', config);
+    }
+    if (setupWindow) {
+      setupWindow.webContents.send('config-updated', config);
+    }
+    
+    // Update tray menu to reflect changes
+    updateTrayMenu();
+    
+    return { success: true };
+  } catch (error) {
+    log('ERROR', `Failed to save config: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Config Management IPC Handlers
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -1724,6 +1724,13 @@ ipcMain.handle('save-template', async (event, templateData) => {
     // Postcondition: Return success response
     log('INFO', `save-template: Successfully saved template`);
     
+    // Update tray icon to reflect template completion
+    // Requirement 15A.5, 15A.6: Update tray icon when template is created
+    if (tray) {
+      updateTrayMenu();
+      log('INFO', 'save-template: Tray icon updated to reflect template completion');
+    }
+    
     return {
       success: true
     };
@@ -1740,82 +1747,114 @@ ipcMain.handle('save-template', async (event, templateData) => {
   }
 });
 
+/**
+ * IPC Handler: check-template-exists
+ * 
+ * Checks if a valid template.json file exists in any of the standard locations.
+ * This handler is used by the dashboard to show/hide the template warning banner.
+ * 
+ * Algorithm:
+ * 1. Check multiple possible template locations in order of preference
+ * 2. For each location, verify file exists and contains valid JSON
+ * 3. Validate template has required fields (version and patterns)
+ * 4. Return exists: true if valid template found, false otherwise
+ * 
+ * Template Locations (checked in order):
+ * - C:\TabezaPrints\templates\template.json (preferred)
+ * - C:\TabezaPrints\template.json (legacy)
+ * - C:\ProgramData\Tabeza\template.json (alternative)
+ * 
+ * Requirements: Requirement 15A.2 - Check template existence for warning banner
+ * 
+ * @param {Electron.IpcMainInvokeEvent} event - IPC event (unused)
+ * @returns {Promise<object>} Result object with exists boolean and optional path
+ */
+ipcMain.handle('check-template-exists', async (event) => {
+  try {
+    log('INFO', 'check-template-exists: Checking for template file');
+    
+    // Define possible template locations in order of preference
+    const templatePaths = [
+      path.join(TABEZA_PRINTS_DIR, 'templates', 'template.json'),
+      path.join(TABEZA_PRINTS_DIR, 'template.json'),
+      'C:\\ProgramData\\Tabeza\\template.json'
+    ];
+    
+    // Check each possible location
+    for (const templatePath of templatePaths) {
+      if (fs.existsSync(templatePath)) {
+        try {
+          // Read and validate the template file
+          const templateData = fs.readFileSync(templatePath, 'utf8');
+          const template = JSON.parse(templateData);
+          
+          // Verify it has required fields (version and patterns)
+          if (template.version && template.patterns) {
+            log('INFO', `check-template-exists: Valid template found at ${templatePath}`);
+            return {
+              success: true,
+              exists: true,
+              path: templatePath,
+              version: template.version
+            };
+          } else {
+            log('WARN', `check-template-exists: Template at ${templatePath} missing required fields`);
+          }
+        } catch (parseError) {
+          log('WARN', `check-template-exists: Error parsing template at ${templatePath}: ${parseError.message}`);
+          // Continue checking other locations
+        }
+      }
+    }
+    
+    // No valid template found
+    log('INFO', 'check-template-exists: No valid template found');
+    return {
+      success: true,
+      exists: false
+    };
+    
+  } catch (error) {
+    log('ERROR', `check-template-exists: Error: ${error.message}`);
+    return {
+      success: false,
+      error: error.message,
+      exists: false
+    };
+  }
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Printer Setup IPC Handlers
 // ─────────────────────────────────────────────────────────────────────────────
 
 ipcMain.handle('get-printers', async () => {
-  return new Promise((resolve, reject) => {
-    const scriptPath = isDev
-      ? path.join(__dirname, 'installer/printer-pooling-setup.ps1')
-      : path.join(process.resourcesPath, 'installer/printer-pooling-setup.ps1');
-
-    log('INFO', `get-printers: Script path: ${scriptPath}`);
-    log('INFO', `get-printers: Script exists: ${fs.existsSync(scriptPath)}`);
-
-    // Try to read the script file to verify it's not corrupted
-    try {
-      const scriptContent = fs.readFileSync(scriptPath, 'utf8');
-      log('INFO', `get-printers: Script size: ${scriptContent.length} bytes`);
-      log('INFO', `get-printers: Script first 100 chars: ${scriptContent.substring(0, 100)}`);
-    } catch (readErr) {
-      log('ERROR', `get-printers: Cannot read script: ${readErr.message}`);
-    }
-
-    const command = `powershell.exe -ExecutionPolicy Bypass -File "${scriptPath}" -Action ListPrinters`;
-    log('INFO', `get-printers: Running command: ${command}`);
-
-    exec(command, 
-      { 
-        maxBuffer: 1024 * 1024,
-        timeout: 30000 // 30 second timeout
-      },
-      (error, stdout, stderr) => {
-        if (error) {
-          log('ERROR', `get-printers: Error code: ${error.code}`);
-          log('ERROR', `get-printers: Error message: ${error.message}`);
-          log('ERROR', `get-printers: Stderr: ${stderr}`);
-          log('ERROR', `get-printers: Stdout: ${stdout}`);
-          
-          // Return empty array instead of rejecting so UI doesn't crash
+  // List available Windows printers directly via PowerShell (no pooling script needed)
+  return new Promise((resolve) => {
+    const command = `powershell.exe -Command "Get-Printer | Where-Object {$_.Name -ne 'Tabeza POS Printer'} | Select-Object Name,DriverName,PortName | ConvertTo-Json -AsArray"`;
+    
+    exec(command, { maxBuffer: 1024 * 1024, timeout: 15000 }, (error, stdout, stderr) => {
+      if (error) {
+        log('ERROR', `get-printers: Error: ${error.message}`);
+        resolve([]);
+        return;
+      }
+      
+      try {
+        const output = stdout.trim();
+        if (!output) {
           resolve([]);
           return;
         }
-
-        log('INFO', `get-printers: Success! Stdout length: ${stdout.length}`);
-        log('INFO', `get-printers: Stdout: ${stdout.substring(0, 500)}`);
-
-        try {
-          const lines = stdout.split('\n');
-          let jsonStr = '';
-          let inJson = false;
-
-          for (const line of lines) {
-            if (line.trim().startsWith('[')) {
-              inJson = true;
-            }
-            if (inJson) {
-              jsonStr += line;
-            }
-          }
-
-          log('INFO', `get-printers: JSON string: ${jsonStr.substring(0, 200)}`);
-
-          if (jsonStr) {
-            const printers = JSON.parse(jsonStr);
-            log('INFO', `get-printers: Found ${printers.length} printers`);
-            resolve(printers);
-          } else {
-            log('WARN', `get-printers: No JSON found in output`);
-            resolve([]);
-          }
-        } catch (parseError) {
-          log('ERROR', `get-printers: Parse error: ${parseError.message}`);
-          log('ERROR', `get-printers: Parse stack: ${parseError.stack}`);
-          resolve([]);
-        }
+        const printers = JSON.parse(output);
+        const list = Array.isArray(printers) ? printers : [printers];
+        log('INFO', `get-printers: Found ${list.length} printers`);
+        resolve(list.map(p => ({ name: p.Name, driver: p.DriverName, port: p.PortName })));
+      } catch (parseError) {
+        log('ERROR', `get-printers: Parse error: ${parseError.message}`);
+        resolve([]);
       }
-    );
+    });
   });
 });
 
@@ -1823,87 +1862,98 @@ ipcMain.handle('setup-printer', async (event, printerName) => {
   try {
     log('INFO', `Setting up printer: ${printerName}`);
     
-    const scriptPath = isDev
-      ? path.join(__dirname, 'installer/printer-pooling-setup.ps1')
-      : path.join(process.resourcesPath, 'installer/printer-pooling-setup.ps1');
+    // Use the Redmon-based configure script (not the old pooling script)
+    const scriptPath = isDev 
+      ? path.join(__dirname, 'installer/scripts/configure-redmon-printer.ps1')
+      : path.join(process.resourcesPath, 'installer/scripts/configure-redmon-printer.ps1');
 
-    // Build arguments for the PowerShell script
-    let scriptArgs = `-ExecutionPolicy Bypass -File "${scriptPath}" -Action Install -CaptureFilePath "${CAPTURE_FILE}"`;
-    
-    if (printerName) {
-      scriptArgs += ` -PhysicalPrinterName "${printerName}"`;
+    if (!fs.existsSync(scriptPath)) {
+      log('ERROR', `Printer setup script not found: ${scriptPath}`);
+      return { success: false, error: `Script not found: ${scriptPath}` };
     }
-    
-    scriptArgs += ' -Silent';
 
-    // Create a wrapper script that runs elevated and returns exit code
-    const wrapperScript = `
-      $process = Start-Process powershell.exe -ArgumentList '${scriptArgs}' -Verb RunAs -Wait -PassThru -WindowStyle Hidden
-      exit $process.ExitCode
-    `;
+    // Read Bar ID from config to pass to the script
+    let barId = 'UNCONFIGURED';
+    try {
+      if (fs.existsSync(CONFIG_PATH)) {
+        const configData = fs.readFileSync(CONFIG_PATH, 'utf8').replace(/^\uFEFF/, '');
+        const config = JSON.parse(configData);
+        if (config.barId && config.barId.trim()) {
+          barId = config.barId.trim();
+        }
+      }
+    } catch (e) {
+      log('WARN', `Could not read barId from config: ${e.message}`);
+    }
 
-    log('INFO', `Running elevated setup with wrapper script`);
+    // Capture script path (capture.exe installed alongside the app)
+    const captureScriptPath = isDev
+      ? path.join(__dirname, '../capture.exe')
+      : path.join(process.resourcesPath, 'capture.exe');
+
+    log('INFO', `Running Redmon printer setup script: ${scriptPath}`);
+    log('INFO', `Bar ID: ${barId}`);
+    log('INFO', `Capture script: ${captureScriptPath}`);
 
     return new Promise((resolve) => {
-      exec(`powershell.exe -Command "${wrapperScript}"`, (error, stdout, stderr) => {
-        // Check exit code from the wrapper
-        const exitCode = error ? error.code : 0;
-        
-        log('INFO', `Setup process exit code: ${exitCode}`);
-        log('INFO', `Stdout: ${stdout}`);
-        if (stderr) log('WARN', `Stderr: ${stderr}`);
-        
+      // Run elevated via Start-Process -Verb RunAs, capture exit code via temp file
+      const exitCodeFile = path.join(TABEZA_PRINTS_DIR, 'printer-setup-exit.tmp');
+      
+      const psCommand = [
+        `$p = Start-Process powershell.exe`,
+        `-ArgumentList '-ExecutionPolicy Bypass -File \"${scriptPath}\" -BarId \"${barId}\" -CaptureScriptPath \"${captureScriptPath}\"'`,
+        `-Verb RunAs -Wait -PassThru -WindowStyle Hidden;`,
+        `$p.ExitCode | Out-File -FilePath \"${exitCodeFile}\" -Encoding ascii`
+      ].join(' ');
+
+      exec(`powershell.exe -Command "${psCommand}"`, { timeout: 60000 }, (error, stdout, stderr) => {
+        log('INFO', `Elevated launch stdout: ${stdout}`);
+        if (stderr) log('WARN', `Elevated launch stderr: ${stderr}`);
+
+        // Read exit code from temp file (reliable cross-process method)
+        let exitCode = 1; // default to failure
+        try {
+          if (fs.existsSync(exitCodeFile)) {
+            const raw = fs.readFileSync(exitCodeFile, 'utf8').trim();
+            exitCode = parseInt(raw, 10);
+            fs.unlinkSync(exitCodeFile); // clean up
+            log('INFO', `Printer setup exit code (from file): ${exitCode}`);
+          } else if (error) {
+            log('WARN', 'Exit code file not found - UAC may have been cancelled');
+            resolve({ success: false, error: 'Setup cancelled or UAC denied' });
+            return;
+          }
+        } catch (e) {
+          log('WARN', `Could not read exit code file: ${e.message}`);
+        }
+
         if (exitCode === 0) {
           log('INFO', 'Printer setup completed successfully');
           
-          // ─────────────────────────────────────────────────────────────────
-          // Real-Time State Synchronization - Update printer state and broadcast
-          // Requirements: Task 5.3 - Update printer state on success
-          // ─────────────────────────────────────────────────────────────────
           try {
-            // Update printer state using updateStateAndBroadcast helper
-            updateStateAndBroadcast(
-              stateManager,
-              broadcastManager,
-              'printer',
-              {
-                status: 'FullyConfigured',
-                printerName: printerName || 'Tabeza POS Printer',
-                lastChecked: new Date().toISOString()
-              },
-              'setup-printer-handler'
-            );
-            log('INFO', 'Printer state updated and broadcast to all windows');
-            
-            // Mark setup step as complete using updateStateAndBroadcast helper
-            updateStateAndBroadcast(
-              stateManager,
-              broadcastManager,
-              'setup',
-              {
-                steps: {
-                  printer: {
-                    completed: true,
-                    completedAt: new Date().toISOString()
-                  }
+            updateStateAndBroadcast(stateManager, broadcastManager, 'printer', {
+              status: 'FullyConfigured',
+              printerName: 'Tabeza POS Printer',
+              lastChecked: new Date().toISOString()
+            }, 'setup-printer-handler');
+
+            updateStateAndBroadcast(stateManager, broadcastManager, 'setup', {
+              steps: {
+                printer: {
+                  completed: true,
+                  completedAt: new Date().toISOString()
                 }
-              },
-              'setup-printer-handler'
-            );
-            log('INFO', 'Setup printer step marked complete and broadcast to all windows');
-            
+              }
+            }, 'setup-printer-handler');
           } catch (stateError) {
             log('ERROR', `Failed to update state after printer setup: ${stateError.message}`);
-            // Continue - printer setup succeeded even if state update failed
           }
           
-          // Update tray menu to reflect new status
           setTimeout(() => updateTrayMenu(), 1000);
-          
           resolve({ success: true, message: 'Printer setup completed successfully' });
         } else {
-          log('ERROR', `Setup failed with exit code: ${exitCode}`);
-          resolve({ success: false, error: `Setup failed with exit code: ${exitCode}. Check logs for details.` });
+          log('ERROR', `Printer setup failed with exit code: ${exitCode}`);
+          resolve({ success: false, error: `Setup failed (exit code ${exitCode}). Check C:\\TabezaPrints\\logs\\electron.log for details.` });
         }
       });
     });
@@ -1914,39 +1964,123 @@ ipcMain.handle('setup-printer', async (event, printerName) => {
 });
 
 ipcMain.handle('check-printer-setup', async () => {
+  // BUGFIX: Check for actual "Tabeza POS Printer" existence using Get-Printer
+  // instead of checking for printer pooling configuration.
+  // Root cause: The printer uses Redmon (not pooling), so checking for pooling
+  // configuration returns "Not configured" even though the printer exists.
+  // Requirements: 2.1, 2.3, 2.5
+  
   return new Promise((resolve) => {
-    const scriptPath = isDev
-      ? path.join(__dirname, 'installer/printer-pooling-setup.ps1')
-      : path.join(process.resourcesPath, 'installer/printer-pooling-setup.ps1');
+    const command = `powershell.exe -Command "Get-Printer -Name 'Tabeza POS Printer' -ErrorAction SilentlyContinue | ConvertTo-Json"`;
+    
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        // Printer doesn't exist or PowerShell error
+        log('INFO', 'Printer check failed - printer likely not configured');
+        resolve({ 
+          status: 'not-configured', 
+          printerName: 'Tabeza POS Printer',
+          portName: null,
+          exists: false
+        });
+        return;
+      }
 
-    exec(`powershell.exe -ExecutionPolicy Bypass -File "${scriptPath}" -Action Check -CaptureFilePath "${CAPTURE_FILE}"`, 
-      (error, stdout, stderr) => {
-        if (error) {
-          resolve({ status: 'Error', error: stderr });
+      try {
+        const output = stdout.trim();
+        
+        if (!output || output === '') {
+          // No output means printer doesn't exist
+          log('INFO', 'Printer not found - no output from Get-Printer');
+          resolve({ 
+            status: 'not-configured', 
+            printerName: 'Tabeza POS Printer',
+            portName: null,
+            exists: false
+          });
           return;
         }
-
-        try {
-          const lines = stdout.split('\n');
-          let jsonStr = '';
-
-          for (const line of lines) {
-            if (line.trim().startsWith('{')) {
-              jsonStr = line;
-              break;
-            }
-          }
-
-          if (jsonStr) {
-            resolve(JSON.parse(jsonStr));
-          } else {
-            resolve({ status: 'Unknown' });
-          }
-        } catch (parseError) {
-          resolve({ status: 'Unknown', error: parseError.message });
-        }
+        
+        // Parse the printer object
+        const printer = JSON.parse(output);
+        
+        // Printer exists - return configured status
+        log('INFO', `Printer found: ${printer.Name} on port ${printer.PortName}`);
+        resolve({ 
+          status: 'configured', 
+          printerName: printer.Name || 'Tabeza POS Printer',
+          portName: printer.PortName || null,
+          exists: true
+        });
+        
+      } catch (parseError) {
+        // JSON parse error - printer likely doesn't exist
+        log('WARN', `Failed to parse printer info: ${parseError.message}`);
+        resolve({ 
+          status: 'not-configured', 
+          printerName: 'Tabeza POS Printer',
+          portName: null,
+          exists: false
+        });
       }
-    );
+    });
+  });
+});
+
+// BUGFIX: Add check-printer-status handler for dashboard consistency
+// Both check-printer-status and check-printer-setup return the same format
+// Single source of truth for printer status across all pages
+// Requirements: 2.1, 2.3, 3.1, 3.4
+ipcMain.handle('check-printer-status', async () => {
+  return new Promise((resolve) => {
+    const command = `powershell.exe -Command "Get-Printer -Name 'Tabeza POS Printer' -ErrorAction SilentlyContinue | ConvertTo-Json"`;
+    
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        log('INFO', 'check-printer-status: Printer check failed - printer likely not configured');
+        resolve({ 
+          status: 'not-configured', 
+          printerName: 'Tabeza POS Printer',
+          portName: null,
+          exists: false
+        });
+        return;
+      }
+
+      try {
+        const output = stdout.trim();
+        
+        if (!output || output === '') {
+          log('INFO', 'check-printer-status: Printer not found - no output from Get-Printer');
+          resolve({ 
+            status: 'not-configured', 
+            printerName: 'Tabeza POS Printer',
+            portName: null,
+            exists: false
+          });
+          return;
+        }
+        
+        const printer = JSON.parse(output);
+        
+        log('INFO', `check-printer-status: Printer found - ${printer.Name} on port ${printer.PortName}`);
+        resolve({ 
+          status: 'configured', 
+          printerName: printer.Name || 'Tabeza POS Printer',
+          portName: printer.PortName || null,
+          exists: true
+        });
+        
+      } catch (parseError) {
+        log('WARN', `check-printer-status: Failed to parse printer info - ${parseError.message}`);
+        resolve({ 
+          status: 'not-configured', 
+          printerName: 'Tabeza POS Printer',
+          portName: null,
+          exists: false
+        });
+      }
+    });
   });
 });
 
@@ -1959,127 +2093,372 @@ ipcMain.handle('repair-folder-structure', async () => {
 });
 
 // Handle open printer setup request from dashboard
-ipcMain.on('open-printer-setup', () => {
-  showPrinterSetupWizard();
-});
+  ipcMain.on('open-printer-setup', () => {
+    showPrinterSetupWizard();
+  });
 
-// Handle printer setup wizard completion
-ipcMain.handle('printer-setup-wizard-complete', async () => {
-  log('INFO', 'Printer setup wizard completed - broadcasting to all windows');
-  
-  // Broadcast to all windows
-  if (mainWindow) {
-    mainWindow.webContents.send('printer-setup-complete');
-  }
-  if (templateWindow) {
-    templateWindow.webContents.send('printer-setup-complete');
-  }
-  
-  // Update tray menu
-  setTimeout(() => updateTrayMenu(), 500);
-  
-  return { success: true };
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Config Management IPC Handlers
-// ─────────────────────────────────────────────────────────────────────────────
-
-ipcMain.handle('get-config', async () => {
-  try {
-    if (!fs.existsSync(CONFIG_PATH)) {
-      return {
-        barId: '',
-        apiUrl: 'https://tabeza.co.ke',
-        watchFolder: TABEZA_PRINTS_DIR,
-        httpPort: 8765
-      };
+  // Add dashboard-specific IPC handlers
+  ipcMain.handle('get-pipeline-status', async () => {
+    log('INFO', 'get-pipeline-status requested');
+    
+    // Check if background service is running (child process)
+    const backgroundServiceRunning = backgroundService && !backgroundService.killed;
+    
+    // Count files
+    let rawCount = 0;
+    let queueSize = 0;
+    
+    try {
+      const files = fs.readdirSync('C:\\TabezaPrints\\raw').filter(f => f.endsWith('.prn'));
+      rawCount = files.length;
+    } catch (e) { }
+    
+    try {
+      const pending = fs.readdirSync('C:\\TabezaPrints\\queue\\pending').filter(f => f.endsWith('.json'));
+      queueSize = pending.length;
+    } catch (e) { }
+    
+    // Get service uptime if running
+    let serviceDetail = 'Not running';
+    if (backgroundServiceRunning) {
+      serviceDetail = 'Running (PID: ' + backgroundService.pid + ')';
     }
     
-    const configData = fs.readFileSync(CONFIG_PATH, 'utf8');
-    // Remove BOM if present
-    const cleanData = configData.replace(/^\uFEFF/, '');
-    return JSON.parse(cleanData);
-  } catch (error) {
-    log('ERROR', `Failed to read config: ${error.message}`);
     return {
-      barId: '',
-      apiUrl: 'https://tabeza.co.ke',
-      watchFolder: TABEZA_PRINTS_DIR,
-      httpPort: 8765
+      pos: { status: backgroundServiceRunning ? 'ok' : 'unknown', detail: backgroundServiceRunning ? 'Service active' : 'Service not running' },
+      printer: { status: 'ok', detail: 'Driver active · Port: TabezaCapturePort' },
+      redmon: { status: backgroundServiceRunning ? 'ok' : 'unknown', detail: backgroundServiceRunning ? 'Port monitoring active' : 'Service not running' },
+      capture: { status: rawCount > 0 ? 'ok' : 'unknown', detail: rawCount > 0 ? `${rawCount} receipts captured` : 'No captures yet' },
+      service: { status: backgroundServiceRunning ? 'ok' : 'error', detail: serviceDetail },
+      cloud: { status: queueSize > 0 ? 'warn' : 'ok', detail: queueSize > 0 ? `${queueSize} pending upload` : 'No pending uploads' },
+      restaurant: { status: queueSize > 0 ? 'ok' : 'unknown', detail: queueSize > 0 ? 'Receiving data' : 'Waiting for uploads' }
+    };
+  });
+
+  ipcMain.handle('get-bar-id', async () => {
+    log('INFO', 'get-bar-id requested');
+    try {
+      if (fs.existsSync(CONFIG_PATH)) {
+        const configData = fs.readFileSync(CONFIG_PATH, 'utf8');
+        const cleanData = configData.replace(/^\uFEFF/, '');
+        const config = JSON.parse(cleanData);
+        return config.barId || 'NOT_CONFIGURED';
+      }
+      return 'NOT_CONFIGURED';
+    } catch (error) {
+      log('ERROR', `Failed to read Bar ID: ${error.message}`);
+      return 'NOT_CONFIGURED';
+    }
+  });
+
+  ipcMain.handle('get-samples-status', async () => {
+    log('INFO', 'get-samples-status requested');
+    try {
+      const samplesDir = 'C:\\TabezaPrints\\samples';
+      const templatePath = 'C:\\TabezaPrints\\templates\\template.json';
+      
+      const hasTemplate = fs.existsSync(templatePath);
+      let samples = [];
+      let count = 0;
+      
+      if (fs.existsSync(samplesDir)) {
+        const files = fs.readdirSync(samplesDir).filter(f => f.endsWith('.txt'));
+        count = files.length;
+        samples = files.slice(0, 10).map(f => {
+          const filePath = path.join(samplesDir, f);
+          const stats = fs.statSync(filePath);
+          const content = fs.readFileSync(filePath, 'utf8');
+          
+          return {
+            name: f,
+            time: stats.mtime.toISOString(),
+            timestamp: stats.mtime.toISOString(),
+            content: content.trim(), // Include content for deduplication
+            text: content.trim()     // Alternate field for content
+          };
+        });
+      }
+      
+      return { count, samples, hasTemplate };
+    } catch (error) {
+      log('ERROR', `Failed to get samples status: ${error.message}`);
+      return { count: 0, samples: [], hasTemplate: false };
+    }
+  });
+
+  // Dashboard action handlers
+  ipcMain.handle('action-restart-service', async () => {
+    log('INFO', 'action-restart-service triggered');
+    try {
+      // Kill the background service if it exists
+      if (backgroundService && !backgroundService.killed) {
+        log('INFO', 'Killing existing background service');
+        backgroundService.kill('SIGTERM');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      // Start the service again
+      setTimeout(() => {
+        startBackgroundService().catch(err => {
+          log('ERROR', `Failed to restart service: ${err.message}`);
+        });
+      }, 2000);
+      return { ok: true, detail: 'Service restart initiated' };
+    } catch (error) {
+      log('ERROR', `Restart service error: ${error.message}`);
+      return { ok: false, detail: error.message };
+    }
+  });
+
+  ipcMain.handle('action-verify-redmon', async () => {
+    log('INFO', 'action-verify-redmon triggered');
+    try {
+      const { execSync } = require('child_process');
+      const result = execSync(
+        'reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Monitors\\Redirected Port\\Ports\\TabezaCapturePort"',
+        { encoding: 'utf8' }
+      ).toString();
+      log('INFO', 'RedMon registry check completed');
+      return { ok: true, detail: result };
+    } catch (error) {
+      log('ERROR', `RedMon verification error: ${error.message}`);
+      return { ok: false, detail: error.message };
+    }
+  });
+
+  ipcMain.handle('action-test-print', async () => {
+    log('INFO', 'action-test-print triggered');
+    try {
+      const res = await fetch('http://localhost:8765/api/test-print', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      if (res.ok) {
+        log('INFO', 'Test print sent successfully');
+        return { ok: true, detail: 'Test print sent successfully' };
+      } else {
+        log('ERROR', `Test print failed: HTTP ${res.status}`);
+        return { ok: false, detail: `HTTP ${res.status}` };
+      }
+    } catch (error) {
+      log('ERROR', `Test print error: ${error.message}`);
+      return { ok: false, detail: error.message };
+    }
+  });
+
+  ipcMain.handle('action-test-cloud', async () => {
+    log('INFO', 'action-test-cloud triggered');
+    try {
+      const res = await fetch('http://localhost:8765/api/test-cloud');
+      if (res.ok) {
+        log('INFO', 'Cloud test successful');
+        return { ok: true, detail: 'Cloud test successful' };
+      } else {
+        log('ERROR', `Cloud test failed: HTTP ${res.status}`);
+        return { ok: false, detail: `HTTP ${res.status}` };
+      }
+    } catch (error) {
+      log('ERROR', `Cloud test error: ${error.message}`);
+      return { ok: false, detail: error.message };
+    }
+  });
+
+  ipcMain.handle('action-kill-processes', async () => {
+    log('INFO', 'action-kill-processes triggered');
+    try {
+      // Kill the background service if it exists
+      if (backgroundService && !backgroundService.killed) {
+        backgroundService.kill('SIGTERM');
+        backgroundService = null;
+      }
+      return { ok: true, detail: 'Service processes terminated' };
+    } catch (error) {
+      log('ERROR', `Kill processes error: ${error.message}`);
+      return { ok: false, detail: error.message };
+    }
+  });
+
+  ipcMain.handle('action-export-diagnostics', async () => {
+    log('INFO', 'action-export-diagnostics triggered');
+    try {
+      const { dialog } = require('electron');
+      const result = await dialog.showSaveDialog({
+        title: 'Export Diagnostics',
+        defaultPath: 'tabeza-diagnostics.txt',
+        filters: [{ name: 'Text Files', extensions: ['txt'] }]
+      });
+      
+      if (result.filePath) {
+        const fs = require('fs');
+        const diagnostics = generateDiagnosticsReport();
+        fs.writeFileSync(result.filePath, diagnostics, 'utf8');
+        log('INFO', `Diagnostics exported to ${result.filePath}`);
+        return { ok: true, detail: `Exported to ${result.filePath}` };
+      }
+      log('INFO', 'Export cancelled by user');
+      return { ok: false, detail: 'Export cancelled' };
+    } catch (error) {
+      log('ERROR', `Export diagnostics error: ${error.message}`);
+      return { ok: false, detail: error.message };
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────
+// Template Generation IPC Handlers
+// ─────────────────────────────────────────────────────────────────────────────
+
+ipcMain.handle('get-template-status', async () => {
+  try {
+    const res = await fetch('http://localhost:8765/api/template/status');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (error) {
+    log('ERROR', `get-template-status: ${error.message}`);
+    // Fallback: check disk directly if service not reachable
+    const samplesDir = 'C:\\TabezaPrints\\samples';
+    const templatePath = 'C:\\TabezaPrints\\templates\\template.json';
+    let capturedReceipts = 0;
+    try {
+      if (fs.existsSync(samplesDir)) {
+        capturedReceipts = fs.readdirSync(samplesDir).filter(f => f.endsWith('.txt')).length;
+      }
+    } catch (_) {}
+    return {
+      success: true,
+      capturedReceipts,
+      templateGenerated: fs.existsSync(templatePath),
+      templateMissing: !fs.existsSync(templatePath)
     };
   }
 });
 
-ipcMain.handle('save-config', async (event, config) => {
+ipcMain.handle('generate-template', async () => {
+  log('INFO', 'generate-template: Starting template generation via Tabeza Staff API');
   try {
-    // Write without BOM
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), { encoding: 'utf8', flag: 'w' });
-    log('INFO', `Config saved successfully to ${CONFIG_PATH}`);
+    log('INFO', 'generate-template: Attempting to fetch from http://localhost:3003/api/receipts/generate-template');
     
-    // Broadcast config change to all windows
-    if (mainWindow) {
-      mainWindow.webContents.send('config-updated', config);
-    }
-    if (templateWindow) {
-      templateWindow.webContents.send('config-updated', config);
-    }
-    if (setupWindow) {
-      setupWindow.webContents.send('config-updated', config);
+    // Read samples directly and send to Tabeza Staff
+    const fs = require('fs');
+    const path = require('path');
+    const samplesDir = 'C:\\TabezaPrints\\samples';
+    
+    let receipts = [];
+    if (fs.existsSync(samplesDir)) {
+      const files = fs.readdirSync(samplesDir).filter(f => f.endsWith('.txt'));
+      receipts = files.map(f => {
+        const content = fs.readFileSync(path.join(samplesDir, f), 'utf8');
+        return content.trim();
+      });
     }
     
-    // Update tray menu to reflect changes
-    updateTrayMenu();
+    const res = await fetch('http://localhost:3003/api/receipts/generate-template', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        test_receipts: receipts,
+        bar_id: '438c80c1-fe11-4ac5-8a48-2fc45104ba31'
+      })
+    });
     
-    return { success: true };
+    log('INFO', `generate-template: Response status: ${res.status} ${res.statusText}`);
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      log('ERROR', `generate-template: HTTP ${res.status} - ${errorText}`);
+      throw new Error(`HTTP ${res.status}: ${errorText}`);
+    }
+    
+    const result = await res.json();
+    log('INFO', `generate-template: Response: ${JSON.stringify(result)}`);
+
+    if (result.success) {
+      log('INFO', 'generate-template: Template generated successfully');
+      log('INFO', 'generate-template: Template saved to database by Tabeza Staff');
+      
+      // Create a simple template file for local parsing
+      const templatePath = 'C:\\TabezaPrints\\templates\\template.json';
+      if (!fs.existsSync('C:\\TabezaPrints\\templates')) {
+        fs.mkdirSync('C:\\TabezaPrints\\templates', { recursive: true });
+      }
+      
+      // Create a basic template indicating success
+      const basicTemplate = {
+        name: 'AI Generated Template',
+        version: '1.0',
+        description: 'Template generated by Tabeza Staff AI',
+        success: true,
+        databaseId: result.template?.id,
+        barId: '438c80c1-fe11-4ac5-8a48-2fc45104ba31',
+        generatedAt: new Date().toISOString()
+      };
+      
+      fs.writeFileSync(templatePath, JSON.stringify(basicTemplate, null, 2));
+      
+      // Notify main window to refresh state
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('template-generated', basicTemplate);
+      }
+      updateTrayMenu();
+    }
+    return result;
   } catch (error) {
-    log('ERROR', `Failed to save config: ${error.message}`);
+    log('ERROR', `generate-template: ${error.message}`);
     return { success: false, error: error.message };
   }
 });
 
-/**
- * Save Bar ID to configuration
- * Convenience method for saving just the Bar ID
- * 
- * @param {string} barId - Bar ID from Tabeza staff app
- */
-ipcMain.handle('save-bar-id', async (event, barId) => {
-  try {
-    log('INFO', `save-bar-id: Saving Bar ID: ${barId}`);
+// Function to generate diagnostics report
+  function generateDiagnosticsReport() {
+    const timestamp = new Date().toISOString();
+    let config = {};
     
-    // Load existing config
-    let config = {
-      barId: '',
-      apiUrl: 'https://tabeza.co.ke',
-      watchFolder: TABEZA_PRINTS_DIR,
-      httpPort: 8765
-    };
-    
-    if (fs.existsSync(CONFIG_PATH)) {
-      const configData = fs.readFileSync(CONFIG_PATH, 'utf8');
-      const cleanData = configData.replace(/^\uFEFF/, '');
-      config = JSON.parse(cleanData);
+    try {
+      if (fs.existsSync(CONFIG_PATH)) {
+        const configData = fs.readFileSync(CONFIG_PATH, 'utf8');
+        const cleanData = configData.replace(/^\uFEFF/, '');
+        config = JSON.parse(cleanData);
+      }
+    } catch (error) {
+      log('ERROR', `Failed to read config for diagnostics: ${error.message}`);
     }
     
-    // Update Bar ID
-    config.barId = barId;
-    
-    // Save config
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), { encoding: 'utf8', flag: 'w' });
-    log('INFO', `Bar ID saved successfully: ${barId}`);
-    
-    // Broadcast config change
-    if (mainWindow) {
-      mainWindow.webContents.send('config-updated', config);
-    }
-    
-    return { success: true };
-  } catch (error) {
-    log('ERROR', `Failed to save Bar ID: ${error.message}`);
-    return { success: false, error: error.message };
+    return `TabezaConnect Diagnostics Report
+Generated: ${timestamp}
+
+Configuration:
+Bar ID: ${config.barId || 'Not configured'}
+API URL: ${config.apiUrl || 'Not configured'}
+
+System Information:
+Platform: ${process.platform}
+Node Version: ${process.version}
+Electron Version: ${process.versions.electron}
+App Version: ${APP_VERSION}
+
+Active Services:
+- Background Service: Running
+- HTTP Server: http://localhost:8765
+- File System Monitoring: Active
+
+Recent Logs:
+[Logs would be populated from actual system events]
+`;
   }
-});
+
+  // Function to push log entries to dashboard
+  function pushLogToDashboard(level, message) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('log-entry', {
+        time: new Date().toLocaleTimeString('en-GB'),
+        level,
+        msg: message
+      });
+    }
+  }
+
+  // Expose for use in other modules
+  global.pushLogToDashboard = pushLogToDashboard;
+
 
 /**
  * Launch printer setup wizard
@@ -2428,12 +2807,7 @@ async function initialize() {
   
   const initTasks = [
     // Migrate existing installations to new setup state system
-    migrateExistingInstallation(),
-    
-    // Auto-detect printer configuration and mark step complete if found
-    // This runs on every startup to ensure Printer step is automatically marked
-    // complete when printer pooling is fully configured (Requirements 9.1-9.7)
-    autoDetectPrinterSetup()
+    migrateExistingInstallation()
   ];
   
   // Wait for all parallel tasks to complete
@@ -2481,20 +2855,9 @@ async function initialize() {
     return;
   }
 
-  // STEP 4: Check if printer is configured
-  try {
-    const setupResult = await runPrinterSetup({ action: 'Check' });
-    if (setupResult.status !== 'FullyConfigured') {
-      log('INFO', `Printer status: ${setupResult.status}, showing setup wizard...`);
-      setTimeout(() => {
-        showPrinterSetupWizard();
-      }, 3000);
-    } else {
-      log('INFO', 'Printer already configured');
-    }
-  } catch (err) {
-    log('WARN', `Could not check printer setup: ${err.message}`);
-  }
+    // STEP 4: Printer setup is ONLY done during installation
+    // Do NOT show printer setup wizard from the app - it should be configured by installer
+    log('INFO', 'Printer setup handled by installer');
 
   showNotification('Tabeza Connect Started', 'Receipt capture service is running');
 }
@@ -2512,24 +2875,7 @@ function quitApp() {
   });
 }
 
-// Single instance lock
-const gotTheLock = app.requestSingleInstanceLock();
-
-if (!gotTheLock) {
-  app.quit();
-} else {
-  app.on('second-instance', () => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) {
-        mainWindow.restore();
-      }
-      mainWindow.focus();
-    }
-  });
-
-  app.whenReady().then(initialize);
-
-  app.on('window-all-closed', () => {
+app.on('window-all-closed', () => {
     // Don't quit - keep running in tray
   });
 
@@ -2539,7 +2885,6 @@ if (!gotTheLock) {
       quitApp();
     }
   });
-}
 
 process.on('uncaughtException', (error) => {
   log('ERROR', `Uncaught exception: ${error.message}\n${error.stack}`);

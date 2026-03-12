@@ -1,280 +1,1965 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" />
-  <title>Tabeza POS Connect Status</title>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" 
+        content="default-src 'self'; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:8765 http://127.0.0.1:8765">
+  <title>TabezaConnect Status</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    /* ── Reset & base ─────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #f0f2f5;
-      color: #1a1a2e;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
+    :root {
+      --bg:       #020617;
+      --surface:  #0f172a;
+      --surface2: #0a1628;
+      --border:   #1e293b;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --ok:       #22c55e;
+      --warn:     #f59e0b;
+      --error:    #ef4444;
+      --unknown:  #6b7280;
+      --font:     'Consolas', 'Courier New', monospace;
     }
 
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      padding: 20px;
+      font-size: 12px;
+      user-select: text;
+      -webkit-user-select: text;
+      -moz-user-select: text;
+      -ms-user-select: text;
+      /* Electron drag region */
+      -webkit-app-region: drag;
+    }
+
+    button, input {
+      -webkit-app-region: no-drag; /* buttons must be clickable */
+    }
+
+    /* ── Header ───────────────────────────────── */
     .header {
-      background: #1a1a2e;
-      color: #fff;
-      padding: 14px 18px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .title-row {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .status-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-dot.error  { background: #f87171; box-shadow: 0 0 8px #f87171; animation: pulse 1.2s infinite; }
+    .status-dot.warn   { background: #fbbf24; box-shadow: 0 0 8px #fbbf24; }
+    .status-dot.ok     { background: #4ade80; box-shadow: 0 0 8px #4ade80; }
+    .status-dot.unknown{ background: #9ca3af; }
+
+    .app-title { font-size: 16px; font-weight: 800; color: #f8fafc; }
+    .subtitle  { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+    .badge {
+      font-size: 9px; padding: 2px 8px; border-radius: 20px;
+      font-weight: 700; letter-spacing: 0.08em;
+    }
+    .badge.error   { background: #1a0000; color: #ef4444; border: 1px solid #ef444455; }
+    .badge.warn    { background: #1c1000; color: #f59e0b; border: 1px solid #f59e0b55; }
+    .badge.ok      { background: #052e16; color: #22c55e; border: 1px solid #22c55e55; }
+    .badge.unknown { background: #111827; color: #6b7280; border: 1px solid #6b728055; }
+
+    /* ── Tabs ─────────────────────────────────── */
+    .tabs { display: flex; gap: 4px; margin-bottom: 14px; }
+    .tab-btn {
+      background: transparent; border: 1px solid transparent;
+      border-radius: 8px; padding: 5px 14px;
+      color: var(--muted); font-size: 10px; font-weight: 700;
+      cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase;
+      font-family: var(--font); transition: all 0.15s;
+    }
+    .tab-btn.active {
+      background: var(--surface); border-color: var(--border); color: #f1f5f9;
+    }
+
+    /* ── Pipeline ─────────────────────────────── */
+    .pipeline-wrap {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px;
+      overflow-x: auto; margin-bottom: 12px;
+    }
+    .pipeline-label {
+      font-size: 9px; color: var(--muted);
+      letter-spacing: 0.1em; margin-bottom: 12px;
+    }
+    .pipeline-row {
+      display: flex; align-items: center; gap: 0; min-width: 640px;
+    }
+    .pipeline-node {
+      flex: 1; background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 10px; padding: 9px 11px;
+      cursor: pointer; text-align: left;
+      position: relative; transition: all 0.15s;
+      font-family: var(--font);
+    }
+    .pipeline-node:hover { border-color: #334155; }
+    .pipeline-node.active-ok      { border-color: var(--ok);      background: #052e16; box-shadow: 0 0 0 2px #22c55e33; }
+    .pipeline-node.active-warn    { border-color: var(--warn);     background: #1c1000; box-shadow: 0 0 0 2px #f59e0b33; }
+    .pipeline-node.active-error   { border-color: var(--error);    background: #1a0000; box-shadow: 0 0 0 2px #ef444433; }
+    .pipeline-node.active-unknown { border-color: var(--unknown);  background: #111827; }
+
+    .node-dot {
+      position: absolute; top: 7px; right: 7px;
+      width: 7px; height: 7px; border-radius: 50%;
+    }
+    .node-dot.ok      { background: #4ade80; box-shadow: 0 0 5px #4ade80; }
+    .node-dot.warn    { background: #fbbf24; box-shadow: 0 0 5px #fbbf24; }
+    .node-dot.error   { background: #f87171; box-shadow: 0 0 5px #f87171; }
+    .node-dot.unknown { background: #9ca3af; }
+
+    .node-icon   { font-size: 18px; margin-bottom: 2px; }
+    .node-name   { font-size: 10px; font-weight: 700; color: #e2e8f0; letter-spacing: 0.02em; }
+    .node-sub    { font-size: 9px; color: var(--muted); margin-top: 1px; }
+    .node-detail { font-size: 9px; margin-top: 5px; }
+    .node-detail.ok      { color: var(--ok); }
+    .node-detail.warn    { color: var(--warn); }
+    .node-detail.error   { color: var(--error); }
+    .node-detail.unknown { color: var(--unknown); }
+
+    .arrow {
+      flex: 0 0 26px; display: flex;
+      align-items: center; justify-content: center;
+    }
+
+    /* ── Detail panel ─────────────────────────── */
+    .detail-panel {
+      border-radius: 10px; padding: 14px 16px;
+      margin-bottom: 12px; border: 1px solid;
+      display: none;
+    }
+    .detail-panel.visible { display: block; }
+    .detail-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .detail-role   { font-size: 10px; color: #94a3b8; line-height: 1.7; }
+    .detail-status-box {
+      margin-top: 8px; font-size: 10px;
+      border-radius: 7px; padding: 7px 10px;
+    }
+    .detail-fix {
+      margin-top: 8px; font-size: 10px; color: #fbbf24;
+      background: #1c1000; border-radius: 7px; padding: 7px 10px;
+    }
+
+    /* ── Issues summary ───────────────────────── */
+    .issues-box {
+      background: #1a0000; border: 1px solid #ef444444;
+      border-radius: 10px; padding: 12px 14px;
+    }
+    .issues-title { font-size: 10px; font-weight: 700; color: #f87171; margin-bottom: 8px; letter-spacing: 0.06em; }
+    .issue-row { display: flex; gap: 8px; padding: 5px 0; border-top: 1px solid #1e293b; }
+    .issue-row:first-of-type { border-top: none; }
+    .issue-node  { font-size: 10px; color: #fca5a5; font-weight: 600; }
+    .issue-desc  { font-size: 10px; color: #94a3b8; margin-top: 1px; line-height: 1.5; }
+
+    /* ── Logs ─────────────────────────────────── */
+    .log-wrap {
+      background: #040d1a; border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+    }
+    .log-header {
+      padding: 8px 14px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .log-label { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; }
+    .live-dot  { font-size: 9px; color: var(--ok); animation: blink 1.4s infinite; }
+    .log-body  { height: 280px; overflow-y: auto; padding: 8px 14px; }
+    .log-line  { display: flex; gap: 10px; line-height: 2; font-size: 10px; }
+    .log-time  { color: #334155; flex: 0 0 64px; }
+    .log-level { flex: 0 0 38px; font-weight: 700; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; }
+    .log-level.error { color: #f87171; }
+    .log-level.warn  { color: #fbbf24; }
+    .log-level.info  { color: #60a5fa; }
+    .log-msg.error { color: #fca5a5; }
+    .log-msg.warn  { color: #fde68a; }
+    .log-msg.info  { color: #94a3b8; }
+
+    /* ── Actions ──────────────────────────────── */
+    .actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .action-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 16px;
+      cursor: pointer; text-align: left;
+      transition: border-color 0.15s; font-family: var(--font);
+    }
+    .action-icon  { font-size: 18px; margin-bottom: 5px; }
+    .action-title { font-size: 11px; font-weight: 700; margin-bottom: 3px; }
+    .action-desc  { font-size: 10px; color: var(--muted); line-height: 1.6; }
+    .action-card.critical { border-color: #ef444444; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar       { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+
+    /* Configuration Section Styles */
+    .config-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      margin: 15px 0;
+    }
+  
+    .config-section h3 {
+      color: var(--text);
+      margin-bottom: 15px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+  
+    .config-item {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+  
+    .config-item label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+  
+    .config-item input[type="text"] {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 12px;
+      transition: border-color 0.2s;
+    }
+  
+    .config-item input[type="text"]:focus {
+      outline: none;
+      border-color: var(--ok);
+    }
+  
+    .config-item input[type="text"]::placeholder {
+      color: var(--muted);
+    }
+  
+    .printer-status {
       display: flex;
       align-items: center;
       gap: 10px;
-      flex-shrink: 0;
+      padding: 10px;
+      background: var(--surface2);
+      border-radius: 6px;
+      margin-bottom: 10px;
     }
-    .header img { width: 24px; height: 24px; }
-    .header h1  { font-size: 14px; font-weight: 600; letter-spacing: 0.3px; }
-
-    .status-bar {
-      padding: 9px 18px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+  
+    .printer-status .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+  
+    .printer-status .status-indicator.online {
+      background: var(--ok);
+      animation: statusPulse 2s ease-in-out infinite;
+    }
+  
+    .printer-status .status-indicator.offline {
+      background: var(--error);
+    }
+  
+    .printer-status .status-indicator.error {
+      background: var(--warn);
+    }
+  
+    .printer-status .status-text {
+      color: var(--text);
       font-size: 12px;
-      font-weight: 600;
-      flex-shrink: 0;
     }
-    .status-bar.connected    { background: #d1fae5; color: #065f46; }
-    .status-bar.disconnected { background: #fef3c7; color: #92400e; }
-    .status-bar.error        { background: #fee2e2; color: #991b1b; }
-    .status-bar.starting     { background: #e0f2fe; color: #075985; }
-    .status-bar.unconfigured { background: #fef3c7; color: #92400e; }
-    .status-bar.shutting_down{ background: #f3f4f6; color: #6b7280; }
-
-    .dot {
-      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  
+    /* Template Section Styles */
+    .template-instructions {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+      margin-bottom: 15px;
+      padding: 10px;
+      background: var(--surface2);
+      border-radius: 6px;
     }
-    .connected     .dot { background: #10b981; }
-    .disconnected  .dot { background: #f59e0b; }
-    .error         .dot { background: #ef4444; }
-    .starting      .dot { background: #3b82f6; animation: blink 1.2s ease-in-out infinite; }
-    .unconfigured  .dot { background: #f59e0b; }
-    .shutting_down .dot { background: #9ca3af; }
-
-    @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50%       { opacity: 0.25; }
+  
+    .samples-count {
+      font-size: 14px;
+      color: var(--text);
+      margin-bottom: 10px;
     }
-
-    .info-grid {
-      flex: 1;
-      padding: 14px 18px;
-      display: grid;
-      grid-template-columns: 130px 1fr;
-      row-gap: 8px;
-      column-gap: 8px;
-      align-content: start;
+  
+    .samples-count .count-number {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--ok);
+    }
+  
+    .samples-list {
+      max-height: 150px;
       overflow-y: auto;
+      margin-bottom: 15px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
     }
-
-    .label {
-      font-size: 10px;
-      font-weight: 700;
-      color: #6b7280;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      display: flex;
-      align-items: center;
-    }
-
-    .value {
-      font-size: 12px;
-      color: #111827;
-      word-break: break-all;
-      display: flex;
-      align-items: center;
-    }
-
-    .section-header {
-      grid-column: 1 / -1;
-      font-size: 10px;
-      font-weight: 700;
-      color: #374151;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      border-bottom: 1px solid #e5e7eb;
-      padding-bottom: 3px;
-      margin-top: 8px;
-    }
-    .section-header:first-child { margin-top: 0; }
-
-    .footer {
-      padding: 10px 18px;
-      border-top: 1px solid #e5e7eb;
-      display: flex;
-      gap: 6px;
-      justify-content: flex-end;
-      background: #fff;
-      flex-shrink: 0;
-    }
-
-    button {
-      padding: 6px 14px;
-      border-radius: 5px;
+  
+    .sample-item {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
       font-size: 11px;
-      font-weight: 500;
-      cursor: pointer;
-      border: 1px solid transparent;
-      transition: background 0.12s;
+      color: var(--muted);
     }
-    .btn-dark {
-      background: #1a1a2e; color: #fff;
+  
+    .sample-item:last-child {
+      border-bottom: none;
     }
-    .btn-dark:hover { background: #2d2d4e; }
+  
+    .template-status {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 10px;
+    }
+  
+    #btn-generate-template:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
 
-    .btn-outline {
-      background: #fff; color: #374151; border-color: #d1d5db;
+    /* Progress-based Template Generation Styles */
+    .progress-container {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin: 10px 0;
     }
-    .btn-outline:hover { background: #f9fafb; }
 
-    .btn-green {
-      background: #10b981; color: #fff;
+    .progress-header h4 {
+      color: var(--text);
+      font-size: 14px;
+      margin-bottom: 8px;
+      font-weight: 600;
     }
-    .btn-green:hover { background: #059669; }
+
+    .progress-instructions {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+
+    .progress-bar-container {
+      position: relative;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      height: 24px;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--ok), #16a34a);
+      border-radius: 20px;
+      transition: width 0.5s ease-out;
+      position: relative;
+    }
+
+    .progress-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 600;
+      z-index: 2;
+    }
+
+    .receipt-samples {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .sample-slot {
+      background: var(--surface2);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      padding: 15px;
+      text-align: center;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .sample-slot.captured {
+      border-color: var(--ok);
+      background: #052e16;
+    }
+
+    .sample-slot.duplicate {
+      border-color: var(--warn);
+      background: #1c1000;
+      animation: shake 0.5s ease-in-out;
+    }
+
+    .sample-icon {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    .sample-slot.captured .sample-icon {
+      filter: hue-rotate(120deg);
+    }
+
+    .sample-status {
+      font-size: 10px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .sample-slot.captured .sample-status {
+      color: var(--ok);
+      font-weight: 600;
+    }
+
+    .template-status-messages {
+      margin-top: 15px;
+    }
+
+    .warning-message {
+      background: #1c1000;
+      border: 1px solid var(--warn);
+      color: var(--warn);
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      margin-bottom: 10px;
+    }
+
+    .generating-message {
+      background: #052e16;
+      border: 1px solid var(--ok);
+      color: var(--ok);
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      margin-bottom: 10px;
+      animation: pulse 1.5s infinite;
+    }
+
+    .success-message {
+      background: #052e16;
+      border: 1px solid var(--ok);
+      color: var(--ok);
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      margin-bottom: 10px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    /* Notification Styles */
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 15px 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      z-index: 1000;
+      max-width: 300px;
+      animation: slideIn 0.3s ease-out;
+    }
+    
+    .notification-title {
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+    
+    .notification-message {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    
+    @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+    
+    /* Animations */
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+    /* Tab panels */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+  
+  /* Enhanced Visual Dashboard Styles */
+  .pipeline-container.enhanced {
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    margin: 20px 0;
+  }
+  
+  .connection-line {
+    width: 60px;
+    height: 2px;
+    background: linear-gradient(90deg, 
+      var(--ok) 0%, 
+      var(--ok) 20%, 
+      transparent 20%, 
+      transparent 80%, 
+      var(--ok) 100%
+    );
+    position: relative;
+    animation: flowPulse 2s ease-in-out infinite;
+  }
+  
+  .connection-line::before {
+    content: '';
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: var(--ok);
+    border-radius: 50%;
+    top: -2px;
+    animation: moveDot 2s linear infinite;
+  }
+  
+  @keyframes flowPulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+  }
+  
+  @keyframes moveDot {
+    0% { left: 0; }
+    100% { left: 54px; }
+  }
+  
+  .status-indicator.active {
+    animation: statusPulse 2s ease-in-out infinite;
+  }
+  
+  @keyframes statusPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.1); }
+  }
+  
+  .dashboard-header {
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  }
+  
+  .brand-section {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+  
+  .brand-logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+  }
+  
+  /* Terminal Selector Styles */
+  .terminal-selector-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  
+  .modal-content {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 600px;
+    width: 90%;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  }
+  
+  .terminal-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin: 20px 0;
+  }
+  
+  .terminal-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .terminal-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    border-color: var(--ok);
+  }
+  
+  .terminal-icon {
+    font-size: 24px;
+    margin-bottom: 10px;
+  }
+  
+  .terminal-name {
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 5px;
+  }
+  
+  .terminal-location {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+  }
+  
+  /* Customer Mode Styles */
+  .mode-toggle {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 15px;
+    margin: 20px 0;
+    border: 1px solid var(--border);
+  }
+  
+  .mode-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 15px;
+    border-radius: 6px;
+    font-weight: 600;
+    margin-bottom: 15px;
+  }
+  
+  .mode-indicator.customer-mode {
+    background: linear-gradient(135deg, #22c55e 0%, #1ea34f 100%);
+    color: white;
+  }
+  
+  .mode-indicator.admin-mode {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    color: white;
+  }
+  
+  .mode-actions {
+    display: flex;
+    gap: 10px;
+  }
+  
+  .sensitive-config {
+    display: none !important;
+  }
+  
+  .customer-mode .sensitive-config {
+    display: none !important;
+  }
+  
+  .admin-mode .sensitive-config {
+    display: block !important;
+  }
+  
+  .admin-only {
+    filter: blur(5px);
+    pointer-events: none;
+    user-select: none;
+    transition: all 0.3s ease;
+  }
+  
+  .admin-only.hidden {
+    display: none !important;
+  }
+  
+  .customer-only {
+    display: block;
+  }
+  
+  .customer-only.hidden {
+    display: none !important;
+  }
+  
+  /* Restricted section overlay */
+  .restricted-overlay {
+    position: relative;
+  overflow: hidden;
+  }
+  
+  .restricted-overlay::before {
+    content: '🔒 Restricted - Admin Access Required';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.9);
+    color: white;
+    padding: 15px 25px;
+    border-radius: 8px;
+    font-size: 14px;
+    z-index: 100;
+    text-align: center;
+  }
   </style>
 </head>
 <body>
 
-  <div class="header">
-    <img id="header-icon" src="" alt="" />
-    <h1>Tabeza POS Connect</h1>
+<!-- HEADER -->
+<div class="header">
+  <div>
+    <div class="title-row">
+      <div class="status-dot" id="header-dot"></div>
+      <span class="app-title">TabezaConnect</span>
+      <span class="badge" id="header-badge">...</span>
+    </div>
+    <div class="subtitle">Diagnostic Dashboard · Bar ID: <span id="bar-id">—</span></div>
   </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end" id="summary-chips"></div>
+</div>
 
-  <div class="status-bar starting" id="status-bar">
-    <div class="dot"></div>
-    <span id="status-text">Starting...</span>
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab-btn active" data-tab="pipeline">🔗 Pipeline</button>
+  <button class="tab-btn"       data-tab="config">⚙️ Config</button>
+  <button class="tab-btn"       data-tab="logs">📋 Logs</button>
+  <button class="tab-btn"       data-tab="actions">🛠️ Actions</button>
+</div>
+
+<!-- PIPELINE TAB -->
+<div class="tab-panel active" id="tab-pipeline">
+  <div class="pipeline-wrap">
+    <div class="pipeline-label">RECEIPT FLOW · CLICK ANY NODE FOR DETAILS</div>
+    <div class="pipeline-row" id="pipeline-row"></div>
   </div>
-
-  <div class="info-grid">
-
-    <div class="section-header">Connection</div>
-
-    <div class="label">Bar ID</div>
-    <div class="value" id="val-bar-id">—</div>
-
-    <div class="label">API URL</div>
-    <div class="value" id="val-api-url">—</div>
-
-    <div class="label">Driver ID</div>
-    <div class="value" id="val-driver-id">—</div>
-
-    <div class="label">Last Activity</div>
-    <div class="value" id="val-last-activity">—</div>
-
-    <div class="label">Receipts</div>
-    <div class="value" id="val-receipts">0</div>
-
-    <div class="section-header">Service</div>
-
-    <div class="label">Port</div>
-    <div class="value" id="val-port">8765</div>
-
-    <div class="label">Capture Mode</div>
-    <div class="value" id="val-capture-mode">—</div>
-
-    <div class="label">Watch Folder</div>
-    <div class="value" id="val-watch-folder">—</div>
-
-    <div class="label">Printer</div>
-    <div class="value" id="val-printer">—</div>
-
-    <div class="label">Version</div>
-    <div class="value" id="val-version">—</div>
-
+  <div class="detail-panel" id="detail-panel"></div>
+  <div class="issues-box" id="issues-box">
+    <div class="issues-title">⚠️ ACTIVE ISSUES</div>
+    <div id="issues-list"></div>
   </div>
+</div>
 
-  <div class="footer">
-    <button class="btn-outline" id="btn-config">Open Configuration</button>
-    <button class="btn-outline" id="btn-template">Template Generator</button>
-    <button class="btn-outline" id="btn-printer">Printer Setup</button>
-    <button class="btn-outline" id="btn-test">Test Print</button>
-    <button class="btn-green"   id="btn-ok">OK</button>
+<!-- CONFIG TAB -->
+<div class="tab-panel" id="tab-config">
+  <div class="config-section">
+    <h3>🏢 Bar Configuration</h3>
+    <div class="config-item">
+      <label for="bar-id-input">Bar ID:</label>
+      <input type="text" id="bar-id-input" placeholder="Enter your Bar ID">
+      <button class="btn btn-primary" onclick="saveBarId()">💾 Save Bar ID</button>
+    </div>
   </div>
+  
+  <div class="config-section">
+    <h3>🖨️ Printer Setup</h3>
+    <div class="config-item">
+      <div class="printer-status" id="printer-status">
+        <span class="status-indicator offline"></span>
+        <span class="status-text">Checking printer status...</span>
+      </div>
+      <button class="btn btn-primary" onclick="setupPrinter()">⚙️ Connect Tabeza POS Printer</button>
+    </div>
+  </div>
+  
+  <div class="config-section">
+    <h3>📄 Template Generation</h3>
+    <div id="template-section">
+      <!-- Progress-based template generation -->
+      <div id="template-progress">
+        <div class="progress-container">
+          <div class="progress-header">
+            <h4>Print 3 Different Receipts</h4>
+            <p class="progress-instructions">Print receipts from your POS to "Tabeza POS Printer". Each receipt must be different.</p>
+          </div>
+          
+          <!-- Progress Bar -->
+          <div class="progress-bar-container">
+            <div class="progress-bar" id="template-progress-bar" style="width: 0%"></div>
+            <div class="progress-text" id="progress-text">0/3 receipts captured</div>
+          </div>
+          
+          <!-- Receipt Samples -->
+          <div class="receipt-samples" id="receipt-samples">
+            <div class="sample-slot" data-slot="1">
+              <div class="sample-icon">📄</div>
+              <div class="sample-status">Waiting for receipt 1...</div>
+            </div>
+            <div class="sample-slot" data-slot="2">
+              <div class="sample-icon">📄</div>
+              <div class="sample-status">Waiting for receipt 2...</div>
+            </div>
+            <div class="sample-slot" data-slot="3">
+              <div class="sample-icon">📄</div>
+              <div class="sample-status">Waiting for receipt 3...</div>
+            </div>
+          </div>
+          
+          <!-- Status Messages -->
+          <div class="template-status-messages">
+            <div id="duplicate-warning" class="warning-message hidden">
+              ⚠️ Duplicate receipt detected. Please print a different receipt.
+            </div>
+            <div id="generating-status" class="generating-message hidden">
+              🔄 Generating template from captured receipts...
+            </div>
+            <div id="success-status" class="success-message hidden">
+              ✅ Template generated successfully! Receipt parsing is now active.
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Fallback manual button (hidden by default) -->
+      <div id="manual-template-section" class="hidden">
+        <p class="template-instructions">
+          <strong>Step 1:</strong> Print 3 different receipts from your POS to "Tabeza POS Printer"<br>
+          <strong>Step 2:</strong> Wait for samples to appear below<br>
+          <strong>Step 3:</strong> Click "Generate Template" when you have 3+ samples
+        </p>
+        <div class="samples-count" id="samples-count">
+          <span class="count-number">0</span> sample receipts captured
+        </div>
+        <div class="samples-list" id="samples-list">
+          <!-- Sample receipts will appear here -->
+        </div>
+        <button class="btn btn-primary" id="btn-generate-template" onclick="generateTemplate()" disabled>
+          🔧 Generate Template
+        </button>
+        <p class="template-status" id="template-status"></p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="config-section admin-only">
+    <h3>🔧 Advanced Settings</h3>
+    <div class="config-item">
+      <label for="api-endpoint">API Endpoint:</label>
+      <input type="text" id="api-endpoint" placeholder="https://api.tabeza.co.ke">
+      <button class="btn btn-secondary" onclick="saveApiSettings()">💾 Save API Settings</button>
+    </div>
+  </div>
+</div>
 
-  <script>
-    const { ipcRenderer } = require('electron');
-    const path = require('path');
+<!-- LOGS TAB -->
+<div class="tab-panel" id="tab-logs">
+  <div class="log-wrap">
+    <div class="log-header">
+      <span class="log-label">SYSTEM LOG</span>
+      <span class="live-dot">● LIVE</span>
+    </div>
+    <div class="log-body" id="log-body"></div>
+  </div>
+</div>
 
-    const STATE_UI = {
-      connected:    { cls: 'connected',    text: 'Connected' },
-      disconnected: { cls: 'disconnected', text: 'Cloud disconnected' },
-      error:        { cls: 'error',        text: 'Error' },
-      starting:     { cls: 'starting',     text: 'Starting...' },
-      unconfigured: { cls: 'unconfigured', text: 'Configuration required' },
-      shutting_down:{ cls: 'shutting_down',text: 'Shutting down...' },
-    };
+<!-- ACTIONS TAB -->
+<div class="tab-panel" id="tab-actions">
+  <div class="actions-grid" id="actions-grid"></div>
+</div>
 
-    function applyStatus(status) {
-      if (!status) return;
+<script>
 
-      const bar  = document.getElementById('status-bar');
-      const txt  = document.getElementById('status-text');
-      const ui   = STATE_UI[status.appState] || STATE_UI['starting'];
+// Multi-POS Terminal Support
+const POS_TERMINALS = [
+  { id: 'pos-1', name: 'Bar Terminal', location: 'Main Bar' },
+  { id: 'pos-2', name: 'Restaurant Terminal', location: 'Dining Area' },
+  { id: 'pos-3', name: 'Kitchen Terminal', location: 'Kitchen' },
+  { id: 'pos-4', name: 'Terrace Terminal', location: 'Outdoor' }
+];
 
-      bar.className = 'status-bar ' + ui.cls;
-      txt.textContent = ui.text;
+// Configuration Functions
+function saveBarId() {
+  const barId = document.getElementById('bar-id-input').value.trim();
+  if (!barId) {
+    showNotification('Error', 'Please enter a Bar ID');
+    return;
+  }
+  
+  console.log('[SaveBarId] Saving:', barId);
+  
+  // Save via IPC
+  ipc.invoke('save-bar-id', barId).then(result => {
+    console.log('[SaveBarId] Result:', result);
+    if (result && result.success) {
+      showNotification('Success', 'Bar ID saved successfully');
+      document.getElementById('bar-id').textContent = barId;
+    } else {
+      showNotification('Error', result?.error || 'Failed to save Bar ID');
+    }
+  }).catch(err => {
+    console.error('[SaveBarId] Error:', err);
+    showNotification('Error', err.message || 'Failed to save Bar ID');
+  });
+}
 
-      // Update header icon: green for connected, grey for all other states
-      const headerIcon = document.getElementById('header-icon');
-      if (headerIcon) {
-        const iconName = status.appState === 'connected' ? 'icon-green.ico' : 'icon-grey.ico';
-        const iconPath = path.join(__dirname, '../../assets', iconName);
-        headerIcon.src = 'file://' + iconPath;
+function generateTemplate() {
+  // Generate template via IPC
+  ipc.invoke('generate-template', {}).then(result => {
+    if (result && result.success) {
+      showNotification('Success', 'Template generated successfully');
+      document.getElementById('template-status').textContent = '✓ Template is active';
+      document.getElementById('template-status').style.color = 'var(--ok)';
+    } else {
+      showNotification('Error', result?.error || 'Failed to generate template');
+    }
+  }).catch(err => {
+    showNotification('Error', err.message || 'Failed to generate template');
+  });
+}
+
+// Progress-based Template Generation System
+let capturedSamples = new Set(); // Track content for deduplication
+let sampleCount = 0;
+let isGeneratingTemplate = false;
+
+async function updateTemplateProgress() {
+  try {
+    const result = await ipc.invoke('get-samples-status');
+    if (!result) return;
+
+    const samples = result.samples || [];
+    const hasTemplate = result.hasTemplate || false;
+    
+    console.log('[UpdateTemplateProgress] Samples:', samples.length, 'HasTemplate:', hasTemplate);
+    
+    // Reset if template exists (show success state)
+    if (hasTemplate) {
+      showTemplateSuccess();
+      return;
+    }
+
+    // Recalculate sampleCount from captured samples to handle UI reloads
+    sampleCount = capturedSamples.size;
+    
+    // Restore visual state of sample slots based on current progress
+    restoreSampleSlots(sampleCount);
+    
+    // Process new samples with deduplication
+    const uniqueSamples = [];
+    for (const sample of samples) {
+      const content = sample.content || sample.text || '';
+      const contentHash = hashContent(content);
+      
+      console.log('[UpdateTemplateProgress] Sample content length:', content.length, 'Hash:', contentHash);
+      
+      if (!capturedSamples.has(contentHash) && content.trim()) {
+        capturedSamples.add(contentHash);
+        uniqueSamples.push(sample);
+        
+        console.log('[UpdateTemplateProgress] New unique sample! Total:', capturedSamples.size);
+        
+        // Update sampleCount when we find new unique samples
+        sampleCount = capturedSamples.size;
+        updateSampleSlot(sampleCount, sample);
+        updateProgressBar();
+        
+        console.log('[UpdateTemplateProgress] Progress updated:', sampleCount, '/3');
+        
+        // Auto-generate template when we have 3 unique samples
+        if (sampleCount === 3 && !isGeneratingTemplate) {
+          console.log('[UpdateTemplateProgress] Triggering auto-generation!');
+          setTimeout(() => autoGenerateTemplate(), 1000);
+        }
       }
-
-      setText('val-bar-id',        status.barId       || '—');
-      setText('val-api-url',       status.apiUrl      || '—');
-      setText('val-driver-id',     status.driverId    || '—');
-      setText('val-last-activity', status.lastActivity
-        ? new Date(status.lastActivity).toLocaleString() : '—');
-      setText('val-receipts',      status.receiptsProcessed != null
-        ? String(status.receiptsProcessed) : '0');
-      setText('val-port',          status.port ? String(status.port) : '8765');
-      setText('val-capture-mode',  status.captureMode || '—');
-      setText('val-watch-folder',  status.watchFolder || '—');
-      setText('val-printer',       status.printerName || '—');
-      setText('val-version',       status.version     || '—');
     }
 
-    function setText(id, value) {
-      const el = document.getElementById(id);
-      if (el) el.textContent = value;
+    // Check for duplicates (only if we have at least 1 receipt captured)
+    if (capturedSamples.size > 0 && samples.length > capturedSamples.size && capturedSamples.size < 3) {
+      showDuplicateWarning();
     }
 
-    ipcRenderer.on('set-icon', (_e, iconPath) => {
-      const img = document.getElementById('header-icon');
-      if (img && iconPath) img.src = 'file://' + iconPath;
+  } catch (err) {
+    console.error('[UpdateTemplateProgress] Error:', err);
+  }
+}
+
+function hashContent(content) {
+  // Simple hash function for content deduplication
+  let hash = 0;
+  for (let i = 0; i < content.length; i++) {
+    const char = content.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return hash.toString();
+}
+
+function restoreSampleSlots(count) {
+  // Reset all slots first
+  for (let i = 1; i <= 3; i++) {
+    const slot = document.querySelector(`[data-slot="${i}"]`);
+    if (slot) {
+      slot.classList.remove('captured');
+      const status = slot.querySelector('.sample-status');
+      if (status) {
+        status.textContent = `Waiting for receipt ${i}...`;
+      }
+    }
+  }
+  
+  // Restore captured slots
+  for (let i = 1; i <= count; i++) {
+    const slot = document.querySelector(`[data-slot="${i}"]`);
+    if (slot) {
+      slot.classList.add('captured');
+      const status = slot.querySelector('.sample-status');
+      if (status) {
+        status.textContent = `Receipt ${i} captured`;
+      }
+    }
+  }
+  
+  // Update progress bar
+  updateProgressBar();
+}
+
+function updateSampleSlot(slotNumber, sample) {
+  const slot = document.querySelector(`[data-slot="${slotNumber}"]`);
+  if (!slot) return;
+
+  slot.classList.add('captured');
+  const status = slot.querySelector('.sample-status');
+  if (status) {
+    const time = new Date(sample.timestamp || Date.now()).toLocaleTimeString();
+    status.textContent = `Captured at ${time}`;
+  }
+}
+
+function updateProgressBar() {
+  const progressBar = document.getElementById('template-progress-bar');
+  const progressText = document.getElementById('progress-text');
+  
+  if (progressBar && progressText) {
+    const percentage = (sampleCount / 3) * 100;
+    progressBar.style.width = `${percentage}%`;
+    progressText.textContent = `${sampleCount}/3 receipts captured`;
+  }
+}
+
+function showDuplicateWarning() {
+  const warning = document.getElementById('duplicate-warning');
+  if (warning) {
+    warning.classList.remove('hidden');
+    setTimeout(() => warning.classList.add('hidden'), 3000);
+  }
+}
+
+async function autoGenerateTemplate() {
+  if (isGeneratingTemplate) return;
+  
+  isGeneratingTemplate = true;
+  const generatingStatus = document.getElementById('generating-status');
+  if (generatingStatus) {
+    generatingStatus.classList.remove('hidden');
+  }
+
+  try {
+    const result = await ipc.invoke('generate-template', {});
+    if (result && result.success) {
+      showTemplateSuccess();
+      showNotification('Success', 'Template generated automatically from your receipts');
+    } else {
+      throw new Error(result?.error || 'Template generation failed');
+    }
+  } catch (err) {
+    console.error('[AutoGenerateTemplate] Error:', err);
+    showNotification('Error', 'Failed to generate template: ' + err.message);
+    
+    // Show manual fallback
+    const manualSection = document.getElementById('manual-template-section');
+    const progressSection = document.getElementById('template-progress');
+    if (manualSection && progressSection) {
+      manualSection.classList.remove('hidden');
+      progressSection.classList.add('hidden');
+    }
+  } finally {
+    isGeneratingTemplate = false;
+    if (generatingStatus) {
+      generatingStatus.classList.add('hidden');
+    }
+  }
+}
+
+function showTemplateSuccess() {
+  const successStatus = document.getElementById('success-status');
+  const generatingStatus = document.getElementById('generating-status');
+  
+  if (successStatus) successStatus.classList.remove('hidden');
+  if (generatingStatus) generatingStatus.classList.add('hidden');
+  
+  // Update all sample slots to success state
+  for (let i = 1; i <= 3; i++) {
+    const slot = document.querySelector(`[data-slot="${i}"]`);
+    if (slot) {
+      slot.classList.add('captured');
+      const status = slot.querySelector('.sample-status');
+      if (status) status.textContent = 'Template created successfully!';
+    }
+  }
+}
+
+// Legacy Functions (for fallback mode)
+let templateHasSamples = false;
+
+async function loadSamples() {
+  try {
+    const result = await ipc.invoke('get-samples-status');
+    if (result) {
+      const count = result.count || 0;
+      const samples = result.samples || [];
+      
+      // Update count display
+      const countEl = document.querySelector('.samples-count .count-number');
+      if (countEl) countEl.textContent = count;
+      
+      // Enable/disable generate button
+      const btn = document.getElementById('btn-generate-template');
+      if (btn) btn.disabled = count < 3;
+      
+      // Update status message
+      const statusEl = document.getElementById('template-status');
+      if (statusEl) {
+        if (result.hasTemplate) {
+          statusEl.textContent = '✓ Template is active - receipts will be parsed';
+          statusEl.style.color = 'var(--ok)';
+        } else if (count >= 3) {
+          statusEl.textContent = 'Ready to generate template';
+          statusEl.style.color = 'var(--ok)';
+        } else {
+          statusEl.textContent = `Print ${3 - count} more receipt(s) to enable template generation`;
+          statusEl.style.color = 'var(--muted)';
+        }
+      }
+      
+      // Render samples list
+      const listEl = document.getElementById('samples-list');
+      if (listEl && samples.length > 0) {
+        listEl.innerHTML = samples.map(s => 
+          `<div class="sample-item">${s.name} - ${s.time || 'Unknown time'}</div>`
+        ).join('');
+      }
+    }
+  } catch (err) {
+    console.error('[LoadSamples] Error:', err);
+  }
+}
+
+function updateTemplateStatus(hasTemplate) {
+  const statusEl = document.getElementById('template-status');
+  if (statusEl) {
+    if (hasTemplate) {
+      statusEl.textContent = '✓ Template is active';
+      statusEl.style.color = 'var(--ok)';
+    }
+  }
+  loadSamples();
+}
+
+function testTemplate() {
+  ipc.invoke('test-template').then(result => {
+    if (result.success) {
+      showNotification('Template Test', 'Template test completed successfully');
+    } else {
+      showNotification('Template Test Failed', result.error || 'Template test failed');
+    }
+  });
+}
+
+function setupPrinter() {
+  console.log('[setupPrinter] Button clicked');
+  showNotification('Printer Setup', 'Starting Tabeza POS Printer setup...');
+  
+  ipc.invoke('setup-printer').then(result => {
+    console.log('[setupPrinter] Result:', result);
+    if (result && result.success) {
+      showNotification('Success', 'Tabeza POS Printer configured successfully');
+      updatePrinterStatus('online');
+    } else {
+      showNotification('Error', result?.error || 'Failed to setup printer');
+      updatePrinterStatus('error');
+    }
+  }).catch(err => {
+    console.error('[setupPrinter] Error:', err);
+    showNotification('Error', err.message || 'Failed to setup printer');
+  });
+}
+
+function testPrint() {
+  showNotification('Test Print', 'Sending test receipt...');
+  
+  ipc.invoke('test-print').then(result => {
+    if (result.success) {
+      showNotification('Success', 'Test receipt printed successfully');
+    } else {
+      showNotification('Error', result.error || 'Test print failed');
+    }
+  });
+}
+
+function saveApiSettings() {
+  const apiEndpoint = document.getElementById('api-endpoint').value.trim();
+  if (!apiEndpoint) {
+    showNotification('Error', 'Please enter API endpoint');
+    return;
+  }
+  
+  ipc.invoke('save-api-settings', { endpoint: apiEndpoint }).then(result => {
+    if (result.success) {
+      showNotification('Success', 'API settings saved successfully');
+    } else {
+      showNotification('Error', result.error || 'Failed to save API settings');
+    }
+  });
+}
+
+function updatePrinterStatus(status) {
+  const statusElement = document.getElementById('printer-status');
+  const indicator = statusElement.querySelector('.status-indicator');
+  const text = statusElement.querySelector('.status-text');
+  
+  indicator.className = `status-indicator ${status}`;
+  text.textContent = status === 'online' ? 'Tabeza POS Printer Connected' : 
+                    status === 'error' ? 'Printer Setup Failed' : 'Printer Offline';
+}
+
+function loadCurrentConfig() {
+  // Load current configuration via IPC
+  ipc.invoke('get-config').then(config => {
+    if (config.barId) {
+      document.getElementById('bar-id-input').value = config.barId;
+      document.getElementById('bar-id').textContent = config.barId;
+    }
+    if (config.apiEndpoint) {
+      document.getElementById('api-endpoint').value = config.apiEndpoint;
+    }
+    
+    // Update printer status
+    updatePrinterStatus(config.printerStatus || 'offline');
+  });
+}
+
+// Terminal Manager Class
+class POSManager {
+  constructor() {
+    this.terminals = new Map();
+    this.activeTerminal = 'pos-1'; // Default to first terminal
+    this.initializeTerminals();
+  }
+  
+  initializeTerminals() {
+    POS_TERMINALS.forEach(terminal => {
+      this.terminals.set(terminal.id, {
+        ...terminal,
+        status: 'offline',
+        lastSeen: null,
+        receiptCount: 0
+      });
     });
+  }
+  
+  switchToTerminal(terminalId) {
+    if (this.terminals.has(terminalId)) {
+      this.activeTerminal = terminalId;
+      this.updateDashboard();
+      this.notifyTerminalSwitch(terminalId);
+    }
+  }
+  
+  getActiveTerminal() {
+    return this.terminals.get(this.activeTerminal);
+  }
+  
+  updateTerminalStatus(terminalId, status) {
+    const terminal = this.terminals.get(terminalId);
+    if (terminal) {
+      terminal.status = status;
+      terminal.lastSeen = new Date();
+      this.updateDashboard();
+    }
+  }
+  
+  updateDashboard() {
+    // Update UI to reflect current terminal
+    const activeTerminal = this.getActiveTerminal();
+    if (activeTerminal) {
+      const terminalEl = document.getElementById('current-terminal');
+      const locationEl = document.getElementById('current-location');
+      if (terminalEl) terminalEl.textContent = activeTerminal.name;
+      if (locationEl) locationEl.textContent = activeTerminal.location;
+    }
+  }
+  
+  notifyTerminalSwitch(terminalId) {
+    const terminal = this.terminals.get(terminalId);
+    showNotification('Terminal Switched', `Now using ${terminal.name} (${terminal.location})`);
+  }
+}
 
-    ipcRenderer.on('status-update', (_e, status) => applyStatus(status));
+// Initialize POS Manager
+const posManager = new POSManager();
 
-    ipcRenderer.send('get-status');
-    ipcRenderer.once('status-reply', (_e, status) => applyStatus(status));
+// Terminal Selector UI
+function showTerminalSelector() {
+  const modal = document.createElement('div');
+  modal.className = 'terminal-selector-modal';
+  modal.innerHTML = `
+    <div class="modal-content">
+      <h3>📍 Select POS Terminal</h3>
+      <div class="terminal-grid">
+        ${POS_TERMINALS.map(terminal => `
+          <div class="terminal-card" data-terminal="${terminal.id}" onclick="selectTerminal('${terminal.id}')">
+            <div class="terminal-icon">🖥️</div>
+            <div class="terminal-info">
+              <div class="terminal-name">${terminal.name}</div>
+              <div class="terminal-location">${terminal.location}</div>
+              <div class="terminal-status" id="status-${terminal.id}">
+                <span class="status-dot"></span>
+                <span class="status-text">Checking...</span>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeTerminalSelector()">Cancel</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+}
 
-    document.getElementById('btn-config').addEventListener('click', () => {
-      ipcRenderer.send('open-config');
+function selectTerminal(terminalId) {
+  posManager.switchToTerminal(terminalId);
+  closeTerminalSelector();
+}
+
+function closeTerminalSelector() {
+  const modal = document.querySelector('.terminal-selector-modal');
+  if (modal) {
+    modal.remove();
+  }
+}
+  
+// Role-Based Dashboard Access
+const DASHBOARD_MODE = {
+  CUSTOMER: 'customer',    // Limited view for staff
+  ADMIN: 'admin',          // Full access for managers
+  SETUP: 'setup'           // Installation mode only
+};
+
+// Current mode (stored in localStorage)
+let currentMode = localStorage.getItem('dashboardMode') || DASHBOARD_MODE.CUSTOMER;
+
+// Mode Management
+function switchMode(mode) {
+  if (Object.values(DASHBOARD_MODE).includes(mode)) {
+    currentMode = mode;
+    localStorage.setItem('dashboardMode', mode);
+    updateDashboardForMode(mode);
+    showNotification('Mode Changed', `Switched to ${mode} mode`);
+  }
+}
+
+function getCurrentMode() {
+  return currentMode;
+}
+
+function isAdminMode() {
+  return currentMode === DASHBOARD_MODE.ADMIN;
+}
+
+function isCustomerMode() {
+  return currentMode === DASHBOARD_MODE.CUSTOMER;
+}
+
+// Customer Mode - Hide Sensitive Information
+function getCustomerView() {
+  return {
+    hideSensitiveConfigs: true,
+    hideApiKeys: true,
+    hideBarIds: true,
+    hideServiceDetails: true,
+    showSimpleStatus: true,
+    allowBasicActions: ['view-status', 'test-print']
+  };
+}
+
+// Admin Mode - Full Access
+function getAdminView() {
+  return {
+    showAllConfigs: true,
+    showApiKeys: true,
+    showBarIds: true,
+    showServiceDetails: true,
+    allowAllActions: true,
+    requireAuth: true
+  };
+}
+
+// Update dashboard based on current mode
+function updateDashboardForMode(mode) {
+  const sensitiveElements = document.querySelectorAll('.sensitive-config');
+  const adminOnlyElements = document.querySelectorAll('.admin-only');
+  const customerOnlyElements = document.querySelectorAll('.customer-only');
+  
+  if (mode === DASHBOARD_MODE.CUSTOMER) {
+    // Hide sensitive elements
+    sensitiveElements.forEach(el => el.style.display = 'none');
+    adminOnlyElements.forEach(el => el.classList.add('hidden'));
+    customerOnlyElements.forEach(el => el.classList.remove('hidden'));
+    
+    // Show mode indicator
+    updateModeIndicator('Customer Mode');
+    
+  } else if (mode === DASHBOARD_MODE.ADMIN) {
+    // Show all elements
+    sensitiveElements.forEach(el => el.style.display = '');
+    adminOnlyElements.forEach(el => el.classList.remove('hidden'));
+    customerOnlyElements.forEach(el => el.classList.add('hidden'));
+    
+    // Show mode indicator
+    updateModeIndicator('Admin Mode');
+    
+    // Check authentication if required
+    if (getAdminView().requireAuth) {
+      checkAdminAuthentication();
+    }
+  }
+}
+
+// Mode toggle UI
+function createModeToggle() {
+  const modeToggle = `
+    <div class="mode-toggle">
+      <div class="mode-indicator" id="mode-indicator">
+        <span class="mode-icon">👁️</span>
+        <span class="mode-text" id="mode-text">Customer Mode</span>
+      </div>
+      <div class="mode-actions">
+        <button class="btn btn-secondary" onclick="switchMode('${DASHBOARD_MODE.CUSTOMER}')" id="customer-btn">
+          👁️ Customer
+        </button>
+        <button class="btn btn-primary" onclick="switchMode('${DASHBOARD_MODE.ADMIN}')" id="admin-btn">
+          🔐 Admin
+        </button>
+      </div>
+    </div>
+  `;
+  
+  // Insert mode toggle into header
+  const header = document.querySelector('.header');
+  if (header) {
+    header.insertAdjacentHTML('afterend', modeToggle);
+  }
+}
+
+function updateModeIndicator(modeLabel) {
+  const modeTextEl = document.getElementById('mode-text');
+  const modeIconEl = document.getElementById('mode-indicator');
+  
+  if (modeTextEl) {
+    modeTextEl.textContent = modeLabel;
+    
+    // Update icon and color based on mode
+    if (modeLabel.includes('Customer')) {
+      modeIconEl.className = 'mode-indicator customer-mode';
+    } else if (modeLabel.includes('Admin')) {
+      modeIconEl.className = 'mode-indicator admin-mode';
+    }
+  }
+}
+
+function checkAdminAuthentication() {
+  // Simple password prompt for admin access
+  const password = prompt('Enter admin password:');
+  if (password === 'admin123') { // Change in production!
+    showNotification('Access Granted', 'Admin mode activated');
+  } else {
+    showNotification('Access Denied', 'Incorrect password');
+    switchMode(DASHBOARD_MODE.CUSTOMER);
+  }
+}
+
+// Notification function - uses DOM elements, no Electron API needed
+function showNotification(title, message) {
+  console.log(`[${title}] ${message}`);
+  
+  // Create temporary notification element
+  const notification = document.createElement('div');
+  notification.className = 'notification';
+  notification.innerHTML = `
+    <div class="notification-title">${title}</div>
+    <div class="notification-message">${message}</div>
+  `;
+  
+  document.body.appendChild(notification);
+  
+  // Auto-remove after 3 seconds
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.parentNode.removeChild(notification);
+    }
+  }, 3000);
+}
+
+// Initialize mode system
+document.addEventListener('DOMContentLoaded', () => {
+  // Initialize POS Manager first
+  if (typeof posManager !== 'undefined') {
+    posManager.initializeTerminals();
+    posManager.updateDashboard();
+  }
+  
+  createModeToggle();
+  updateDashboardForMode(currentMode);
+  
+  // Load current configuration
+  loadCurrentConfig();
+  
+  // Initialize tab switching
+  initializeTabs();
+  
+  // Initialize status refresh
+  refreshStatus();
+});
+
+function initializeTabs() {
+  // Tab switching functionality
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabName = btn.getAttribute('data-tab');
+      
+      // Remove active class from all tabs and panels
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      
+      // Add active class to clicked tab and corresponding panel
+      btn.classList.add('active');
+      const panel = document.getElementById(`tab-${tabName}`);
+      if (panel) {
+        panel.classList.add('active');
+      }
     });
+  });
+}
+  // ─────────────────────────────────────────────
+//  IPC bridge  (works with preload script)
+const ipc = window.electronAPI || {
+  // Fallback for dev/browser preview — uses mock data
+  invoke: async (channel, ...args) => {
+    console.log('[IPC Fallback] Channel:', channel, args);
+    if (channel === 'get-pipeline-status') return MOCK_STATUS;
+    if (channel === 'get-bar-id') return 'BAR-001';
+    if (channel === 'save-bar-id') return { success: true };
+    if (channel === 'save-api-settings') return { success: true };
+    if (channel === 'get-config') return {};
+    if (channel === 'generate-template') return { success: true };
+    if (channel === 'test-template') return { success: true };
+    if (channel === 'setup-printer') return { success: true };
+    if (channel === 'test-print') return { success: true };
+    return { success: true };
+  },
+  on: (channel, cb) => {
+    if (channel === 'log-entry') {
+      // Simulate a log push every 4 seconds in dev mode
+      setInterval(() => cb({
+        time: new Date().toLocaleTimeString('en-GB'),
+        level: ['info','warn','error'][Math.floor(Math.random()*3)],
+        msg: 'Simulated log event from dev mode'
+      }), 4000);
+    }
+  },
+  showNotification: (title, msg) => console.log(`[Notification] ${title}: ${msg}`)
+};
 
-    document.getElementById('btn-template').addEventListener('click', () => {
-      ipcRenderer.send('open-template-wizard');
-    });
+// ─────────────────────────────────────────────
+//  Static pipeline node definitions
+// ─────────────────────────────────────────────
+const NODES = [
+  { id:'pos',        icon:'🖥️',  label:'POS System',             sub:'Print source',
+    tip:'Any POS printing to Tabeza POS Printer virtual driver.',
+    fix: null },
+  { id:'printer',    icon:'🖨️',  label:'Tabeza POS Printer',     sub:'Virtual printer',
+    tip:'Windows virtual printer — intercepts print jobs and redirects to RedMon.',
+    fix: null },
+  { id:'redmon',     icon:'🔀',  label:'RedMon',                 sub:'Port monitor',
+    tip:'Pipes raw ESC/POS print data to capture.exe via stdin.',
+    fix:'Verify registry: HKLM\\SYSTEM\\...\\TabezaCapturePort → capture.exe path.' },
+  { id:'capture',    icon:'📥',  label:'capture.exe',            sub:'Data receiver',
+    tip:'Receives raw print data from RedMon, formats it, sends to service.',
+    fix:'Check capture.exe is running as a child process of the service.' },
+  { id:'service',    icon:'⚙️',  label:'TabezaConnect Service',  sub:'Core processor',
+    tip:'Parses receipts using templates, uploads to cloud, manages Bar ID config.',
+    fix:'Kill all TabezaConnect.exe instances, then launch a single clean instance.' },
+  { id:'cloud',      icon:'☁️',  label:'Cloud Upload',           sub:'Remote storage',
+    tip:'Stores parsed receipt data — shared with Tabeza restaurant app.',
+    fix:'Verify API key / network connectivity once service is stable.' },
+  { id:'restaurant', icon:'🍽️',  label:'Tabeza Restaurant App',  sub:'End destination',
+    tip:'Receives live receipt data from cloud for restaurant analytics.',
+    fix:'Confirm cloud upload is succeeding before debugging this end.' },
+];
 
-    document.getElementById('btn-printer').addEventListener('click', () => {
-      ipcRenderer.send('open-printer-setup');
-    });
+// ─────────────────────────────────────────────
+//  Mock status (replaced by real IPC data)
+// ─────────────────────────────────────────────
+const MOCK_STATUS = {
+  pos:        { status: 'ok',      detail: 'Last job: 2 min ago' },
+  printer:    { status: 'ok',      detail: 'Driver active · Port: TabezaCapturePort' },
+  redmon:     { status: 'warn',    detail: 'Port exists · capture.exe path unverified' },
+  capture:    { status: 'warn',    detail: 'No process detected in last 5 min' },
+  service:    { status: 'error',   detail: '3 conflicting instances detected' },
+  cloud:      { status: 'unknown', detail: 'Cannot verify — service unstable' },
+  restaurant: { status: 'unknown', detail: 'Awaiting upstream resolution' },
+};
 
-    document.getElementById('btn-test').addEventListener('click', () => {
-      ipcRenderer.send('test-print');
-    });
+const ACTIONS = [
+  { id:'restart',     icon:'🔄', title:'Restart Service',
+    desc:'Kill all TabezaConnect.exe instances and start a clean single process.',
+    color:'#22c55e', critical:false },
+  { id:'verify-redmon', icon:'🔍', title:'Verify RedMon Config',
+    desc:'Check registry to confirm capture.exe is correctly linked to TabezaCapturePort.',
+    color:'#60a5fa', critical:false },
+  { id:'test-print',  icon:'🖨️', title:'Test Print Job',
+    desc:'Send a test receipt through the full pipeline and trace where it stops.',
+    color:'#a78bfa', critical:false },
+  { id:'test-cloud',  icon:'☁️', title:'Test Cloud + Restaurant App',
+    desc:'Verify receipt data reaches cloud and Tabeza restaurant app receives it.',
+    color:'#f59e0b', critical:false },
+  { id:'kill-procs',  icon:'🗑️', title:'Kill Conflicting Processes',
+    desc:'Force-terminate all duplicate TabezaConnect.exe processes immediately.',
+    color:'#ef4444', critical:true },
+  { id:'export-diag', icon:'📋', title:'Export Diagnostics',
+    desc:'Save full log and system state to a file for support review.',
+    color:'#94a3b8', critical:false },
+];
 
-    document.getElementById('btn-ok').addEventListener('click', () => {
-      ipcRenderer.send('hide-window');
-    });
-  </script>
+// ─────────────────────────────────────────────
+//  State
+// ─────────────────────────────────────────────
+let pipelineStatus = {};
+let activeNodeId   = null;
+const logs         = [];
+
+// ─────────────────────────────────────────────
+//  Render helpers
+// ─────────────────────────────────────────────
+function overallStatus(status) {
+  const vals = Object.values(status).map(n => n.status);
+  if (vals.includes('error'))   return 'error';
+  if (vals.includes('warn'))    return 'warn';
+  if (vals.includes('unknown')) return 'unknown';
+  return 'ok';
+}
+
+function statusLabel(s) {
+  return { ok:'Healthy', warn:'Warning', error:'Error', unknown:'Unknown' }[s] || s;
+}
+
+function renderHeader() {
+  const os = overallStatus(pipelineStatus);
+  const dot = document.getElementById('header-dot');
+  dot.className = 'status-dot ' + os;
+  const badge = document.getElementById('header-badge');
+  badge.className = 'badge ' + os;
+  badge.textContent = statusLabel(os).toUpperCase();
+
+  const counts = { ok:0, warn:0, error:0, unknown:0 };
+  Object.values(pipelineStatus).forEach(n => counts[n.status]++);
+  const chips = document.getElementById('summary-chips');
+  chips.innerHTML = Object.entries(counts).map(([k,v]) =>
+    `<span class="badge ${k}">${v} ${statusLabel(k)}</span>` 
+  ).join('');
+}
+
+function renderPipeline() {
+  const row = document.getElementById('pipeline-row');
+  row.innerHTML = NODES.map((node, i) => {
+    const s    = (pipelineStatus[node.id] || {}).status || 'unknown';
+    const det  = (pipelineStatus[node.id] || {}).detail || '—';
+    const isActive = activeNodeId === node.id;
+    const activeCls = isActive ? ` active-${s}` : '';
+    const arrow = i < NODES.length - 1
+      ? `<div class="arrow"><svg width="26" height="10"><line x1="0" y1="5" x2="18" y2="5" stroke="#334155" stroke-width="1.5" stroke-dasharray="3,2"/><polygon points="18,1 26,5 18,9" fill="#334155"/></svg></div>` 
+      : '';
+    return `
+      <div class="pipeline-node${activeCls}" data-id="${node.id}" onclick="selectNode('${node.id}')">
+        <div class="node-dot ${s}"></div>
+        <div class="node-icon">${node.icon}</div>
+        <div class="node-name">${node.label}</div>
+        <div class="node-sub">${node.sub}</div>
+        <div class="node-detail ${s}">${det}</div>
+      </div>
+      ${arrow}
+    `;
+  }).join('');
+}
+
+function renderDetail() {
+  const panel = document.getElementById('detail-panel');
+  if (!activeNodeId) { panel.className = 'detail-panel'; return; }
+  const node = NODES.find(n => n.id === activeNodeId);
+  const s    = (pipelineStatus[node.id] || {}).status || 'unknown';
+  const det  = (pipelineStatus[node.id] || {}).detail || '—';
+
+  const colorMap = { ok:'#22c55e', warn:'#f59e0b', error:'#ef4444', unknown:'#6b7280' };
+  const bgMap    = { ok:'#052e16', warn:'#1c1000', error:'#1a0000', unknown:'#111827' };
+  const c = colorMap[s], bg = bgMap[s];
+
+  panel.className = 'detail-panel visible';
+  panel.style.borderColor = c + '44';
+  panel.style.background  = bg;
+  panel.innerHTML = `
+    <div class="detail-header">
+      <span style="font-size:20px">${node.icon}</span>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#f1f5f9">${node.label}</div>
+        <div style="font-size:10px;color:${c};font-weight:600">${statusLabel(s)}</div>
+      </div>
+    </div>
+    <div class="detail-role"><strong style="color:#cbd5e1">Role: </strong>${node.tip}</div>
+    <div class="detail-status-box" style="background:#0f172a;color:${c}">${det}</div>
+    ${node.fix ? `<div class="detail-fix">💡 ${node.fix}</div>` : ''}
+  `;
+}
+
+function renderIssues() {
+  const issues = NODES
+    .filter(n => ['warn','error','unknown'].includes((pipelineStatus[n.id] || {}).status))
+    .map(n => ({
+      node: n.label,
+      status: (pipelineStatus[n.id] || {}).status,
+      detail: (pipelineStatus[n.id] || {}).detail || '—',
+    }));
+
+  const box = document.getElementById('issues-box');
+  const list = document.getElementById('issues-list');
+  if (issues.length === 0) {
+    box.style.display = 'none'; return;
+  }
+  box.style.display = 'block';
+  list.innerHTML = issues.map(i => `
+    <div class="issue-row">
+      <span style="color:#ef4444;font-size:12px;margin-top:1px">✕</span>
+      <div>
+        <div class="issue-node">${i.node}</div>
+        <div class="issue-desc">${i.detail}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderActions() {
+  const grid = document.getElementById('actions-grid');
+  grid.innerHTML = ACTIONS.map(a => `
+    <button class="action-card ${a.critical ? 'critical' : ''}"
+            data-action="${a.id}"
+            onclick="triggerAction('${a.id}')"
+            style=""
+            onmouseover="this.style.borderColor='${a.color}88'"
+            onmouseout="this.style.borderColor='${a.critical ? '#ef444444' : 'var(--border)'}'"
+    >
+      <div class="action-icon">${a.icon}</div>
+      <div class="action-title" style="color:${a.color}">${a.title}</div>
+      <div class="action-desc">${a.desc}</div>
+    </button>
+  `).join('');
+}
+
+function addLog(entry) {
+  logs.push(entry);
+  if (logs.length > 500) logs.shift(); // cap at 500
+  const body = document.getElementById('log-body');
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `
+    <span class="log-time">${entry.time}</span>
+    <span class="log-level ${entry.level}">${entry.level}</span>
+    <span class="log-msg ${entry.level}">${entry.msg}</span>
+  `;
+  body.appendChild(line);
+  body.scrollTop = body.scrollHeight;
+}
+
+// ─────────────────────────────────────────────
+//  Interaction
+// ─────────────────────────────────────────────
+function selectNode(id) {
+  activeNodeId = activeNodeId === id ? null : id;
+  renderPipeline();
+  renderDetail();
+}
+
+async function triggerAction(id) {
+  const channelMap = {
+    'restart':      'action-restart-service',
+    'verify-redmon':'action-verify-redmon',
+    'test-print':   'action-test-print',
+    'test-cloud':   'action-test-cloud',
+    'kill-procs':   'action-kill-processes',
+    'export-diag':  'action-export-diagnostics',
+  };
+  const actionNames = {
+    'restart':      'Restart Service',
+    'verify-redmon':'Verify RedMon',
+    'test-print':   'Test Print',
+    'test-cloud':   'Test Cloud',
+    'kill-procs':   'Kill Processes',
+    'export-diag':  'Export Diagnostics',
+  };
+  const channel = channelMap[id];
+  if (!channel) return;
+  
+  // Show button loading state
+  const btn = document.querySelector(`button[data-action="${id}"]`);
+  const origContent = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span>⏳ Running...</span>';
+  }
+  
+  addLog({ time: new Date().toLocaleTimeString('en-GB'), level:'info', msg: `Action triggered: ${id}` });
+  showNotification('Action Started', `${actionNames[id]}...`);
+  
+  try {
+    const result = await ipc.invoke(channel);
+    const successMsg = result.detail || (result.ok ? `${actionNames[id]} completed` : `${actionNames[id]} failed`);
+    addLog({ time: new Date().toLocaleTimeString('en-GB'), level: result.ok ? 'info' : 'error',
+      msg: result.detail || (result.ok ? `${id} completed` : `${id} failed`) });
+    showNotification(result.ok ? 'Success' : 'Error', successMsg);
+    // Refresh pipeline status after action
+    await refreshStatus();
+  } catch (e) {
+    addLog({ time: new Date().toLocaleTimeString('en-GB'), level:'error', msg: `${id} error: ${e.message}` });
+    showNotification('Error', `${actionNames[id]} failed: ${e.message}`);
+  } finally {
+    // Restore button state
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origContent;
+    }
+  }
+}
+
+// ─────────────────────────────────────────────
+//  Main initialization (handled in DOMContentLoaded above)
+// ─────────────────────────────────────────────
+
+// ─────────────────────────────────────────────
+//  Data refresh
+// ─────────────────────────────────────────────
+async function refreshStatus() {
+  pipelineStatus = await ipc.invoke('get-pipeline-status');
+  renderHeader();
+  renderPipeline();
+  renderDetail();
+  renderIssues();
+  
+  // Update template progress
+  updateTemplateProgress();
+}
+
+// ─────────────────────────────────────────────
+//  Init
+// ─────────────────────────────────────────────
+(async () => {
+  // Initialize tabs
+  initializeTabs();
+  
+  // Load Bar ID
+  const barId = await ipc.invoke('get-bar-id');
+  document.getElementById('bar-id').textContent = barId || '—';
+  
+  // Load and restore printer status
+  updatePrinterStatus();
+  
+  // Load template samples
+  loadSamples();
+
+  // Load recent logs from service log file
+  try {
+    const logRes = await fetch('http://localhost:8765/api/logs/recent?lines=20');
+    if (logRes.ok) {
+      const logs = await logRes.json();
+      logs.forEach(addLog);
+    }
+  } catch (e) {
+    // No logs available yet
+  }
+
+  // Initial pipeline render
+  await refreshStatus();
+  renderActions();
+
+  // Live log pushes from main process
+  ipc.on('log-entry', (entry) => addLog(entry));
+
+  // Poll status every 10 seconds
+  setInterval(refreshStatus, 10_000);
+})();
+</script>
 </body>
 </html>
