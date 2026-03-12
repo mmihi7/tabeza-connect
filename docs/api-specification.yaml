@@ -1,0 +1,1032 @@
+openapi: 3.0.3
+info:
+  title: Tabeza Connect API
+  description: |
+    REST API for Tabeza Connect - Virtual Printer Capture Service
+    
+    This API provides endpoints for managing printer configuration, monitoring print job queues,
+    and controlling the receipt capture and forwarding system.
+    
+    ## Architecture
+    
+    Tabeza Connect uses a virtual printer driver to intercept print jobs from POS systems,
+    capture them to disk, parse receipt data, and forward jobs to physical printers while
+    uploading parsed data to the cloud.
+    
+  version: 1.7.0
+  contact:
+    name: Tabeza Development Team
+    url: https://tabeza.co.ke
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:8765
+    description: Local Tabeza Connect service
+
+tags:
+  - name: Status
+    description: Service status and health monitoring
+  - name: Configuration
+    description: Service configuration management
+  - name: Printers
+    description: Physical printer detection and configuration
+  - name: Queue
+    description: Print job queue management
+  - name: Templates
+    description: Receipt parsing template management
+
+paths:
+  /api/status:
+    get:
+      tags:
+        - Status
+      summary: Get service status
+      description: |
+        Returns comprehensive status information about the Tabeza Connect service including:
+        - Service health and uptime
+        - Queue statistics
+        - Upload worker status
+        - Parser statistics
+        - ESC/POS processor status
+        - System information
+      operationId: getStatus
+      responses:
+        '200':
+          description: Service status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/config:
+    get:
+      tags:
+        - Configuration
+      summary: Get service configuration
+      description: Returns the current service configuration including Bar ID, API URL, and folder paths
+      operationId: getConfig
+      responses:
+        '200':
+          description: Configuration retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigResponse'
+
+  /api/configure:
+    post:
+      tags:
+        - Configuration
+      summary: Update service configuration
+      description: Updates the service configuration (Bar ID and API URL)
+      operationId: updateConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigUpdateRequest'
+      responses:
+        '200':
+          description: Configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid request (missing Bar ID)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/printers:
+    get:
+      tags:
+        - Printers
+      summary: Get configured printers
+      description: |
+        Returns information about configured printers including:
+        - Printer statistics (jobs received, forwarded, failed)
+        - Current queue depth
+        - List of configured printers with their status
+      operationId: getPrinters
+      responses:
+        '200':
+          description: Printer information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrintersResponse'
+        '503':
+          description: Printer adapter not initialized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/printers/detect:
+    get:
+      tags:
+        - Printers
+      summary: Detect available printers
+      description: |
+        Scans for available physical printers on the system including:
+        - USB printers
+        - Network printers
+        - Serial port printers
+      operationId: detectPrinters
+      responses:
+        '200':
+          description: Printer detection completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetectPrintersResponse'
+        '503':
+          description: Printer adapter not initialized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/printers/test:
+    post:
+      tags:
+        - Printers
+      summary: Send test print to printer
+      description: Sends a test print job to the specified printer to verify connectivity and functionality
+      operationId: testPrinter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestPrintRequest'
+      responses:
+        '200':
+          description: Test print queued successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid request (missing printer name)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Printer adapter not initialized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/printers/configure:
+    post:
+      tags:
+        - Printers
+      summary: Configure printers
+      description: |
+        Updates the printer configuration and restarts the printer adapter.
+        Configuration is saved to C:\TabezaPrints\config.json
+      operationId: configurePrinters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigurePrintersRequest'
+      responses:
+        '200':
+          description: Printer configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid request (missing or invalid printers array)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/queue:
+    get:
+      tags:
+        - Queue
+      summary: Get upload queue statistics
+      description: Returns statistics about the upload queue (pending, uploaded, failed uploads)
+      operationId: getQueueStats
+      responses:
+        '200':
+          description: Queue statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueStatsResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/queue/forward:
+    get:
+      tags:
+        - Queue
+      summary: Get forwarding queue
+      description: |
+        Returns information about the print job forwarding queue including:
+        - Queue depth
+        - List of pending jobs with retry information
+      operationId: getForwardQueue
+      responses:
+        '200':
+          description: Forwarding queue retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForwardQueueResponse'
+        '503':
+          description: Printer adapter not initialized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/queue/retry:
+    post:
+      tags:
+        - Queue
+      summary: Retry failed print jobs
+      description: |
+        Retries all failed print jobs from the failed_prints folder.
+        Jobs are re-queued with reset retry counters.
+      operationId: retryFailedJobs
+      responses:
+        '200':
+          description: Failed jobs retried successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetryJobsResponse'
+        '503':
+          description: Printer adapter not initialized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/templates:
+    get:
+      tags:
+        - Templates
+      summary: Get receipt parsing template
+      description: Returns the current receipt parsing template if it exists
+      operationId: getTemplate
+      responses:
+        '200':
+          description: Template retrieved successfully (may be null if no template exists)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    
+    post:
+      tags:
+        - Templates
+      summary: Save receipt parsing template
+      description: Saves a receipt parsing template to disk and updates the service template status
+      operationId: saveTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Template'
+      responses:
+        '200':
+          description: Template saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/template/generate:
+    post:
+      tags:
+        - Templates
+      summary: Generate receipt parsing template
+      description: |
+        Generates a receipt parsing template using AI by analyzing sample receipts.
+        Requires at least 3 sample receipts. Calls the cloud API for template generation.
+      operationId: generateTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateTemplateRequest'
+      responses:
+        '200':
+          description: Template generated and saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateTemplateResponse'
+        '400':
+          description: Invalid request (less than 3 sample receipts)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Template generation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '504':
+          description: Template generation timeout (60 seconds)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/test-print:
+    post:
+      tags:
+        - Queue
+      summary: Send test print to order.prn
+      description: Creates a test receipt and writes it to order.prn for testing the capture system
+      operationId: testPrint
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              description: Optional test data to include in the test receipt
+      responses:
+        '200':
+          description: Test print sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    StatusResponse:
+      type: object
+      required:
+        - success
+        - barId
+        - apiUrl
+        - service
+        - queue
+        - upload
+        - parser
+        - escpos
+        - system
+      properties:
+        success:
+          type: boolean
+          example: true
+        barId:
+          type: string
+          description: Venue Bar ID
+          example: "bar-abc123"
+        apiUrl:
+          type: string
+          description: Cloud API URL
+          example: "https://tabeza.co.ke"
+        service:
+          type: object
+          description: Service health information
+          properties:
+            status:
+              type: string
+              example: "running"
+            uptime:
+              type: number
+              description: Service uptime in seconds
+              example: 86400
+        queue:
+          type: object
+          description: Queue statistics
+          properties:
+            pending:
+              type: integer
+              example: 5
+            uploaded:
+              type: integer
+              example: 1234
+            failed:
+              type: integer
+              example: 2
+        upload:
+          type: object
+          description: Upload worker statistics
+          properties:
+            totalUploads:
+              type: integer
+              example: 1234
+            failedUploads:
+              type: integer
+              example: 2
+            lastUploadAt:
+              type: string
+              format: date-time
+              nullable: true
+        parser:
+          type: object
+          description: Parser statistics
+          properties:
+            totalParsed:
+              type: integer
+              example: 1234
+            failedParses:
+              type: integer
+              example: 10
+            avgConfidence:
+              type: number
+              format: float
+              example: 0.95
+        escpos:
+          type: object
+          description: ESC/POS processor statistics
+        system:
+          type: object
+          description: System information
+          properties:
+            hostname:
+              type: string
+              example: "VENUE-PC"
+            platform:
+              type: string
+              example: "win32"
+            uptime:
+              type: number
+              description: System uptime in seconds
+              example: 259200
+            memory:
+              type: object
+              description: Process memory usage
+              properties:
+                rss:
+                  type: integer
+                  description: Resident set size
+                heapTotal:
+                  type: integer
+                heapUsed:
+                  type: integer
+
+    ConfigResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - barId
+            - apiUrl
+            - watchFolder
+            - driverId
+            - httpPort
+          properties:
+            barId:
+              type: string
+              example: "bar-abc123"
+            apiUrl:
+              type: string
+              example: "https://tabeza.co.ke"
+            watchFolder:
+              type: string
+              example: "C:\\TabezaPrints"
+            driverId:
+              type: string
+              example: "driver-VENUE-PC"
+            httpPort:
+              type: integer
+              example: 8765
+
+    ConfigUpdateRequest:
+      type: object
+      required:
+        - barId
+      properties:
+        barId:
+          type: string
+          description: Venue Bar ID (required)
+          example: "bar-abc123"
+        apiUrl:
+          type: string
+          description: Cloud API URL (optional)
+          example: "https://tabeza.co.ke"
+
+    PrintersResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - stats
+            - queueDepth
+            - printers
+          properties:
+            stats:
+              $ref: '#/components/schemas/PrinterStats'
+            queueDepth:
+              type: integer
+              description: Number of jobs in forwarding queue
+              example: 3
+            printers:
+              type: array
+              items:
+                $ref: '#/components/schemas/PrinterInfo'
+
+    PrinterStats:
+      type: object
+      properties:
+        jobsReceived:
+          type: integer
+          description: Total jobs received by printer adapter
+          example: 1500
+        jobsForwarded:
+          type: integer
+          description: Successfully forwarded jobs
+          example: 1495
+        jobsFailed:
+          type: integer
+          description: Failed forwarding attempts
+          example: 5
+        avgForwardTime:
+          type: number
+          format: float
+          description: Average forwarding time in milliseconds
+          example: 150.5
+
+    PrinterInfo:
+      type: object
+      required:
+        - name
+        - type
+        - enabled
+        - isDefault
+      properties:
+        name:
+          type: string
+          example: "Epson TM-T88V"
+        type:
+          type: string
+          enum: [usb, network, serial]
+          example: "usb"
+        enabled:
+          type: boolean
+          example: true
+        isDefault:
+          type: boolean
+          example: true
+
+    DetectPrintersResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetectedPrinter'
+
+    DetectedPrinter:
+      type: object
+      required:
+        - name
+        - type
+        - connection
+      properties:
+        name:
+          type: string
+          description: Printer name or model
+          example: "Epson TM-T88V"
+        type:
+          type: string
+          enum: [usb, network, serial]
+          example: "usb"
+        connection:
+          oneOf:
+            - $ref: '#/components/schemas/USBConnection'
+            - $ref: '#/components/schemas/NetworkConnection'
+            - $ref: '#/components/schemas/SerialConnection'
+
+    USBConnection:
+      type: object
+      required:
+        - vendorId
+        - productId
+      properties:
+        vendorId:
+          type: integer
+          description: USB vendor ID
+          example: 1208
+        productId:
+          type: integer
+          description: USB product ID
+          example: 514
+        serialNumber:
+          type: string
+          nullable: true
+          example: "ABC123456"
+
+    NetworkConnection:
+      type: object
+      required:
+        - host
+        - port
+      properties:
+        host:
+          type: string
+          description: IP address or hostname
+          example: "192.168.1.100"
+        port:
+          type: integer
+          description: TCP port
+          example: 9100
+
+    SerialConnection:
+      type: object
+      required:
+        - portName
+        - baudRate
+      properties:
+        portName:
+          type: string
+          description: COM port name
+          example: "COM1"
+        baudRate:
+          type: integer
+          description: Baud rate
+          example: 9600
+        dataBits:
+          type: integer
+          example: 8
+        stopBits:
+          type: integer
+          example: 1
+        parity:
+          type: string
+          enum: [none, even, odd]
+          example: "none"
+
+    TestPrintRequest:
+      type: object
+      required:
+        - printerName
+      properties:
+        printerName:
+          type: string
+          description: Name of the printer to test
+          example: "Epson TM-T88V"
+
+    ConfigurePrintersRequest:
+      type: object
+      required:
+        - printers
+      properties:
+        printers:
+          type: array
+          description: Array of printer configurations
+          items:
+            $ref: '#/components/schemas/PrinterConfig'
+
+    PrinterConfig:
+      type: object
+      required:
+        - name
+        - type
+        - connection
+        - enabled
+        - isDefault
+      properties:
+        name:
+          type: string
+          example: "Epson TM-T88V"
+        type:
+          type: string
+          enum: [usb, network, serial]
+          example: "usb"
+        connection:
+          oneOf:
+            - $ref: '#/components/schemas/USBConnection'
+            - $ref: '#/components/schemas/NetworkConnection'
+            - $ref: '#/components/schemas/SerialConnection'
+        enabled:
+          type: boolean
+          example: true
+        isDefault:
+          type: boolean
+          example: true
+
+    QueueStatsResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            pending:
+              type: integer
+              description: Number of receipts pending upload
+              example: 5
+            uploaded:
+              type: integer
+              description: Number of successfully uploaded receipts
+              example: 1234
+            failed:
+              type: integer
+              description: Number of failed upload attempts
+              example: 2
+            oldestPending:
+              type: string
+              format: date-time
+              nullable: true
+              description: Timestamp of oldest pending receipt
+
+    ForwardQueueResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - queueDepth
+            - jobs
+          properties:
+            queueDepth:
+              type: integer
+              description: Number of jobs in forwarding queue
+              example: 3
+            jobs:
+              type: array
+              items:
+                $ref: '#/components/schemas/QueuedJob'
+
+    QueuedJob:
+      type: object
+      required:
+        - jobId
+        - timestamp
+        - forwardAttempts
+      properties:
+        jobId:
+          type: string
+          description: Unique job identifier
+          example: "job-1234567890"
+        timestamp:
+          type: string
+          format: date-time
+          description: Job creation timestamp
+          example: "2026-03-04T14:30:22.001Z"
+        forwardAttempts:
+          type: integer
+          description: Number of forwarding attempts
+          example: 2
+        lastForwardError:
+          type: string
+          nullable: true
+          description: Last forwarding error message
+          example: "Printer offline"
+
+    RetryJobsResponse:
+      type: object
+      required:
+        - success
+        - message
+        - retriedCount
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Retried 5 failed job(s)"
+        retriedCount:
+          type: integer
+          description: Number of jobs retried
+          example: 5
+
+    TemplateResponse:
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          nullable: true
+          oneOf:
+            - $ref: '#/components/schemas/Template'
+            - type: "null"
+        message:
+          type: string
+          example: "No template found"
+
+    Template:
+      type: object
+      required:
+        - version
+        - posSystem
+        - patterns
+      properties:
+        version:
+          type: string
+          description: Template version
+          example: "1.2"
+        posSystem:
+          type: string
+          description: POS system name
+          example: "AccelPOS"
+        patterns:
+          type: object
+          description: Regex patterns for parsing receipt fields
+          additionalProperties:
+            type: string
+          example:
+            item_line: "^(.+?)\\s+(\\d+)\\s+([0-9,]+\\.\\d{2})$"
+            total_line: "^TOTAL\\s+([0-9,]+\\.\\d{2})$"
+            receipt_number: "^Receipt\\s*#?:\\s*(\\S+)$"
+        confidence_threshold:
+          type: number
+          format: float
+          description: Minimum confidence score for successful parse
+          example: 0.85
+
+    GenerateTemplateRequest:
+      type: object
+      required:
+        - receipts
+      properties:
+        receipts:
+          type: array
+          description: Array of sample receipt texts (minimum 3 required)
+          minItems: 3
+          items:
+            type: string
+          example:
+            - "Receipt #001\nItem A  2  10.00\nItem B  1  5.00\nTOTAL  15.00"
+            - "Receipt #002\nItem C  1  20.00\nTOTAL  20.00"
+            - "Receipt #003\nItem D  3  7.50\nItem E  2  12.00\nTOTAL  34.50"
+
+    GenerateTemplateResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Template generated and saved successfully"
+        template:
+          type: object
+          description: Summary of generated template
+          properties:
+            version:
+              type: string
+              example: "1.2"
+            posSystem:
+              type: string
+              example: "AccelPOS"
+            patterns:
+              type: array
+              description: List of pattern names
+              items:
+                type: string
+              example: ["item_line", "total_line", "receipt_number"]
+
+    SuccessResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Operation completed successfully"
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: Error message
+          example: "Printer adapter not initialized"

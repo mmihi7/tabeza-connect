@@ -116,3 +116,118 @@ NEXT-STEPS-*.md
 WHERE-*.md
 HOW-*.md
 WHAT-*.md
+
+# Sensitive files with API keys
+deepseek.py
+config.json
+config-production.json
+
+# All PowerShell scripts and test files
+*.ps1
+temp-*.ps1
+fix-*.ps1
+test-*.ps1
+
+# All development scripts
+fix-*.js
+cleanup-*.js
+verify-*.js
+test-*.js
+temp-*.js
+
+# Build artifacts and binaries
+capture.exe
+*.exe
+*.msi
+*.iss
+
+# Temporary and test files
+test-*.txt
+test-*.json
+test-*.ps1
+test-*.js
+test-output.*
+test-samples.*
+test-spool.*
+temp-*.txt
+temp-*.json
+temp-*.ps1
+temp-*.js
+
+# Backup files
+*.bak
+*.bak2
+*.backup
+*-backup.*
+
+# Swap files
+*.swp
+*.swo
+.git/COMMIT_EDITMSG.swp
+
+# Kiro specs (development only)
+.kiro/specs/
+
+# Development documentation
+DASHBOARD-*.md
+FIXES-*.md
+IMPLEMENTATION-*.md
+
+# License and terms files (keep in repo)
+LICENSE
+LICENSE.txt
+TERMS_AND_PRIVACY.txt
+
+# Development folders
+Plan/
+files.zip
+data/
+
+# NSSM and installer files
+nssm/
+
+# Component backups
+src/electron-main.js.bak
+src/electron-main.js.bak2
+src/tray/status-window.html.backup
+src/electron-builder.yml.backup
+
+# Development utility files
+tabeza-dashboard.jsx
+kill-all.ps1
+
+# Service development files
+src/service/auto-template-generator.js
+src/service/connections/
+src/service/migration/
+src/service/parser/
+src/service/printer-adapter.js
+
+# Forwarder and capture development
+src/forwarder/
+src/capture/README.md
+src/capture/__tests__/
+src/capture/build-capture.js
+src/capture/logger.js
+src/capture/package.json
+
+# Installer development
+src/installer/
+
+# Library development
+src/lib/
+
+# Public development
+src/public/
+src/server/
+
+# Utils development
+src/utils/
+src/version-manager.js
+
+# Test directories
+__tests__/
+
+# Config files
+config.json
+config-production.json
