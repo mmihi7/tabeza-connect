@@ -61,11 +61,21 @@ Source: "config-template.json"; DestDir: "{commonappdata}\Tabeza"; Flags: onlyif
 ; README and documentation
 Source: "README.txt"; DestDir: "{app}"; Flags: isreadme
 
+; clawPDF installer and scripts
+Source: "src\installer\clawPDF-0.9.3.msi"; DestDir: "{tmp}"; Flags: deleteafterinstall
+Source: "src\installer\scripts\install-clawpdf.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall
+Source: "src\installer\scripts\rollback-clawpdf.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall
+Source: "src\installer\scripts\configure-clawpdf.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall
+
 [Dirs]
 ; Create necessary directories
 Name: "{commonappdata}\Tabeza"; Permissions: everyone-full
 Name: "{commonappdata}\Tabeza\queue"; Permissions: everyone-full
 Name: "{commonappdata}\Tabeza\logs"; Permissions: everyone-full
+Name: "{commonappdata}\Tabeza\TabezaPrints"; Permissions: everyone-full
+Name: "{commonappdata}\Tabeza\TabezaPrints\spool"; Permissions: everyone-full
+Name: "{commonappdata}\Tabeza\TabezaPrints\processed"; Permissions: everyone-full
+Name: "{commonappdata}\Tabeza\TabezaPrints\failed"; Permissions: everyone-full
 
 [Icons]
 ; Start menu shortcuts
@@ -82,6 +92,7 @@ var
   InstallSucceeded: Boolean;
   ServiceInstalled: Boolean;
   PrinterInstalled: Boolean;
+  ClawPDFInstalled: Boolean;
 
 // Forward declarations
 procedure RollbackInstallation; forward;
@@ -94,6 +105,7 @@ begin
   InstallSucceeded := False;
   ServiceInstalled := False;
   PrinterInstalled := False;
+  ClawPDFInstalled := False;
 
   // Create configuration page
   ConfigPage := CreateInputQueryPage(wpWelcome,
@@ -243,6 +255,143 @@ begin
   Log('Printer exists check: ' + PrinterName + ' = ' + BoolToStr(Result));
 end;
 
+{*******************************************************************************
+  ClawPDF Management
+*******************************************************************************}
+function InstallClawPDF(): Boolean;
+var
+  ResultCode: Integer;
+  InstallerPath: string;
+  ScriptPath: string;
+  LogPath: string;
+begin
+  Log('Installing clawPDF...');
+  Result := False;
+  
+  InstallerPath := ExpandConstant('{tmp}\clawPDF-0.9.3.msi');
+  ScriptPath := ExpandConstant('{tmp}\install-clawpdf.ps1');
+  LogPath := ExpandConstant('{tmp}\clawpdf-install.log');
+  
+  // Execute PowerShell script to install clawPDF
+  if Exec('powershell.exe',
+    '-NoProfile -ExecutionPolicy Bypass -File "' + ScriptPath + '" ' +
+    '-InstallerPath "' + InstallerPath + '" ' +
+    '-LogPath "' + LogPath + '"',
+    '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    Log('ClawPDF installation script exit code: ' + IntToStr(ResultCode));
+    
+    if ResultCode = 0 then
+    begin
+      Log('ClawPDF installed successfully');
+      ClawPDFInstalled := True;
+      Result := True;
+    end
+    else
+    begin
+      Log('ERROR: ClawPDF installation failed with exit code: ' + IntToStr(ResultCode));
+      MsgBox('Failed to install clawPDF (exit code: ' + IntToStr(ResultCode) + ').' + #13#10 +
+             'Please check the log file at: ' + LogPath, mbError, MB_OK);
+    end;
+  end
+  else
+  begin
+    Log('ERROR: Failed to execute clawPDF installation script');
+    MsgBox('Failed to execute clawPDF installation script.', mbError, MB_OK);
+  end;
+end;
+
+function ConfigureClawPDF(): Boolean;
+var
+  ResultCode: Integer;
+  ScriptPath: string;
+  SpoolPath: string;
+begin
+  Log('Configuring clawPDF printer profile...');
+  Result := False;
+  
+  ScriptPath := ExpandConstant('{tmp}\configure-clawpdf.ps1');
+  SpoolPath := ExpandConstant('{commonappdata}\Tabeza\TabezaPrints\spool');
+  
+  // Execute PowerShell script to configure clawPDF
+  if Exec('powershell.exe',
+    '-NoProfile -ExecutionPolicy Bypass -File "' + ScriptPath + '" ' +
+    '-SpoolPath "' + SpoolPath + '"',
+    '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    Log('ClawPDF configuration script exit code: ' + IntToStr(ResultCode));
+    
+    if ResultCode = 0 then
+    begin
+      Log('ClawPDF configured successfully');
+      Result := True;
+    end
+    else
+    begin
+      Log('ERROR: ClawPDF configuration failed with exit code: ' + IntToStr(ResultCode));
+      MsgBox('Failed to configure clawPDF printer profile (exit code: ' + IntToStr(ResultCode) + ').', mbError, MB_OK);
+    end;
+  end
+  else
+  begin
+    Log('ERROR: Failed to execute clawPDF configuration script');
+    MsgBox('Failed to execute clawPDF configuration script.', mbError, MB_OK);
+  end;
+end;
+
+function RollbackClawPDF(): Boolean;
+var
+  ResultCode: Integer;
+  ScriptPath: string;
+  LogPath: string;
+begin
+  Log('Rolling back clawPDF installation...');
+  Result := False;
+  
+  ScriptPath := ExpandConstant('{tmp}\rollback-clawpdf.ps1');
+  LogPath := ExpandConstant('{tmp}\clawpdf-rollback.log');
+  
+  // Execute PowerShell script to rollback clawPDF
+  if Exec('powershell.exe',
+    '-NoProfile -ExecutionPolicy Bypass -File "' + ScriptPath + '" ' +
+    '-LogPath "' + LogPath + '"',
+    '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    Log('ClawPDF rollback script exit code: ' + IntToStr(ResultCode));
+    
+    if ResultCode = 0 then
+    begin
+      Log('ClawPDF rolled back successfully');
+      Result := True;
+    end
+    else
+    begin
+      Log('WARNING: ClawPDF rollback failed with exit code: ' + IntToStr(ResultCode));
+      // Don't show error to user during rollback - just log it
+    end;
+  end
+  else
+  begin
+    Log('WARNING: Failed to execute clawPDF rollback script');
+  end;
+end;
+
+{*******************************************************************************
+  Printer Management (continued)
+*******************************************************************************}
+function PrinterExists(PrinterName: string): Boolean;
+var
+  ResultCode: Integer;
+  Output: AnsiString;
+begin
+  // Use PowerShell to check if printer exists
+  Result := Exec('powershell.exe', 
+    '-NoProfile -Command "Get-Printer -Name ''' + PrinterName + ''' -ErrorAction SilentlyContinue | Out-Null; exit $LASTEXITCODE"',
+    '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Result := Result and (ResultCode = 0);
+  Log('Printer exists check: ' + PrinterName + ' = ' + BoolToStr(Result));
+end;
+
 function InstallVirtualPrinter(PrinterName: string): Boolean;
 var
   ResultCode: Integer;
@@ -348,6 +497,12 @@ begin
     end;
   end;
   
+  // Rollback clawPDF if it was installed
+  if ClawPDFInstalled then
+  begin
+    RollbackClawPDF();
+  end;
+  
   Log('Rollback complete');
 end;
 
@@ -384,8 +539,27 @@ begin
         Exit;
       end;
       
-      // Step 2: Install virtual printer
-      Log('Step 2: Installing virtual printer');
+      // Step 2: Install clawPDF
+      Log('Step 2: Installing clawPDF');
+      if not InstallClawPDF() then
+      begin
+        MsgBox('Failed to install clawPDF. This is required for receipt capture.' + #13#10 + 
+               'Please run the installer again as Administrator.', mbCriticalError, MB_OK);
+        RollbackInstallation;
+        Exit;
+      end;
+      
+      // Step 3: Configure clawPDF printer profile
+      Log('Step 3: Configuring clawPDF printer profile');
+      if not ConfigureClawPDF() then
+      begin
+        MsgBox('Failed to configure clawPDF printer profile. Installation cannot continue.', mbCriticalError, MB_OK);
+        RollbackInstallation;
+        Exit;
+      end;
+      
+      // Step 4: Install virtual printer (legacy - may be removed in future)
+      Log('Step 4: Installing virtual printer (legacy)');
       if not PrinterExists('{#PrinterName}') then
       begin
         if not InstallVirtualPrinter('{#PrinterName}') then
@@ -402,8 +576,8 @@ begin
         PrinterInstalled := True; // Mark as installed for rollback purposes
       end;
       
-      // Step 3: Stop existing service if running
-      Log('Step 3: Checking for existing service');
+      // Step 5: Stop existing service if running
+      Log('Step 5: Checking for existing service');
       if ServiceExists('{#ServiceName}') then
       begin
         Log('Existing service found, stopping and removing');
@@ -412,8 +586,8 @@ begin
         Sleep(2000); // Wait for full cleanup
       end;
       
-      // Step 4: Install Windows service
-      Log('Step 4: Installing Windows service');
+      // Step 6: Install Windows service
+      Log('Step 6: Installing Windows service');
       if not InstallService('{#ServiceName}', ExePath) then
       begin
         MsgBox('Failed to install Windows service. Please check the installation log.', mbCriticalError, MB_OK);
@@ -421,8 +595,8 @@ begin
         Exit;
       end;
       
-      // Step 5: Start the service
-      Log('Step 5: Starting service');
+      // Step 7: Start the service
+      Log('Step 7: Starting service');
       ServiceStarted := StartService('{#ServiceName}');
       if not ServiceStarted then
       begin
@@ -444,30 +618,219 @@ begin
 end;
 
 {*******************************************************************************
+  Registry Cleanup Functions
+*******************************************************************************}
+function DeleteRegistryKey(RootKey: Integer; SubKeyPath: string): Boolean;
+var
+  ResultCode: Integer;
+  RootKeyName: string;
+begin
+  Result := False;
+  
+  // Convert root key constant to string for logging
+  case RootKey of
+    HKEY_LOCAL_MACHINE: RootKeyName := 'HKLM';
+    HKEY_CURRENT_USER: RootKeyName := 'HKCU';
+    else RootKeyName := 'UNKNOWN';
+  end;
+  
+  Log('Attempting to delete registry key: ' + RootKeyName + '\' + SubKeyPath);
+  
+  // Check if key exists before attempting deletion
+  if RegKeyExists(RootKey, SubKeyPath) then
+  begin
+    if RegDeleteKeyIncludingSubkeys(RootKey, SubKeyPath) then
+    begin
+      Log('Successfully deleted registry key: ' + RootKeyName + '\' + SubKeyPath);
+      Result := True;
+    end
+    else
+    begin
+      Log('WARNING: Failed to delete registry key: ' + RootKeyName + '\' + SubKeyPath);
+    end;
+  end
+  else
+  begin
+    Log('Registry key does not exist (already removed): ' + RootKeyName + '\' + SubKeyPath);
+    Result := True; // Not an error if key doesn't exist
+  end;
+end;
+
+function CleanupTabezaRegistry(): Boolean;
+begin
+  Log('Cleaning up Tabeza Connect registry entries...');
+  Result := True;
+  
+  // Remove Tabeza Connect configuration registry key
+  if not DeleteRegistryKey(HKEY_LOCAL_MACHINE, 'SOFTWARE\Tabeza\TabezaConnect') then
+    Result := False;
+  
+  // Remove parent Tabeza key if it's empty (no other subkeys)
+  if RegKeyExists(HKEY_LOCAL_MACHINE, 'SOFTWARE\Tabeza') then
+  begin
+    // Only delete if no subkeys remain
+    if not RegKeyExists(HKEY_LOCAL_MACHINE, 'SOFTWARE\Tabeza\TabezaConnect') then
+    begin
+      Log('Attempting to remove parent Tabeza registry key if empty...');
+      DeleteRegistryKey(HKEY_LOCAL_MACHINE, 'SOFTWARE\Tabeza');
+    end;
+  end;
+  
+  Log('Tabeza Connect registry cleanup complete');
+end;
+
+function CleanupClawPDFRegistry(): Boolean;
+var
+  UserChoice: Integer;
+begin
+  Log('Checking for clawPDF registry entries...');
+  Result := True;
+  
+  // Check if clawPDF registry keys exist
+  if RegKeyExists(HKEY_CURRENT_USER, 'Software\clawSoft\clawPDF') or
+     RegKeyExists(HKEY_LOCAL_MACHINE, 'SOFTWARE\clawSoft\clawPDF') then
+  begin
+    // Ask user if they want to remove clawPDF completely
+    UserChoice := MsgBox(
+      'Do you want to remove clawPDF printer software completely?' + #13#10 + #13#10 +
+      'Choose "Yes" to remove clawPDF and all its settings.' + #13#10 +
+      'Choose "No" to keep clawPDF installed (you may be using it for other purposes).' + #13#10 + #13#10 +
+      'Note: The "Tabeza POS Printer" profile will be removed regardless of your choice.',
+      mbConfirmation, MB_YESNO);
+    
+    if UserChoice = IDYES then
+    begin
+      Log('User chose to remove clawPDF completely');
+      
+      // Remove clawPDF user settings (HKCU)
+      if not DeleteRegistryKey(HKEY_CURRENT_USER, 'Software\clawSoft\clawPDF') then
+        Result := False;
+      
+      // Remove clawPDF machine settings (HKLM)
+      if not DeleteRegistryKey(HKEY_LOCAL_MACHINE, 'SOFTWARE\clawSoft\clawPDF') then
+        Result := False;
+      
+      // Remove parent clawSoft keys if empty
+      if RegKeyExists(HKEY_CURRENT_USER, 'Software\clawSoft') then
+      begin
+        if not RegKeyExists(HKEY_CURRENT_USER, 'Software\clawSoft\clawPDF') then
+          DeleteRegistryKey(HKEY_CURRENT_USER, 'Software\clawSoft');
+      end;
+      
+      if RegKeyExists(HKEY_LOCAL_MACHINE, 'SOFTWARE\clawSoft') then
+      begin
+        if not RegKeyExists(HKEY_LOCAL_MACHINE, 'SOFTWARE\clawSoft\clawPDF') then
+          DeleteRegistryKey(HKEY_LOCAL_MACHINE, 'SOFTWARE\clawSoft');
+      end;
+      
+      Log('clawPDF registry cleanup complete');
+    end
+    else
+    begin
+      Log('User chose to keep clawPDF installed');
+    end;
+  end
+  else
+  begin
+    Log('No clawPDF registry entries found');
+  end;
+end;
+
+{*******************************************************************************
   Uninstallation
 *******************************************************************************}
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  DataChoice: Integer;
 begin
   if CurUninstallStep = usUninstall then
   begin
     Log('Starting uninstallation...');
+    Log('Tabeza Connect version: {#MyAppVersion}');
+    Log('Computer name: ' + GetComputerNameString);
     
-    // Stop and remove service
+    // Step 1: Stop and remove service
+    Log('Step 1: Stopping and removing Windows service');
     if ServiceExists('{#ServiceName}') then
     begin
       StopService('{#ServiceName}');
       DeleteService('{#ServiceName}');
+      Log('Service removed successfully');
+    end
+    else
+    begin
+      Log('Service not found (already removed or never installed)');
     end;
     
-    // Remove virtual printer
+    // Step 2: Remove virtual printer
+    Log('Step 2: Removing virtual printer');
     if PrinterExists('{#PrinterName}') then
     begin
       DeletePrinter('{#PrinterName}');
+      Log('Printer removed successfully');
+    end
+    else
+    begin
+      Log('Printer not found (already removed or never installed)');
     end;
     
-    // Note: We don't delete config files or queue data
-    // in case user wants to reinstall and keep their configuration
+    // Step 3: Clean up Tabeza Connect registry entries
+    Log('Step 3: Cleaning up Tabeza Connect registry entries');
+    CleanupTabezaRegistry();
+    
+    // Step 4: Clean up clawPDF registry entries (with user prompt)
+    Log('Step 4: Cleaning up clawPDF registry entries');
+    CleanupClawPDFRegistry();
+    
+    // Step 5: Ask about data deletion
+    Log('Step 5: Checking for user data');
+    if DirExists(ExpandConstant('{commonappdata}\Tabeza')) then
+    begin
+      DataChoice := MsgBox(
+        'Do you want to delete all captured receipt data and configuration?' + #13#10 + #13#10 +
+        'This includes:' + #13#10 +
+        '  • Configuration files (config.json, template.json)' + #13#10 +
+        '  • Captured receipts and queue data' + #13#10 +
+        '  • Log files' + #13#10 + #13#10 +
+        'Choose "Yes" to delete all data (cannot be undone).' + #13#10 +
+        'Choose "No" to keep your data for future reinstallation.',
+        mbConfirmation, MB_YESNO);
+      
+      if DataChoice = IDYES then
+      begin
+        Log('User chose to delete all data');
+        Log('Deleting data directory: ' + ExpandConstant('{commonappdata}\Tabeza'));
+        
+        // Delete the entire Tabeza data directory
+        if DelTree(ExpandConstant('{commonappdata}\Tabeza'), True, True, True) then
+        begin
+          Log('Successfully deleted all user data');
+        end
+        else
+        begin
+          Log('WARNING: Failed to delete some user data files');
+          MsgBox('Some data files could not be deleted. You may need to manually remove: ' + #13#10 +
+                 ExpandConstant('{commonappdata}\Tabeza'), mbInformation, MB_OK);
+        end;
+      end
+      else
+      begin
+        Log('User chose to keep data for future reinstallation');
+        MsgBox('Your configuration and receipt data have been preserved at:' + #13#10 +
+               ExpandConstant('{commonappdata}\Tabeza') + #13#10 + #13#10 +
+               'This data will be used if you reinstall Tabeza Connect.',
+               mbInformation, MB_OK);
+      end;
+    end
+    else
+    begin
+      Log('No user data directory found');
+    end;
+    
     Log('Uninstallation complete');
+    Log('Registry cleanup: Complete');
+    Log('Service removal: Complete');
+    Log('Printer removal: Complete');
   end;
 end;
 
@@ -498,7 +861,9 @@ begin
 end;
 
 [UninstallDelete]
-; Clean up generated files on uninstall (keep config and queue for safety)
+; Clean up application files on uninstall
+; Note: User data deletion is handled programmatically in CurUninstallStepChanged
+; based on user choice during uninstallation
 Type: filesandordirs; Name: "{app}"
 
 [Run]

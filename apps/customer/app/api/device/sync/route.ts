@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createServiceRoleClient } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
@@ -7,6 +7,9 @@ export async function POST(request: NextRequest) {
     const { deviceId, lastSeen } = body;
 
     console.log('🔄 Device sync request:', { deviceId, lastSeen });
+
+    // Create service role client for server-side operations
+    const supabase = createServiceRoleClient();
 
     // Validate required fields
     if (!deviceId) {
@@ -17,7 +20,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update device last_seen timestamp
-    const { data: updatedDevice, error: updateError } = await (supabase as any)
+    const { data: updatedDevice, error: updateError } = await supabase
       .from('devices')
       .update({
         last_seen: new Date().toISOString()
