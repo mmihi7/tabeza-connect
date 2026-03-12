@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" />
+  <title>Tabeza POS Connect Status</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .header {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .header img { width: 24px; height: 24px; }
+    .header h1  { font-size: 14px; font-weight: 600; letter-spacing: 0.3px; }
+
+    .status-bar {
+      padding: 9px 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .status-bar.connected    { background: #d1fae5; color: #065f46; }
+    .status-bar.disconnected { background: #fef3c7; color: #92400e; }
+    .status-bar.error        { background: #fee2e2; color: #991b1b; }
+    .status-bar.starting     { background: #e0f2fe; color: #075985; }
+    .status-bar.unconfigured { background: #fef3c7; color: #92400e; }
+    .status-bar.shutting_down{ background: #f3f4f6; color: #6b7280; }
+
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .connected     .dot { background: #10b981; }
+    .disconnected  .dot { background: #f59e0b; }
+    .error         .dot { background: #ef4444; }
+    .starting      .dot { background: #3b82f6; animation: blink 1.2s ease-in-out infinite; }
+    .unconfigured  .dot { background: #f59e0b; }
+    .shutting_down .dot { background: #9ca3af; }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.25; }
+    }
+
+    .info-grid {
+      flex: 1;
+      padding: 14px 18px;
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      row-gap: 8px;
+      column-gap: 8px;
+      align-content: start;
+      overflow-y: auto;
+    }
+
+    .label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+    }
+
+    .value {
+      font-size: 12px;
+      color: #111827;
+      word-break: break-all;
+      display: flex;
+      align-items: center;
+    }
+
+    .section-header {
+      grid-column: 1 / -1;
+      font-size: 10px;
+      font-weight: 700;
+      color: #374151;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 3px;
+      margin-top: 8px;
+    }
+    .section-header:first-child { margin-top: 0; }
+
+    .footer {
+      padding: 10px 18px;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      gap: 6px;
+      justify-content: flex-end;
+      background: #fff;
+      flex-shrink: 0;
+    }
+
+    button {
+      padding: 6px 14px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: background 0.12s;
+    }
+    .btn-dark {
+      background: #1a1a2e; color: #fff;
+    }
+    .btn-dark:hover { background: #2d2d4e; }
+
+    .btn-outline {
+      background: #fff; color: #374151; border-color: #d1d5db;
+    }
+    .btn-outline:hover { background: #f9fafb; }
+
+    .btn-green {
+      background: #10b981; color: #fff;
+    }
+    .btn-green:hover { background: #059669; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <img id="header-icon" src="" alt="" />
+    <h1>Tabeza POS Connect</h1>
+  </div>
+
+  <div class="status-bar starting" id="status-bar">
+    <div class="dot"></div>
+    <span id="status-text">Starting...</span>
+  </div>
+
+  <div class="info-grid">
+
+    <div class="section-header">Connection</div>
+
+    <div class="label">Bar ID</div>
+    <div class="value" id="val-bar-id">—</div>
+
+    <div class="label">API URL</div>
+    <div class="value" id="val-api-url">—</div>
+
+    <div class="label">Driver ID</div>
+    <div class="value" id="val-driver-id">—</div>
+
+    <div class="label">Last Activity</div>
+    <div class="value" id="val-last-activity">—</div>
+
+    <div class="label">Receipts</div>
+    <div class="value" id="val-receipts">0</div>
+
+    <div class="section-header">Service</div>
+
+    <div class="label">Port</div>
+    <div class="value" id="val-port">8765</div>
+
+    <div class="label">Capture Mode</div>
+    <div class="value" id="val-capture-mode">—</div>
+
+    <div class="label">Watch Folder</div>
+    <div class="value" id="val-watch-folder">—</div>
+
+    <div class="label">Printer</div>
+    <div class="value" id="val-printer">—</div>
+
+    <div class="label">Version</div>
+    <div class="value" id="val-version">—</div>
+
+  </div>
+
+  <div class="footer">
+    <button class="btn-outline" id="btn-config">Open Configuration</button>
+    <button class="btn-outline" id="btn-template">Template Generator</button>
+    <button class="btn-outline" id="btn-printer">Printer Setup</button>
+    <button class="btn-outline" id="btn-test">Test Print</button>
+    <button class="btn-green"   id="btn-ok">OK</button>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+    const path = require('path');
+
+    const STATE_UI = {
+      connected:    { cls: 'connected',    text: 'Connected' },
+      disconnected: { cls: 'disconnected', text: 'Cloud disconnected' },
+      error:        { cls: 'error',        text: 'Error' },
+      starting:     { cls: 'starting',     text: 'Starting...' },
+      unconfigured: { cls: 'unconfigured', text: 'Configuration required' },
+      shutting_down:{ cls: 'shutting_down',text: 'Shutting down...' },
+    };
+
+    function applyStatus(status) {
+      if (!status) return;
+
+      const bar  = document.getElementById('status-bar');
+      const txt  = document.getElementById('status-text');
+      const ui   = STATE_UI[status.appState] || STATE_UI['starting'];
+
+      bar.className = 'status-bar ' + ui.cls;
+      txt.textContent = ui.text;
+
+      // Update header icon: green for connected, grey for all other states
+      const headerIcon = document.getElementById('header-icon');
+      if (headerIcon) {
+        const iconName = status.appState === 'connected' ? 'icon-green.ico' : 'icon-grey.ico';
+        const iconPath = path.join(__dirname, '../../assets', iconName);
+        headerIcon.src = 'file://' + iconPath;
+      }
+
+      setText('val-bar-id',        status.barId       || '—');
+      setText('val-api-url',       status.apiUrl      || '—');
+      setText('val-driver-id',     status.driverId    || '—');
+      setText('val-last-activity', status.lastActivity
+        ? new Date(status.lastActivity).toLocaleString() : '—');
+      setText('val-receipts',      status.receiptsProcessed != null
+        ? String(status.receiptsProcessed) : '0');
+      setText('val-port',          status.port ? String(status.port) : '8765');
+      setText('val-capture-mode',  status.captureMode || '—');
+      setText('val-watch-folder',  status.watchFolder || '—');
+      setText('val-printer',       status.printerName || '—');
+      setText('val-version',       status.version     || '—');
+    }
+
+    function setText(id, value) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value;
+    }
+
+    ipcRenderer.on('set-icon', (_e, iconPath) => {
+      const img = document.getElementById('header-icon');
+      if (img && iconPath) img.src = 'file://' + iconPath;
+    });
+
+    ipcRenderer.on('status-update', (_e, status) => applyStatus(status));
+
+    ipcRenderer.send('get-status');
+    ipcRenderer.once('status-reply', (_e, status) => applyStatus(status));
+
+    document.getElementById('btn-config').addEventListener('click', () => {
+      ipcRenderer.send('open-config');
+    });
+
+    document.getElementById('btn-template').addEventListener('click', () => {
+      ipcRenderer.send('open-template-wizard');
+    });
+
+    document.getElementById('btn-printer').addEventListener('click', () => {
+      ipcRenderer.send('open-printer-setup');
+    });
+
+    document.getElementById('btn-test').addEventListener('click', () => {
+      ipcRenderer.send('test-print');
+    });
+
+    document.getElementById('btn-ok').addEventListener('click', () => {
+      ipcRenderer.send('hide-window');
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,1 @@
+Get-Printer | Where-Object { $_.Name -like '*Tabeza*' } | Format-List Name,PortName,DriverName

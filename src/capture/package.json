@@ -1,0 +1,44 @@
+{
+  "name": "@tabeza/capture",
+  "version": "1.0.0",
+  "description": "Tabeza Redmon Capture Script - Processes print jobs from Redmon port monitor",
+  "main": "index.js",
+  "bin": {
+    "tabeza-capture": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "jest",
+    "build": "pkg index.js --targets node20-win-x64 --output ../../dist/capture.exe",
+    "build:debug": "pkg index.js --targets node20-win-x64 --output ../../dist/capture.exe --debug"
+  },
+  "dependencies": {
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "pkg": "^5.8.1"
+  },
+  "pkg": {
+    "scripts": [
+      "index.js",
+      "logger.js",
+      "../utils/textifier.js",
+      "../service/receiptParser.js"
+    ],
+    "assets": [],
+    "targets": [
+      "node20-win-x64"
+    ],
+    "outputPath": "../../dist"
+  },
+  "keywords": [
+    "tabeza",
+    "capture",
+    "redmon",
+    "receipt",
+    "pos"
+  ],
+  "author": "Tabeza",
+  "license": "MIT"
+}

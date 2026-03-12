@@ -1,0 +1,81 @@
+Tabeza Connect - Terms of Service and Privacy Policy
+
+TERMS OF SERVICE
+
+Last Updated: March 2026
+
+1. Acceptance of Terms
+By installing and using Tabeza Connect, you agree to these terms and conditions.
+
+2. Service Description
+Tabeza Connect is a bridge between your POS system and Tabeza cloud services that enables:
+- Digital receipt capture and processing
+- Real-time data synchronization
+- Template-based receipt parsing
+- Cloud storage and analytics
+
+3. User Responsibilities
+- Ensure your POS system is compatible
+- Maintain accurate business information
+- Use the service in accordance with applicable laws
+- Protect your login credentials
+
+4. Service Availability
+While we strive for 99.9% uptime, we cannot guarantee uninterrupted service. 
+We are not liable for business losses due to service interruptions.
+
+5. Data Usage
+You retain ownership of all receipt and business data. We only use data to:
+- Provide the service
+- Improve functionality
+- Generate analytics reports
+- Ensure system security
+
+6. Termination
+Either party may terminate this agreement with 30 days notice.
+
+PRIVACY POLICY
+
+1. Data Collection
+We collect:
+- Receipt data (items, prices, taxes)
+- Business information (name, location, Bar ID)
+- Usage statistics and error logs
+- Device information for compatibility
+
+2. Data Usage
+Your data is used to:
+- Process and store digital receipts
+- Generate business analytics
+- Improve service performance
+- Provide customer support
+
+3. Data Protection
+- All data is encrypted in transit and at rest
+- Access is restricted to authorized personnel
+- Regular security audits are performed
+- Data is backed up to prevent loss
+
+4. Data Sharing
+We do not sell or share your business data with third parties except:
+- As required by law
+- With your explicit consent
+- For essential service providers (e.g., cloud hosting)
+
+5. Data Retention
+- Receipt data is retained for 7 years (accounting requirement)
+- You can request data deletion at any time
+- We delete data upon account closure
+
+6. Your Rights
+- Access your data on demand
+- Export your data in standard formats
+- Request corrections to inaccurate information
+- Opt out of non-essential data collection
+
+CONTACT INFORMATION
+For privacy concerns or questions about these terms:
+Email: privacy@tabeza.co.ke
+Website: https://tabeza.co.ke/privacy
+
+By clicking "I Agree" below, you confirm that you have read, understood, and agree to these terms.

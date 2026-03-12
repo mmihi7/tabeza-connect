@@ -1,0 +1,42 @@
+{
+  "lastBuildVersion": "1.0.6",
+  "history": [
+    {
+      "version": "1.0.1",
+      "timestamp": "2026-03-10T16:35:32.458Z",
+      "previousVersion": "1.0.0",
+      "buildNumber": 1
+    },
+    {
+      "version": "1.0.2",
+      "timestamp": "2026-03-10T16:39:38.664Z",
+      "previousVersion": "1.0.1",
+      "buildNumber": 2
+    },
+    {
+      "version": "1.0.3",
+      "timestamp": "2026-03-10T17:15:26.450Z",
+      "previousVersion": "1.0.2",
+      "buildNumber": 3
+    },
+    {
+      "version": "1.0.4",
+      "timestamp": "2026-03-10T18:32:02.889Z",
+      "previousVersion": "1.0.3",
+      "buildNumber": 4
+    },
+    {
+      "version": "1.0.5",
+      "timestamp": "2026-03-10T18:46:08.625Z",
+      "previousVersion": "1.0.4",
+      "buildNumber": 5
+    },
+    {
+      "version": "1.0.6",
+      "timestamp": "2026-03-10T19:27:37.432Z",
+      "previousVersion": "1.0.5",
+      "buildNumber": 6
+    }
+  ],
+  "lastUpdated": "2026-03-10T19:27:37.433Z"
+}

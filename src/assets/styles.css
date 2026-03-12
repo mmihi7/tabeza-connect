@@ -1,0 +1,277 @@
+/* Tabeza Connect - Core Styles */
+/* ── Reset & base ─────────────────────────── */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #020617;
+  --surface: #0f172a;
+  --surface2: #0a1628;
+  --border: #1e293b;
+  --text: #e2e8f0;
+  --muted: #64748b;
+  --ok: #22c55e;
+  --warn: #f59e0b;
+  --error: #ef4444;
+  --unknown: #6b7280;
+  --font: 'Consolas', 'Courier New', monospace;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  padding: 20px;
+  font-size: 12px;
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  /* Electron drag region */
+  -webkit-app-region: drag;
+}
+
+button, input {
+  -webkit-app-region: no-drag; /* buttons must be clickable */
+}
+
+/* ── Header ───────────────────────────────── */
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.logo {
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--ok);
+}
+
+/* ── Status Cards ───────────────────────────────── */
+
+.status-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 15px;
+  transition: all 0.3s ease;
+}
+
+.status-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.status-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+  font-weight: bold;
+}
+
+.status-icon {
+  width: 24px;
+  height: 24px;
+  margin-right: 10px;
+  border-radius: 50%;
+}
+
+.status-value {
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--text);
+}
+
+/* ── Pipeline Status ───────────────────────────────── */
+
+.pipeline {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.pipeline-step {
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  background: var(--surface2);
+  border-radius: 8px;
+  border-left: 4px solid var(--border);
+}
+
+.pipeline-step.active {
+  background: var(--surface);
+  border-left-color: var(--ok);
+}
+
+.pipeline-step.error {
+  background: var(--surface);
+  border-left-color: var(--error);
+}
+
+.pipeline-step.warning {
+  background: var(--surface);
+  border-left-color: var(--warn);
+}
+
+/* ── Progress Bar ───────────────────────────────── */
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--surface2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 10px 0;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--ok), var(--surface2));
+  transition: width 0.5s ease;
+  border-radius: 4px;
+}
+
+.progress-text {
+  text-align: center;
+  font-size: 12px;
+  margin-top: 5px;
+  color: var(--muted);
+}
+
+/* ── Buttons ───────────────────────────────── */
+
+.btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 12px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 14px;
+  transition: all 0.2s ease;
+  -webkit-app-region: no-drag;
+}
+
+.btn:hover {
+  background: var(--surface2);
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn.primary {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: white;
+}
+
+.btn.primary:hover {
+  background: #1a9b4e;
+}
+
+.btn.danger {
+  background: var(--error);
+  border-color: var(--error);
+  color: white;
+}
+
+.btn.warning {
+  background: var(--warn);
+  border-color: var(--warn);
+  color: white;
+}
+
+/* ── Icons ───────────────────────────────── */
+
+.icon {
+  width: 20px;
+  height: 20px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.icon.success {
+  color: var(--ok);
+}
+
+.icon.error {
+  color: var(--error);
+}
+
+.icon.warning {
+  color: var(--warn);
+}
+
+.icon.unknown {
+  color: var(--unknown);
+}
+
+/* ── Animations ───────────────────────────────── */
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.pulse {
+  animation: pulse 2s infinite;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+/* ── Utility Classes ───────────────────────────────── */
+
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.text-large {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.mt-10 { margin-top: 10px; }
+.mt-20 { margin-top: 20px; }
+.mb-10 { margin-bottom: 10px; }
+.mb-20 { margin-bottom: 20px; }
+
+.hidden {
+  display: none;
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

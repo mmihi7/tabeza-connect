@@ -785,6 +785,7 @@
 <!-- TABS -->
 <div class="tabs">
   <button class="tab-btn active" data-tab="pipeline">🔗 Pipeline</button>
+  <button class="tab-btn"       data-tab="receipt-flow">📝 Receipt Flow</button>
   <button class="tab-btn"       data-tab="config">⚙️ Config</button>
   <button class="tab-btn"       data-tab="logs">📋 Logs</button>
   <button class="tab-btn"       data-tab="actions">🛠️ Actions</button>
@@ -793,7 +794,7 @@
 <!-- PIPELINE TAB -->
 <div class="tab-panel active" id="tab-pipeline">
   <div class="pipeline-wrap">
-    <div class="pipeline-label">RECEIPT FLOW · CLICK ANY NODE FOR DETAILS</div>
+    <div class="pipeline-label">RECEIPT FLOW · CLICK NODES FOR DETAILS</div>
     <div class="pipeline-row" id="pipeline-row"></div>
   </div>
   <div class="detail-panel" id="detail-panel"></div>
@@ -801,6 +802,18 @@
     <div class="issues-title">⚠️ ACTIVE ISSUES</div>
     <div id="issues-list"></div>
   </div>
+</div>
+
+<!-- RECEIPT FLOW TAB -->
+<div class="tab-panel" id="tab-receipt-flow">
+  <div class="pipeline-wrap">
+    <div class="pipeline-label">RECEIPT FLOW</div>
+    <div class="pipeline-row" id="receipt-flow-row"></div>
+  </div>
+  <div class="detail-panel" id="detail-panel"></div>
+  
+  <!-- Receipt Flow Nodes will be rendered here by JavaScript -->
+  <div id="receipt-flow-nodes"></div>
 </div>
 
 <!-- CONFIG TAB -->
@@ -1286,18 +1299,30 @@ function updatePrinterStatus(status) {
 }
 
 function loadCurrentConfig() {
-  // Load current configuration via IPC
-  ipc.invoke('get-config').then(config => {
-    if (config.barId) {
-      document.getElementById('bar-id-input').value = config.barId;
-      document.getElementById('bar-id').textContent = config.barId;
-    }
-    if (config.apiEndpoint) {
-      document.getElementById('api-endpoint').value = config.apiEndpoint;
-    }
-    
-    // Update printer status
-    updatePrinterStatus(config.printerStatus || 'offline');
+  // Wait for electronAPI to be available (preload script timing issue)
+  const waitForElectronAPI = () => {
+    return new Promise((resolve) => {
+      if (window.electronAPI) {
+        resolve();
+      } else {
+        setTimeout(() => waitForElectronAPI(), 100);
+      }
+    });
+  };
+  
+  waitForElectronAPI().then(() => {
+    // Load current configuration via IPC
+    ipc.invoke('get-config').then(config => {
+      if (config.barId) {
+        document.getElementById('bar-id-input').value = config.barId;
+        document.getElementById('bar-id').textContent = config.barId;
+      }
+      if (config.apiEndpoint) {
+        document.getElementById('api-endpoint').value = config.apiEndpoint;
+      }
+    }).catch(err => {
+      console.error('Failed to load config:', err);
+    });
   });
 }
 
@@ -1603,6 +1628,13 @@ function initializeTabs() {
       if (panel) {
         panel.classList.add('active');
       }
+      
+      // Render appropriate content based on tab
+      if (tabName === 'pipeline') {
+        renderPipeline();
+      } else if (tabName === 'receipt-flow') {
+        renderReceiptFlow();
+      }
     });
   });
 }
@@ -1621,6 +1653,7 @@ const ipc = window.electronAPI || {
     if (channel === 'test-template') return { success: true };
     if (channel === 'setup-printer') return { success: true };
     if (channel === 'test-print') return { success: true };
+    if (channel === 'get-samples-status') return MOCK_STATUS;
     return { success: true };
   },
   on: (channel, cb) => {
@@ -1733,6 +1766,37 @@ function renderHeader() {
   chips.innerHTML = Object.entries(counts).map(([k,v]) =>
     `<span class="badge ${k}">${v} ${statusLabel(k)}</span>` 
   ).join('');
+}
+
+function renderReceiptFlow() {
+  const row = document.getElementById('receipt-flow-row');
+  if (!row) return;
+  
+  // Filter NODES to only show receipt flow nodes
+  const receiptFlowNodes = NODES.filter(node => 
+    node.id === 'pos' || node.id === 'capture' || node.id === 'parser' || 
+    node.id === 'upload' || node.id === 'receipt-flow' || node.id === 'restaurant'
+  );
+  
+  row.innerHTML = receiptFlowNodes.map((node, i) => {
+    const s    = (pipelineStatus[node.id] || {}).status || 'unknown';
+    const det  = (pipelineStatus[node.id] || {}).detail || '—';
+    const isActive = activeNodeId === node.id;
+    const activeCls = isActive ? ` active-${s}` : '';
+    const arrow = i < receiptFlowNodes.length - 1
+      ? `<div class="arrow"><svg width="26" height="10"><line x1="0" y1="5" x2="18" y2="5" stroke="#334155" stroke-width="1.5" stroke-dasharray="3,2"/><polygon points="18,1 26,5 18,9" fill="#334155"/></svg></div>` 
+      : '';
+    return `
+      <div class="pipeline-node${activeCls}" data-id="${node.id}" onclick="selectNode('${node.id}')">
+        <div class="node-dot ${s}"></div>
+        <div class="node-icon">${node.icon}</div>
+        <div class="node-name">${node.label}</div>
+        <div class="node-sub">${node.sub}</div>
+        <div class="node-detail ${s}">${det}</div>
+      </div>
+      ${arrow}
+    `;
+  }).join('');
 }
 
 function renderPipeline() {

@@ -14,19 +14,6 @@ const { app, BrowserWindow, Tray, Menu, dialog, shell, ipcMain, Notification } =
 const path = require('path');
 const fs = require('fs');
 const { spawn, exec } = require('child_process');
-
-// Single instance lock - MUST be at top before any app ready
-const gotTheLock = app.requestSingleInstanceLock();
-if (!gotTheLock) {
-  app.quit();
-}
-app.on('second-instance', () => {
-  if (mainWindow) {
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.focus();
-  }
-});
-
 const setupStateManager = require('./lib/setup-state-manager');
 const windowStateManager = require('./lib/window-state-manager');
 
@@ -56,7 +43,7 @@ const LOG_FILE = path.join(LOG_DIR, 'electron.log');
 // Development vs Production paths (deferred until app is ready)
 let isDev = false;
 // In production, extraResources are at process.resourcesPath/assets/
-let ASSETS_PATH = path.join(__dirname, '../assets'); // updated in whenReady
+const ASSETS_PATH = path.join(__dirname, '../assets');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Global State
@@ -155,59 +142,28 @@ function initializeStateSync() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Verify and fix RedMon registry on startup
-function verifyRedMonRegistry() {
-  const { execSync } = require('child_process');
-  const regPath = 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Monitors\\Redirected Port\\Ports\\TabezaCapturePort';
-  
-  try {
-    const command = execSync(`reg query "${regPath}"`, { encoding: 'utf8' });
-    
-    // Check if command is correct
-    if (!command.includes('C:\\TabezaPrints\\capture.exe')) {
-      log('INFO', 'Fixing RedMon registry: Setting capture.exe path');
-      execSync(`reg add "${regPath}" /v Command /t REG_SZ /d "C:\\TabezaPrints\\capture.exe" /f`, { encoding: 'utf8' });
-    }
-    
-    // Check if output (physical printer) is set
-    if (!command.includes('EPSON')) {
-      log('INFO', 'Fixing RedMon registry: Setting output printer');
-      execSync(`reg add "${regPath}" /v Output /t REG_SZ /d "EPSON L3210 Series" /f`, { encoding: 'utf8' });
-    }
-    
-    log('INFO', 'RedMon registry verified');
-  } catch (e) {
-    log('WARN', `RedMon registry check failed: ${e.message}`);
-  }
-}
-
 // App Initialization - Call State Sync on Startup
 // ─────────────────────────────────────────────────────────────────────────────
 // Initialize state synchronization system when Electron app is ready.
 // This must happen before any windows are created to ensure all windows
 // can register properly and receive initial state.
 
-app.whenReady().then(async () => {
+app.whenReady().then(() => {
   log('INFO', 'Electron app ready - starting initialization sequence');
-  
-  // Verify RedMon registry on startup
-  verifyRedMonRegistry();
   
   // Set development mode now that app is ready
   isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
   
-  // Update global ASSETS_PATH (assign, not re-declare)
-  ASSETS_PATH = isDev 
+  // Update ASSETS_PATH based on development mode
+  const ASSETS_PATH = isDev 
     ? path.join(__dirname, '../assets')
     : path.join(process.resourcesPath, 'assets');
-
-  log('INFO', `isDev: ${isDev}, ASSETS_PATH: ${ASSETS_PATH}`);
   
   // Initialize state synchronization system FIRST
   initializeStateSync();
   
-  // Run full app initialization (tray, service, printer check, etc.)
-  await initialize();
+  // Continue with rest of app initialization...
+  // (Other initialization code will follow)
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -288,7 +244,7 @@ function initializeTabezaPrintsFolder() {
     try {
       const defaultConfig = {
         barId: '',
-        apiUrl: 'https://tabz-kikao.vercel.app',
+        apiUrl: 'https://tabeza.co.ke',
         watchFolder: TABEZA_PRINTS_DIR,
         httpPort: 8765
       };
@@ -709,8 +665,7 @@ function startBackgroundService() {
       windowsHide: true,
       env: {
         ...process.env,
-        TABEZA_DATA_DIR: TABEZA_PRINTS_DIR,
-        TABEZA_SERVICE_MODE: 'true'
+        TABEZA_DATA_DIR: TABEZA_PRINTS_DIR
       }
     });
 
@@ -732,15 +687,6 @@ function startBackgroundService() {
       log('INFO', `Background service exited with code ${code}`);
       backgroundService = null;
       updateTrayMenu();
-      // Auto-restart the service after a short delay
-      setTimeout(() => {
-        if (!backgroundService) {
-          log('INFO', 'Auto-restarting background service...');
-          startBackgroundService().catch(err => {
-            log('ERROR', `Failed to auto-restart service: ${err.message}`);
-          });
-        }
-      }, 3000);
     });
 
     backgroundService.on('error', (err) => {
@@ -783,43 +729,6 @@ function stopBackgroundService() {
         resolve();
       }, 3000);
     }
-  });
-}
-
-function stopAllServices() {
-  return new Promise((resolve) => {
-    log('INFO', 'Stopping ALL Tabeza services...');
-    
-    // Stop background service first
-    stopBackgroundService().then(() => {
-      // Kill any remaining Tabeza processes
-      if (process.platform === 'win32') {
-        exec('taskkill /f /im "TabezaConnect.exe" /T', (error) => {
-          if (error) {
-            log('WARN', `Error killing TabezaConnect.exe: ${error.message}`);
-          }
-        });
-        
-        exec('taskkill /f /im "node.exe" /fi "WINDOWTITLE eq *Tabeza*" /T', (error) => {
-          if (error) {
-            log('WARN', `Error killing Tabeza node processes: ${error.message}`);
-          }
-        });
-        
-        // Kill any processes using port 8765
-        exec('for /f "tokens=5" %a in (\'netstat -aon ^| find ":8765"^") do taskkill /f /pid %a', (error) => {
-          if (error) {
-            log('WARN', `Error killing processes on port 8765: ${error.message}`);
-          }
-        });
-      }
-      
-      setTimeout(() => {
-        log('INFO', 'All Tabeza services stopped');
-        updateTrayMenu();
-        resolve();
-      }, 2000);
-    });
   });
 }
 
@@ -1112,14 +1021,6 @@ function updateTrayMenu() {
         }
       }
     },
-    {
-      label: 'Stop All Services',
-      click: async () => {
-        await stopAllServices();
-        showNotification('All Services Stopped', 'All Tabeza services have been stopped');
-        updateTrayMenu();
-      }
-    },
     { type: 'separator' },
     {
       label: `${APP_NAME} v${APP_VERSION}`,
@@ -1206,7 +1107,7 @@ function showManagementUI() {
 
   // Create new window with dashboard instead of old management UI
   const windowOptions = {
-    width: 800,
+    width: 500,
     height: 600,
     title: `${APP_NAME} - Dashboard`,
     webPreferences: {
@@ -1215,10 +1116,10 @@ function showManagementUI() {
       preload: path.join(__dirname, 'preload.js')
     },
     icon: path.join(ASSETS_PATH, 'icon-green.ico'),
-    resizable: true,
-    maximizable: true,
-    fullscreenable: true,
-    skipTaskbar: false,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
     show: false
   };
 
@@ -1299,7 +1200,7 @@ ipcMain.handle('get-config', async () => {
     if (!fs.existsSync(CONFIG_PATH)) {
       return {
         barId: '',
-        apiUrl: 'https://tabz-kikao.vercel.app',
+        apiUrl: 'https://tabeza.co.ke',
         watchFolder: TABEZA_PRINTS_DIR,
         httpPort: 8765
       };
@@ -1313,7 +1214,7 @@ ipcMain.handle('get-config', async () => {
     log('ERROR', `Failed to read config: ${error.message}`);
     return {
       barId: '',
-      apiUrl: 'https://tabz-kikao.vercel.app',
+      apiUrl: 'https://tabeza.co.ke',
       watchFolder: TABEZA_PRINTS_DIR,
       httpPort: 8765
     };
@@ -2100,38 +2001,14 @@ ipcMain.handle('repair-folder-structure', async () => {
   // Add dashboard-specific IPC handlers
   ipcMain.handle('get-pipeline-status', async () => {
     log('INFO', 'get-pipeline-status requested');
-    
-    // Check if background service is running (child process)
-    const backgroundServiceRunning = backgroundService && !backgroundService.killed;
-    
-    // Count files
-    let rawCount = 0;
-    let queueSize = 0;
-    
-    try {
-      const files = fs.readdirSync('C:\\TabezaPrints\\raw').filter(f => f.endsWith('.prn'));
-      rawCount = files.length;
-    } catch (e) { }
-    
-    try {
-      const pending = fs.readdirSync('C:\\TabezaPrints\\queue\\pending').filter(f => f.endsWith('.json'));
-      queueSize = pending.length;
-    } catch (e) { }
-    
-    // Get service uptime if running
-    let serviceDetail = 'Not running';
-    if (backgroundServiceRunning) {
-      serviceDetail = 'Running (PID: ' + backgroundService.pid + ')';
-    }
-    
     return {
-      pos: { status: backgroundServiceRunning ? 'ok' : 'unknown', detail: backgroundServiceRunning ? 'Service active' : 'Service not running' },
+      pos: { status: 'ok', detail: 'Last job: 2 min ago' },
       printer: { status: 'ok', detail: 'Driver active · Port: TabezaCapturePort' },
-      redmon: { status: backgroundServiceRunning ? 'ok' : 'unknown', detail: backgroundServiceRunning ? 'Port monitoring active' : 'Service not running' },
-      capture: { status: rawCount > 0 ? 'ok' : 'unknown', detail: rawCount > 0 ? `${rawCount} receipts captured` : 'No captures yet' },
-      service: { status: backgroundServiceRunning ? 'ok' : 'error', detail: serviceDetail },
-      cloud: { status: queueSize > 0 ? 'warn' : 'ok', detail: queueSize > 0 ? `${queueSize} pending upload` : 'No pending uploads' },
-      restaurant: { status: queueSize > 0 ? 'ok' : 'unknown', detail: queueSize > 0 ? 'Receiving data' : 'Waiting for uploads' }
+      redmon: { status: 'warn', detail: 'Port exists · capture.exe path unverified' },
+      capture: { status: 'warn', detail: 'No process detected in last 5 min' },
+      service: { status: 'error', detail: '3 conflicting instances detected' },
+      cloud: { status: 'unknown', detail: 'Cannot verify — service unstable' },
+      restaurant: { status: 'unknown', detail: 'Awaiting upstream resolution' }
     };
   });
 
@@ -2151,57 +2028,18 @@ ipcMain.handle('repair-folder-structure', async () => {
     }
   });
 
-  ipcMain.handle('get-samples-status', async () => {
-    log('INFO', 'get-samples-status requested');
-    try {
-      const samplesDir = 'C:\\TabezaPrints\\samples';
-      const templatePath = 'C:\\TabezaPrints\\templates\\template.json';
-      
-      const hasTemplate = fs.existsSync(templatePath);
-      let samples = [];
-      let count = 0;
-      
-      if (fs.existsSync(samplesDir)) {
-        const files = fs.readdirSync(samplesDir).filter(f => f.endsWith('.txt'));
-        count = files.length;
-        samples = files.slice(0, 10).map(f => {
-          const filePath = path.join(samplesDir, f);
-          const stats = fs.statSync(filePath);
-          const content = fs.readFileSync(filePath, 'utf8');
-          
-          return {
-            name: f,
-            time: stats.mtime.toISOString(),
-            timestamp: stats.mtime.toISOString(),
-            content: content.trim(), // Include content for deduplication
-            text: content.trim()     // Alternate field for content
-          };
-        });
-      }
-      
-      return { count, samples, hasTemplate };
-    } catch (error) {
-      log('ERROR', `Failed to get samples status: ${error.message}`);
-      return { count: 0, samples: [], hasTemplate: false };
-    }
-  });
-
   // Dashboard action handlers
   ipcMain.handle('action-restart-service', async () => {
     log('INFO', 'action-restart-service triggered');
     try {
-      // Kill the background service if it exists
-      if (backgroundService && !backgroundService.killed) {
-        log('INFO', 'Killing existing background service');
-        backgroundService.kill('SIGTERM');
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-      // Start the service again
-      setTimeout(() => {
-        startBackgroundService().catch(err => {
-          log('ERROR', `Failed to restart service: ${err.message}`);
-        });
-      }, 2000);
+      const { exec } = require('child_process');
+      exec('taskkill /f /im TabezaConnect.exe', (error) => {
+        if (error) {
+          log('ERROR', `Failed to kill processes: ${error.message}`);
+        } else {
+          log('INFO', 'Processes killed successfully');
+        }
+      });
       return { ok: true, detail: 'Service restart initiated' };
     } catch (error) {
       log('ERROR', `Restart service error: ${error.message}`);
@@ -2214,7 +2052,7 @@ ipcMain.handle('repair-folder-structure', async () => {
     try {
       const { execSync } = require('child_process');
       const result = execSync(
-        'reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Monitors\\Redirected Port\\Ports\\TabezaCapturePort"',
+        'reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Monitors\\RedMon" /s',
         { encoding: 'utf8' }
       ).toString();
       log('INFO', 'RedMon registry check completed');
@@ -2266,12 +2104,15 @@ ipcMain.handle('repair-folder-structure', async () => {
   ipcMain.handle('action-kill-processes', async () => {
     log('INFO', 'action-kill-processes triggered');
     try {
-      // Kill the background service if it exists
-      if (backgroundService && !backgroundService.killed) {
-        backgroundService.kill('SIGTERM');
-        backgroundService = null;
-      }
-      return { ok: true, detail: 'Service processes terminated' };
+      const { exec } = require('child_process');
+      exec('taskkill /f /im TabezaConnect.exe', (error) => {
+        if (error) {
+          log('ERROR', `Failed to kill processes: ${error.message}`);
+        } else {
+          log('INFO', 'Processes terminated successfully');
+        }
+      });
+      return { ok: true, detail: 'Processes terminated' };
     } catch (error) {
       log('ERROR', `Kill processes error: ${error.message}`);
       return { ok: false, detail: error.message };
@@ -2333,70 +2174,21 @@ ipcMain.handle('get-template-status', async () => {
 });
 
 ipcMain.handle('generate-template', async () => {
-  log('INFO', 'generate-template: Starting template generation via Tabeza Staff API');
+  log('INFO', 'generate-template: Starting template generation via service');
   try {
-    log('INFO', 'generate-template: Attempting to fetch from http://localhost:3003/api/receipts/generate-template');
-    
-    // Read samples directly and send to Tabeza Staff
-    const fs = require('fs');
-    const path = require('path');
-    const samplesDir = 'C:\\TabezaPrints\\samples';
-    
-    let receipts = [];
-    if (fs.existsSync(samplesDir)) {
-      const files = fs.readdirSync(samplesDir).filter(f => f.endsWith('.txt'));
-      receipts = files.map(f => {
-        const content = fs.readFileSync(path.join(samplesDir, f), 'utf8');
-        return content.trim();
-      });
-    }
-    
-    const res = await fetch('http://localhost:3003/api/receipts/generate-template', {
+    const res = await fetch('http://localhost:8765/api/template/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        test_receipts: receipts,
-        bar_id: '438c80c1-fe11-4ac5-8a48-2fc45104ba31'
-      })
+      body: JSON.stringify({}) // service loads samples from disk
     });
-    
-    log('INFO', `generate-template: Response status: ${res.status} ${res.statusText}`);
-    
-    if (!res.ok) {
-      const errorText = await res.text();
-      log('ERROR', `generate-template: HTTP ${res.status} - ${errorText}`);
-      throw new Error(`HTTP ${res.status}: ${errorText}`);
-    }
-    
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const result = await res.json();
-    log('INFO', `generate-template: Response: ${JSON.stringify(result)}`);
 
     if (result.success) {
       log('INFO', 'generate-template: Template generated successfully');
-      log('INFO', 'generate-template: Template saved to database by Tabeza Staff');
-      
-      // Create a simple template file for local parsing
-      const templatePath = 'C:\\TabezaPrints\\templates\\template.json';
-      if (!fs.existsSync('C:\\TabezaPrints\\templates')) {
-        fs.mkdirSync('C:\\TabezaPrints\\templates', { recursive: true });
-      }
-      
-      // Create a basic template indicating success
-      const basicTemplate = {
-        name: 'AI Generated Template',
-        version: '1.0',
-        description: 'Template generated by Tabeza Staff AI',
-        success: true,
-        databaseId: result.template?.id,
-        barId: '438c80c1-fe11-4ac5-8a48-2fc45104ba31',
-        generatedAt: new Date().toISOString()
-      };
-      
-      fs.writeFileSync(templatePath, JSON.stringify(basicTemplate, null, 2));
-      
       // Notify main window to refresh state
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('template-generated', basicTemplate);
+        mainWindow.webContents.send('template-generated', result.template);
       }
       updateTrayMenu();
     }
@@ -2855,9 +2647,37 @@ async function initialize() {
     return;
   }
 
-    // STEP 4: Printer setup is ONLY done during installation
-    // Do NOT show printer setup wizard from the app - it should be configured by installer
-    log('INFO', 'Printer setup handled by installer');
+  // STEP 4: Check if printer is configured
+  try {
+    // Use the new check-printer-status handler instead of runPrinterSetup
+    const printerResult = await new Promise((resolve) => {
+      const command = `powershell.exe -Command "Get-Printer -Name 'Tabeza POS Printer' -ErrorAction SilentlyContinue | ConvertTo-Json"`;
+      
+      exec(command, (error, stdout, stderr) => {
+        if (error || !stdout.trim()) {
+          resolve({ status: 'not-configured', exists: false });
+        } else {
+          try {
+            const printer = JSON.parse(stdout.trim());
+            resolve({ status: 'configured', exists: true });
+          } catch (parseError) {
+            resolve({ status: 'not-configured', exists: false });
+          }
+        }
+      });
+    });
+    
+    if (printerResult.status !== 'configured') {
+      log('INFO', `Printer status: ${printerResult.status}, showing setup wizard...`);
+      setTimeout(() => {
+        showPrinterSetupWizard();
+      }, 3000);
+    } else {
+      log('INFO', 'Printer already configured');
+    }
+  } catch (err) {
+    log('WARN', `Could not check printer setup: ${err.message}`);
+  }
 
   showNotification('Tabeza Connect Started', 'Receipt capture service is running');
 }
@@ -2875,7 +2695,22 @@ function quitApp() {
   });
 }
 
-app.on('window-all-closed', () => {
+// Single instance lock
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.focus();
+    }
+  });
+
+  app.on('window-all-closed', () => {
     // Don't quit - keep running in tray
   });
 
@@ -2885,6 +2720,7 @@ app.on('window-all-closed', () => {
       quitApp();
     }
   });
+}
 
 process.on('uncaughtException', (error) => {
   log('ERROR', `Uncaught exception: ${error.message}\n${error.stack}`);

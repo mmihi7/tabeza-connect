@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Printer Configuration - Tabeza Connect</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f5f7fa;
+      color: #2d3748;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .header {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      color: #2563eb;
+      font-size: 32px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header p {
+      color: #64748b;
+      font-size: 16px;
+    }
+
+    .back-link {
+      display: inline-block;
+      color: #2563eb;
+      text-decoration: none;
+      margin-bottom: 20px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
+    }
+
+    .alert {
+      padding: 16px 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: none;
+      animation: slideIn 0.3s ease-out;
+    }
+
+    .alert.show {
+      display: block;
+    }
+
+    .alert.success {
+      background: #d1fae5;
+      border-left: 4px solid #10b981;
+      color: #065f46;
+    }
+
+    .alert.error {
+      background: #fee2e2;
+      border-left: 4px solid #ef4444;
+      color: #991b1b;
+    }
+
+    .alert.warning {
+      background: #fef3c7;
+      border-left: 4px solid #f59e0b;
+      color: #92400e;
+    }
+
+    .alert.info {
+      background: #dbeafe;
+      border-left: 4px solid #3b82f6;
+      color: #1e40af;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .section {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    .section h2 {
+      color: #1e293b;
+      font-size: 24px;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .help-text {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      color: #1e40af;
+      font-size: 14px;
+    }
+
+    .printer-list {
+      display: grid;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .printer-card {
+      background: #f8fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 20px;
+      transition: all 0.2s;
+    }
+
+    .printer-card:hover {
+      border-color: #cbd5e1;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .printer-card.selected {
+      border-color: #2563eb;
+      background: #eff6ff;
+    }
+
+    .printer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .printer-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .printer-info {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+    }
+
+    .info-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .info-label {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 5px;
+    }
+
+    .info-value {
+      font-size: 16px;
+      color: #1e293b;
+      font-weight: 500;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 500;
+      gap: 6px;
+    }
+
+    .status-badge.ready {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .status-badge.busy {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .status-badge.offline {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .status-badge.unknown {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .status-indicator.ready {
+      background: #10b981;
+    }
+
+    .status-indicator.busy {
+      background: #f59e0b;
+    }
+
+    .status-indicator.offline {
+      background: #ef4444;
+    }
+
+    .status-indicator.unknown {
+      background: #6b7280;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      color: #374151;
+      margin-bottom: 8px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      background: white;
+      color: #1e293b;
+      transition: border-color 0.2s;
+    }
+
+    input:hover, select:hover {
+      border-color: #cbd5e1;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: #2563eb;
+    }
+
+    select {
+      cursor: pointer;
+    }
+
+    button {
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: 500;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-right: 10px;
+      margin-bottom: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    button.primary {
+      background: #2563eb;
+      color: white;
+    }
+
+    button.primary:hover:not(:disabled) {
+      background: #1d4ed8;
+    }
+
+    button.secondary {
+      background: #64748b;
+      color: white;
+    }
+
+    button.secondary:hover:not(:disabled) {
+      background: #475569;
+    }
+
+    button.success {
+      background: #10b981;
+      color: white;
+    }
+
+    button.success:hover:not(:disabled) {
+      background: #059669;
+    }
+
+    button.outline {
+      background: white;
+      color: #2563eb;
+      border: 2px solid #2563eb;
+    }
+
+    button.outline:hover:not(:disabled) {
+      background: #eff6ff;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid #f3f4f6;
+      border-top: 3px solid #2563eb;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #64748b;
+    }
+
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .empty-state-text {
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    .empty-state-hint {
+      font-size: 14px;
+      color: #94a3b8;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .manual-form {
+      background: #f8fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+
+    .manual-form h3 {
+      font-size: 18px;
+      color: #1e293b;
+      margin-bottom: 15px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 10px;
+      }
+
+      .header, .section {
+        padding: 20px;
+      }
+
+      .header h1 {
+        font-size: 24px;
+      }
+
+      .printer-info {
+        grid-template-columns: 1fr;
+      }
+
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+
+      .button-group {
+        flex-direction: column;
+      }
+
+      button {
+        width: 100%;
+        margin-right: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/configure.html" class="back-link">← Back to Configuration</a>
+
+    <div class="header">
+      <h1>
+        <span>🖨️</span>
+        Printer Configuration
+      </h1>
+      <p>Manage physical printers for receipt forwarding</p>
+    </div>
+
+    <div id="alert" class="alert"></div>
+
+    <!-- Detected Printers Section -->
+    <div class="section">
+      <h2>
+        <span>Detected Printers</span>
+        <button class="outline" onclick="detectPrinters()" id="detectBtn">
+          <span id="detectIcon">🔍</span>
+          <span id="detectText">Detect Printers</span>
+        </button>
+      </h2>
+
+      <div class="help-text">
+        <strong>Auto-detection:</strong> Tabeza Connect can automatically detect USB, network, and serial printers.
+        Click "Detect Printers" to scan for available devices.
+      </div>
+
+      <div id="printerList" class="printer-list">
+        <div class="empty-state">
+          <div class="empty-state-icon">🔍</div>
+          <div class="empty-state-text">No printers detected yet</div>
+          <div class="empty-state-hint">Click "Detect Printers" to scan for available printers</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Configure Printer Section -->
+    <div class="section">
+      <h2>Configure Printer</h2>
+
+      <div class="help-text">
+        <strong>Select a printer:</strong> Choose which physical printer should receive forwarded print jobs.
+        You can test the connection before saving.
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="printerSelect">Select Printer</label>
+        <select id="printerSelect">
+          <option value="">-- Select a printer --</option>
+        </select>
+      </div>
+
+      <div class="button-group">
+        <button class="primary" onclick="configurePrinter()" id="configureBtn">
+          <span>💾</span>
+          <span>Save Configuration</span>
+        </button>
+        <button class="success" onclick="testPrint()" id="testBtn">
+          <span>🧪</span>
+          <span>Test Print</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Manual Printer Addition -->
+    <div class="section">
+      <h2>Manual Printer Addition</h2>
+
+      <div class="help-text">
+        <strong>Can't find your printer?</strong> You can manually add a network or serial printer by entering its connection details.
+      </div>
+
+      <div class="manual-form">
+        <h3>Add Network Printer</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="printerName">Printer Name</label>
+            <input type="text" id="printerName" placeholder="e.g., Kitchen Printer">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="printerType">Connection Type</label>
+            <select id="printerType">
+              <option value="network">Network (TCP/IP)</option>
+              <option value="serial">Serial Port</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="networkFields">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="printerHost">IP Address or Hostname</label>
+              <input type="text" id="printerHost" placeholder="e.g., 192.168.1.100">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="printerPort">Port</label>
+              <input type="number" id="printerPort" value="9100" placeholder="9100">
+            </div>
+          </div>
+        </div>
+
+        <div id="serialFields" style="display: none;">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="serialPort">Serial Port</label>
+              <input type="text" id="serialPort" placeholder="e.g., COM1">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="baudRate">Baud Rate</label>
+              <select id="baudRate">
+                <option value="9600">9600</option>
+                <option value="19200">19200</option>
+                <option value="38400">38400</option>
+                <option value="57600">57600</option>
+                <option value="115200">115200</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <button class="primary" onclick="addManualPrinter()">
+          <span>➕</span>
+          <span>Add Printer</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Current Configuration -->
+    <div class="section">
+      <h2>Current Configuration</h2>
+      <div id="currentConfig">
+        <div class="loading"></div> Loading configuration...
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let detectedPrinters = [];
+    let currentConfig = null;
+    let statusPollInterval = null;
+
+    // Show alert message
+    function showAlert(message, type = 'success') {
+      const alert = document.getElementById('alert');
+      alert.textContent = message;
+      alert.className = `alert ${type} show`;
+      
+      setTimeout(() => {
+        alert.classList.remove('show');
+      }, 5000);
+    }
+
+    // Toggle manual printer fields based on type
+    document.getElementById('printerType').addEventListener('change', (e) => {
+      const networkFields = document.getElementById('networkFields');
+      const serialFields = document.getElementById('serialFields');
+      
+      if (e.target.value === 'network') {
+        networkFields.style.display = 'block';
+        serialFields.style.display = 'none';
+      } else {
+        networkFields.style.display = 'none';
+        serialFields.style.display = 'block';
+      }
+    });
+
+    // Detect printers
+    async function detectPrinters() {
+      const btn = document.getElementById('detectBtn');
+      const icon = document.getElementById('detectIcon');
+      const text = document.getElementById('detectText');
+      
+      btn.disabled = true;
+      icon.innerHTML = '<div class="loading"></div>';
+      text.textContent = 'Detecting...';
+      
+      try {
+        const response = await fetch('/api/printers/detect', {
+          method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.printers) {
+          detectedPrinters = data.printers;
+          renderPrinterList(data.printers);
+          updatePrinterSelect(data.printers);
+          showAlert(`✅ Found ${data.printers.length} printer(s)`, 'success');
+        } else {
+          showAlert('❌ ' + (data.error || 'Failed to detect printers'), 'error');
+        }
+      } catch (error) {
+        console.error('Failed to detect printers:', error);
+        showAlert('❌ Failed to detect printers', 'error');
+      } finally {
+        btn.disabled = false;
+        icon.textContent = '🔍';
+        text.textContent = 'Detect Printers';
+      }
+    }
+
+    // Render printer list
+    function renderPrinterList(printers) {
+      const container = document.getElementById('printerList');
+      
+      if (!printers || printers.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">🔍</div>
+            <div class="empty-state-text">No printers detected</div>
+            <div class="empty-state-hint">Try clicking "Detect Printers" or add a printer manually</div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = printers.map(printer => {
+        const statusClass = printer.status || 'unknown';
+        const statusText = statusClass.charAt(0).toUpperCase() + statusClass.slice(1);
+        const isSelected = currentConfig && currentConfig.printers && 
+                          currentConfig.printers.some(p => p.name === printer.name && p.enabled);
+        
+        return `
+          <div class="printer-card ${isSelected ? 'selected' : ''}">
+            <div class="printer-header">
+              <div class="printer-name">${printer.name}</div>
+              <span class="status-badge ${statusClass}">
+                <span class="status-indicator ${statusClass}"></span>
+                ${statusText}
+              </span>
+            </div>
+            <div class="printer-info">
+              <div class="info-item">
+                <span class="info-label">Type</span>
+                <span class="info-value">${printer.type || 'Unknown'}</span>
+              </div>
+              ${printer.host ? `
+                <div class="info-item">
+                  <span class="info-label">Host</span>
+                  <span class="info-value">${printer.host}:${printer.port || 9100}</span>
+                </div>
+              ` : ''}
+              ${printer.vendorId ? `
+                <div class="info-item">
+                  <span class="info-label">Vendor ID</span>
+                  <span class="info-value">${printer.vendorId}</span>
+                </div>
+              ` : ''}
+              ${printer.serialNumber ? `
+                <div class="info-item">
+                  <span class="info-label">Serial Number</span>
+                  <span class="info-value">${printer.serialNumber}</span>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Update printer select dropdown
+    function updatePrinterSelect(printers) {
+      const select = document.getElementById('printerSelect');
+      select.innerHTML = '<option value="">-- Select a printer --</option>';
+      
+      printers.forEach(printer => {
+        const option = document.createElement('option');
+        option.value = JSON.stringify(printer);
+        option.textContent = `${printer.name} (${printer.type || 'Unknown'}) - ${printer.status || 'Unknown'}`;
+        select.appendChild(option);
+      });
+    }
+
+    // Configure printer
+    async function configurePrinter() {
+      const select = document.getElementById('printerSelect');
+      const printerData = select.value;
+      
+      if (!printerData) {
+        showAlert('Please select a printer', 'warning');
+        return;
+      }
+      
+      const printer = JSON.parse(printerData);
+      const btn = document.getElementById('configureBtn');
+      
+      btn.disabled = true;
+      
+      try {
+        const response = await fetch('/api/printers/configure', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            printers: [{
+              ...printer,
+              enabled: true,
+              isDefault: true
+            }]
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          showAlert('✅ Printer configured successfully!', 'success');
+          loadCurrentConfig();
+          renderPrinterList(detectedPrinters); // Re-render to show selection
+        } else {
+          showAlert('❌ ' + (data.error || 'Failed to configure printer'), 'error');
+        }
+      } catch (error) {
+        console.error('Failed to configure printer:', error);
+        showAlert('❌ Failed to configure printer', 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // Test print
+    async function testPrint() {
+      const select = document.getElementById('printerSelect');
+      const printerData = select.value;
+      
+      if (!printerData) {
+        showAlert('Please select a printer first', 'warning');
+        return;
+      }
+      
+      const printer = JSON.parse(printerData);
+      const btn = document.getElementById('testBtn');
+      
+      btn.disabled = true;
+      
+      try {
+        const response = await fetch('/api/printers/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ printer })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          showAlert('✅ Test print sent! Check your printer.', 'success');
+        } else {
+          showAlert('❌ ' + (data.error || 'Test print failed'), 'error');
+        }
+      } catch (error) {
+        console.error('Failed to send test print:', error);
+        showAlert('❌ Failed to send test print', 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // Add manual printer
+    async function addManualPrinter() {
+      const name = document.getElementById('printerName').value.trim();
+      const type = document.getElementById('printerType').value;
+      
+      if (!name) {
+        showAlert('Please enter a printer name', 'warning');
+        return;
+      }
+      
+      let printer = {
+        name,
+        type,
+        status: 'unknown'
+      };
+      
+      if (type === 'network') {
+        const host = document.getElementById('printerHost').value.trim();
+        const port = parseInt(document.getElementById('printerPort').value) || 9100;
+        
+        if (!host) {
+          showAlert('Please enter an IP address or hostname', 'warning');
+          return;
+        }
+        
+        printer.connection = {
+          host,
+          port
+        };
+      } else {
+        const portName = document.getElementById('serialPort').value.trim();
+        const baudRate = parseInt(document.getElementById('baudRate').value) || 9600;
+        
+        if (!portName) {
+          showAlert('Please enter a serial port', 'warning');
+          return;
+        }
+        
+        printer.connection = {
+          portName,
+          baudRate,
+          dataBits: 8,
+          stopBits: 1,
+          parity: 'none'
+        };
+      }
+      
+      // Add to detected printers list
+      detectedPrinters.push(printer);
+      renderPrinterList(detectedPrinters);
+      updatePrinterSelect(detectedPrinters);
+      
+      // Clear form
+      document.getElementById('printerName').value = '';
+      document.getElementById('printerHost').value = '';
+      document.getElementById('printerPort').value = '9100';
+      document.getElementById('serialPort').value = '';
+      
+      showAlert('✅ Printer added to list. Select it and click "Save Configuration" to enable.', 'success');
+    }
+
+    // Load current configuration
+    async function loadCurrentConfig() {
+      try {
+        const response = await fetch('/api/printers');
+        const data = await response.json();
+        
+        if (data.success) {
+          currentConfig = data;
+          renderCurrentConfig(data);
+        }
+      } catch (error) {
+        console.error('Failed to load configuration:', error);
+      }
+    }
+
+    // Render current configuration
+    function renderCurrentConfig(config) {
+      const container = document.getElementById('currentConfig');
+      
+      if (!config.printers || config.printers.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">⚙️</div>
+            <div class="empty-state-text">No printers configured</div>
+            <div class="empty-state-hint">Configure a printer above to get started</div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = config.printers.map(printer => {
+        const statusClass = printer.status || 'unknown';
+        const statusText = statusClass.charAt(0).toUpperCase() + statusClass.slice(1);
+        
+        return `
+          <div class="printer-card">
+            <div class="printer-header">
+              <div class="printer-name">${printer.name}</div>
+              <span class="status-badge ${statusClass}">
+                <span class="status-indicator ${statusClass}"></span>
+                ${statusText}
+              </span>
+            </div>
+            <div class="printer-info">
+              <div class="info-item">
+                <span class="info-label">Type</span>
+                <span class="info-value">${printer.type || 'Unknown'}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Enabled</span>
+                <span class="info-value">${printer.enabled ? '✅ Yes' : '❌ No'}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Default</span>
+                <span class="info-value">${printer.isDefault ? '✅ Yes' : '❌ No'}</span>
+              </div>
+              ${printer.connection && printer.connection.host ? `
+                <div class="info-item">
+                  <span class="info-label">Connection</span>
+                  <span class="info-value">${printer.connection.host}:${printer.connection.port}</span>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Start real-time status polling
+    function startStatusPolling() {
+      // Poll every 5 seconds
+      statusPollInterval = setInterval(async () => {
+        await loadCurrentConfig();
+        
+        // If we have detected printers, refresh their status
+        if (detectedPrinters.length > 0) {
+          renderPrinterList(detectedPrinters);
+        }
+      }, 5000);
+    }
+
+    // Stop polling when page is hidden
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        if (statusPollInterval) {
+          clearInterval(statusPollInterval);
+          statusPollInterval = null;
+        }
+      } else {
+        if (!statusPollInterval) {
+          startStatusPolling();
+        }
+      }
+    });
+
+    // Initialize
+    loadCurrentConfig();
+    startStatusPolling();
+  </script>
+</body>
+</html>

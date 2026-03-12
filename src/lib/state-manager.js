@@ -29,6 +29,8 @@ const { app } = require('electron');
 const STATE_FILES = {
   setup: 'setup-state.json',
   config: 'config.json',
+  printer: 'printer-state.json',
+  template: 'template-state.json',
   window: 'window-state.json'
 };
 
@@ -373,11 +375,11 @@ class StateManager {
     const tempPath = `${filePath}.tmp`;
     
     try {
-      // Ensure userData directory exists
-      const userDataPath = app.getPath('userData');
-      if (!fs.existsSync(userDataPath)) {
-        fs.mkdirSync(userDataPath, { recursive: true });
-        console.log(`[StateManager] Created userData directory: ${userDataPath}`);
+      // Ensure TabezaPrints directory exists
+      const tabezaPrintsPath = path.dirname(filePath);
+      if (!fs.existsSync(tabezaPrintsPath)) {
+        fs.mkdirSync(tabezaPrintsPath, { recursive: true });
+        console.log(`[StateManager] Created TabezaPrints directory: ${tabezaPrintsPath}`);
       }
       
       // Step 1: Write to temporary file
@@ -435,17 +437,14 @@ class StateManager {
    * @private
    */
   _getStateFilePath(stateType) {
-    // Printer and template states are runtime-only (no file persistence)
-    if (stateType === 'printer' || stateType === 'template') {
-      return null;
-    }
-    
+    // Use TabezaPrints directory for all state files
     const fileName = STATE_FILES[stateType];
     if (!fileName) {
       throw new Error(`No file mapping for state type: ${stateType}`);
     }
     
-    return path.join(app.getPath('userData'), fileName);
+    // Return path in C:\TabezaPrints directory
+    return path.join('C:\\TabezaPrints', fileName);
   }
   
   /**

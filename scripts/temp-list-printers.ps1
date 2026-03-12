@@ -1,0 +1,1 @@
+Get-Printer | Select-Object Name,PortName | Format-Table -AutoSize

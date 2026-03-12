@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>View Receipts - Tabeza Connect</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+    
+    .subtitle {
+      color: #666;
+    }
+    
+    /* Template Required Message (Requirement 15A.9) */
+    .template-required {
+      background: #fef3c7;
+      border: 2px solid #f59e0b;
+      border-radius: 12px;
+      padding: 40px;
+      text-align: center;
+      margin-top: 40px;
+    }
+    
+    .template-required h2 {
+      color: #92400e;
+      font-size: 24px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+    
+    .template-required p {
+      color: #78350f;
+      font-size: 16px;
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+    
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      background: #f59e0b;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 14px;
+      margin: 0 8px;
+    }
+    
+    .btn:hover {
+      background: #d97706;
+    }
+    
+    .btn-secondary {
+      background: #6b7280;
+    }
+    
+    .btn-secondary:hover {
+      background: #4b5563;
+    }
+    
+    /* Content area (hidden when template missing) */
+    .content {
+      display: none;
+    }
+    
+    .content.show {
+      display: block;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    
+    .receipt-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .receipt-item {
+      padding: 16px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .receipt-info {
+      flex: 1;
+    }
+    
+    .receipt-time {
+      color: #666;
+      font-size: 14px;
+    }
+    
+    .receipt-total {
+      font-weight: 600;
+      color: #333;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📄 View Receipts</h1>
+      <p class="subtitle">Browse captured and parsed receipts</p>
+    </div>
+    
+    <!-- Template Required Message (Requirement 15A.9) -->
+    <div class="template-required" id="templateRequired">
+      <h2>⚠️ Complete template setup first</h2>
+      <p>
+        Receipt viewing requires a configured template to parse receipt data.
+        Please complete the template generation process before accessing this page.
+      </p>
+      <a href="template-generator.html" class="btn">Generate Template Now</a>
+      <a href="dashboard.html" class="btn btn-secondary">Back to Dashboard</a>
+    </div>
+    
+    <!-- Main Content (shown only when template exists) -->
+    <div class="content" id="mainContent">
+      <div class="card">
+        <h2>Recent Receipts</h2>
+        <div class="receipt-list" id="receiptList">
+          <p style="color: #666; text-align: center; padding: 40px;">No receipts found</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const { ipcRenderer, shell } = require('electron');
+    
+    async function checkTemplateAndLoadContent() {
+      try {
+        // Check if template exists (Requirement 15A.9)
+        const result = await ipcRenderer.invoke('check-template-exists');
+        
+        const templateRequired = document.getElementById('templateRequired');
+        const mainContent = document.getElementById('mainContent');
+        
+        if (!result.exists) {
+          // Show template required message, hide content
+          templateRequired.style.display = 'block';
+          mainContent.classList.remove('show');
+        } else {
+          // Hide template required message, show content
+          templateRequired.style.display = 'none';
+          mainContent.classList.add('show');
+          
+          // Load receipts (placeholder for future implementation)
+          loadReceipts();
+        }
+      } catch (err) {
+        console.error('Failed to check template status:', err);
+        // On error, show template required message as safe default
+        document.getElementById('templateRequired').style.display = 'block';
+        document.getElementById('mainContent').classList.remove('show');
+      }
+    }
+    
+    async function loadReceipts() {
+      // Placeholder for future implementation
+      // This would fetch and display parsed receipts from the processed folder
+      console.log('Loading receipts...');
+    }
+    
+    // Check template status on page load
+    checkTemplateAndLoadContent();
+  </script>
+</body>
+</html>

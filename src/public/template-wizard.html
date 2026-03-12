@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Template Generation Wizard - Tabeza Connect</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .wizard-container {
+      max-width: 700px;
+      width: 100%;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+    
+    .wizard-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 32px;
+      text-align: center;
+    }
+    
+    .wizard-header h1 {
+      font-size: 28px;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    
+    .wizard-header p {
+      font-size: 16px;
+      opacity: 0.95;
+    }
+    
+    .wizard-body {
+      padding: 40px;
+    }
+    
+    .progress-bar {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 40px;
+      position: relative;
+    }
+    
+    .progress-bar::before {
+      content: '';
+      position: absolute;
+      top: 20px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: #e5e7eb;
+      z-index: 0;
+    }
+    
+    .progress-fill {
+      position: absolute;
+      top: 20px;
+      left: 0;
+      height: 2px;
+      background: #667eea;
+      transition: width 0.3s ease;
+      z-index: 1;
+    }
+    
+    .progress-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      z-index: 2;
+    }
+    
+    .step-circle {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: white;
+      border: 3px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 16px;
+      color: #9ca3af;
+      transition: all 0.3s ease;
+      margin-bottom: 8px;
+    }
+    
+    .step-circle.active {
+      border-color: #667eea;
+      color: #667eea;
+      background: white;
+    }
+    
+    .step-circle.complete {
+      border-color: #10b981;
+      background: #10b981;
+      color: white;
+    }
+    
+    .step-label {
+      font-size: 12px;
+      color: #6b7280;
+      text-align: center;
+      max-width: 100px;
+    }
+    
+    .step-content {
+      display: none;
+    }
+    
+    .step-content.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .info-box {
+      background: #eff6ff;
+      border: 2px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    
+    .info-box h3 {
+      color: #1e40af;
+      font-size: 16px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .info-box p {
+      color: #1e40af;
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+    
+    .info-box ol {
+      color: #1e40af;
+      margin-left: 20px;
+      font-size: 14px;
+      line-height: 1.8;
+    }
+    
+    .receipt-status {
+      background: #f9fafb;
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    
+    .receipt-status.waiting {
+      border-color: #fbbf24;
+      background: #fffbeb;
+    }
+    
+    .receipt-status.received {
+      border-color: #10b981;
+      background: #ecfdf5;
+      animation: pulse 0.5s ease;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+    }
+    
+    .receipt-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+    
+    .receipt-status h3 {
+      font-size: 18px;
+      color: #111827;
+      margin-bottom: 8px;
+    }
+    
+    .receipt-status p {
+      font-size: 14px;
+      color: #6b7280;
+    }
+    
+    .receipt-counter {
+      font-size: 32px;
+      font-weight: 700;
+      color: #667eea;
+      margin: 16px 0;
+    }
+    
+    .loading-spinner {
+      display: inline-block;
+      width: 40px;
+      height: 40px;
+      border: 4px solid #e5e7eb;
+      border-top-color: #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 16px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .btn {
+      display: inline-block;
+      padding: 14px 28px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+    
+    .btn:hover {
+      background: #5568d3;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn:disabled {
+      background: #d1d5db;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    
+    .btn-secondary {
+      background: #6b7280;
+    }
+    
+    .btn-secondary:hover {
+      background: #4b5563;
+    }
+    
+    .btn-success {
+      background: #10b981;
+    }
+    
+    .btn-success:hover {
+      background: #059669;
+    }
+    
+    .wizard-actions {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 32px;
+      gap: 12px;
+    }
+    
+    .alert {
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      display: none;
+      animation: slideDown 0.3s ease;
+    }
+    
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .alert.show {
+      display: block;
+    }
+    
+    .alert.success {
+      background: #d1fae5;
+      color: #065f46;
+      border: 2px solid #6ee7b7;
+    }
+    
+    .alert.error {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 2px solid #fca5a5;
+    }
+    
+    .alert.warning {
+      background: #fef3c7;
+      color: #92400e;
+      border: 2px solid #fcd34d;
+    }
+    
+    .success-checkmark {
+      font-size: 64px;
+      color: #10b981;
+      margin-bottom: 16px;
+    }
+    
+    .template-preview {
+      background: #f9fafb;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 20px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    
+    .template-preview pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+  </style>
+</head>
+<body>
+  <div class="wizard-container">
+    <div class="wizard-header">
+      <h1>🧾 Template Generation Wizard</h1>
+      <p>Create a receipt parsing template for your POS system</p>
+    </div>
+    
+    <div class="wizard-body">
+      <div class="alert" id="alert"></div>
+      
+      <!-- Progress Bar -->
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+        <div class="progress-step">
+          <div class="step-circle active" id="step1Circle">1</div>
+          <div class="step-label">Receipt 1</div>
+        </div>
+        <div class="progress-step">
+          <div class="step-circle" id="step2Circle">2</div>
+          <div class="step-label">Receipt 2</div>
+        </div>
+        <div class="progress-step">
+          <div class="step-circle" id="step3Circle">3</div>
+          <div class="step-label">Receipt 3</div>
+        </div>
+        <div class="progress-step">
+          <div class="step-circle" id="step4Circle">✓</div>
+          <div class="step-label">Generate</div>
+        </div>
+      </div>
+      
+      <!-- Step 1: First Receipt -->
+      <div class="step-content active" id="step1">
+        <div class="info-box">
+          <h3>📋 Step 1 of 3</h3>
+          <p><strong>Print your first test receipt from your POS</strong></p>
+          <p>Make sure it includes:</p>
+          <ol>
+            <li>Multiple items with different prices</li>
+            <li>A total amount</li>
+            <li>A receipt number or order ID</li>
+          </ol>
+        </div>
+        
+        <div class="receipt-status waiting" id="receipt1Status">
+          <div class="receipt-icon">🖨️</div>
+          <h3>Waiting for receipt...</h3>
+          <p>Print a receipt from your POS now</p>
+          <div class="receipt-counter" id="receipt1Timer">0s</div>
+        </div>
+      </div>
+      
+      <!-- Step 2: Second Receipt -->
+      <div class="step-content" id="step2">
+        <div class="info-box">
+          <h3>📋 Step 2 of 3</h3>
+          <p><strong>Print a DIFFERENT receipt from your POS</strong></p>
+          <p>Important: Use different items and prices than the first receipt. This helps the AI learn your receipt format better.</p>
+        </div>
+        
+        <div class="receipt-status waiting" id="receipt2Status">
+          <div class="receipt-icon">🖨️</div>
+          <h3>Waiting for receipt...</h3>
+          <p>Print a different receipt from your POS now</p>
+          <div class="receipt-counter" id="receipt2Timer">0s</div>
+        </div>
+      </div>
+      
+      <!-- Step 3: Third Receipt -->
+      <div class="step-content" id="step3">
+        <div class="info-box">
+          <h3>📋 Step 3 of 3</h3>
+          <p><strong>Print one more DIFFERENT receipt</strong></p>
+          <p>Last one! Again, use different items and prices. The more variety, the better the template will work.</p>
+        </div>
+        
+        <div class="receipt-status waiting" id="receipt3Status">
+          <div class="receipt-icon">🖨️</div>
+          <h3>Waiting for receipt...</h3>
+          <p>Print your final test receipt now</p>
+          <div class="receipt-counter" id="receipt3Timer">0s</div>
+        </div>
+      </div>
+      
+      <!-- Step 4: Generate Template -->
+      <div class="step-content" id="step4">
+        <div class="info-box">
+          <h3>🎉 All receipts captured!</h3>
+          <p>Great! We've captured all 3 test receipts. Now we'll send them to our AI service to generate a parsing template for your POS system.</p>
+          <p><strong>This may take 30-60 seconds.</strong></p>
+        </div>
+        
+        <div class="receipt-status" id="generateStatus">
+          <div class="loading-spinner"></div>
+          <h3>Generating template...</h3>
+          <p>Analyzing your receipts with AI</p>
+        </div>
+        
+        <div class="wizard-actions">
+          <button class="btn btn-secondary" onclick="restartWizard()">Start Over</button>
+          <button class="btn" id="generateBtn" onclick="generateTemplate()">Generate Template</button>
+        </div>
+      </div>
+      
+      <!-- Step 5: Success -->
+      <div class="step-content" id="step5">
+        <div style="text-align: center;">
+          <div class="success-checkmark">✅</div>
+          <h2 style="color: #10b981; margin-bottom: 16px;">Template Created Successfully!</h2>
+          <p style="color: #6b7280; margin-bottom: 24px;">
+            Your receipt parsing template has been generated and saved. All future receipts will be parsed automatically using this template.
+          </p>
+        </div>
+        
+        <div class="template-preview" id="templatePreview">
+          <pre>Loading template...</pre>
+        </div>
+        
+        <div class="wizard-actions" style="justify-content: center; margin-top: 32px;">
+          <a href="/dashboard.html" class="btn btn-success">Go to Dashboard</a>
+          <button class="btn btn-secondary" onclick="restartWizard()">Generate Another</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="/js/template-wizard.js"></script>
+</body>
+</html>

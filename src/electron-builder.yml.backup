@@ -1,0 +1,46 @@
+# Electron Builder Configuration for Tabeza Connect
+# This file provides additional build configuration beyond package.json
+
+appId: com.tabeza.connect
+productName: Tabeza Connect
+copyright: Copyright © 2026 Tabeza
+
+# Output directory
+directories:
+  output: dist
+  buildResources: assets
+
+# Files to include in the build
+files:
+  - main.js
+  - src/**/*
+  - package.json
+  - assets/**/*
+  - "!**/*."
+  - "map!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
+  - "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}"
+  - "!**/node_modules/.bin"
+  - "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}"
+
+# Extra metadata
+extraMetadata:
+  main: main.js
+
+# Windows build configuration
+win:
+  target:
+    - target: dir
+      arch:
+        - x64
+  icon: assets/icon-green.ico
+
+# Asar packaging
+asar: true
+asarUnpack:
+  - "**/*.node"
+
+# Compression
+compression: maximum
+
+# Publish configuration (empty = local build only)
+# publish: null

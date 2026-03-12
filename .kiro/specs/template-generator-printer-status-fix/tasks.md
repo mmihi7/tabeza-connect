@@ -1,0 +1,135 @@
+ate # Implementation Plan
+
+- [x] 1. Write bug condition exploration test
+  - **Property 1: Fault Condition** - Printer Status Inconsistency & Receipt Detection Failure
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate the bugs exist
+  - **Scoped PBT Approach**: Test concrete failing cases - template generator shows "Not configured" when printer exists, UI shows 0 receipts when files exist in queue
+  - Test implementation details from Fault Conditions in design:
+    - Bug 1: Template generator calls `check-printer-setup` IPC handler → returns "Not configured" even though "Tabeza POS Printer" exists in Windows
+    - Bug 2: Template generator UI shows static "Generate Template" button instead of guided 3-step workflow
+    - Bug 3: Receipt files exist in `C:\TabezaPrints\queue\pending\` but UI shows "Receipts captured: 0 / 3"
+  - The test assertions should match the Expected Behavior Properties from design:
+    - ASSERT printer status is consistent across dashboard and template generator
+    - ASSERT template generator shows guided 3-step workflow when no template exists
+    - ASSERT template generator detects receipts in queue folder and shows "✓ Receipt X received"
+  - Run test on UNFIXED code
+  - **EXPECTED OUTCOME**: Test FAILS (this is correct - it proves the bugs exist)
+  - Document counterexamples found:
+    - IPC handler returns "Not configured" even though `Get-Printer` shows printer exists
+    - UI shows static button instead of "Step 1/3: Print your first test receipt"
+    - Receipt files exist in queue but UI shows 0 receipts
+    - PowerShell script path references non-existent `printer-pooling-setup.ps1`
+  - Mark task complete when test is written, run, and failures are documented
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
+
+- [x] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - Dashboard and Receipt Capture Service
+  - **IMPORTANT**: Follow observation-first methodology
+  - Observe behavior on UNFIXED code for non-buggy inputs:
+    - Dashboard printer status display works correctly
+    - Configuration save/load operations work correctly
+    - Receipt capture service captures and processes receipts
+    - Other IPC handlers work correctly
+    - HTTP server serves management UI correctly
+  - Write property-based tests capturing observed behavior patterns from Preservation Requirements:
+    - Test dashboard status display remains unchanged
+    - Test configuration management remains unchanged
+    - Test receipt capture service remains unchanged
+    - Test other UI components remain unchanged
+  - Property-based testing generates many test cases for stronger guarantees
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+
+- [x] 3. Fix for template generator printer status and receipt detection bugs
+
+  - [x] 3.1 Fix IPC handler to check for actual printer existence
+    - Open `src/electron-main.js`
+    - Locate `ipcMain.handle('check-printer-setup', ...)` handler
+    - Remove call to non-existent `printer-pooling-setup.ps1` script
+    - Replace with direct PowerShell command: `Get-Printer -Name 'Tabeza POS Printer' -ErrorAction SilentlyContinue | ConvertTo-Json`
+    - Parse returned JSON to determine if printer exists
+    - Return consistent status object: `{ status: printerExists ? 'configured' : 'not-configured', printerName: 'Tabeza POS Printer', portName: printer?.PortName || null, exists: printerExists }`
+    - _Bug_Condition: isBugCondition1(input) where input.handler = "check-printer-setup" AND printerUsesRedmon() AND handlerChecksForPooling()_
+    - _Expected_Behavior: Consistent printer status across all UI components based on actual printer existence_
+    - _Preservation: Dashboard status display, configuration management, other IPC handlers remain unchanged_
+    - _Requirements: 1.1, 1.3, 1.5, 2.1, 2.3, 2.5_
+
+  - [x] 3.2 Fix template generator to poll queue folder for receipts
+    - Open `src/public/template-generator.html`
+    - Locate `PROCESSED_DIR` constant
+    - Change from `'C:\\TabezaPrints\\processed'` to `'C:\\TabezaPrints\\queue\\pending'`
+    - Update `countCapturedReceipts()` function to read files from queue/pending folder
+    - Add logic to track which receipts have been seen (store IDs in array)
+    - Detect new receipts by comparing current files with previously seen IDs
+    - Update polling interval from 5 seconds to 2 seconds
+    - _Bug_Condition: isBugCondition3(input) where receiptFileExists() AND NOT uiDetectsReceipt()_
+    - _Expected_Behavior: UI detects receipts in queue folder and updates count in real-time_
+    - _Preservation: Receipt capture service continues to work unchanged_
+    - _Requirements: 1.4, 2.4_
+
+  - [x] 3.3 Implement guided 3-step workflow UI
+    - Open `src/public/template-generator.html`
+    - Add state variables to track current step (1, 2, or 3) and receipts detected per step
+    - Replace static step display with dynamic step-by-step UI:
+      - Step 1: "Step 1/3: Print your first test receipt from your POS"
+      - Step 2: "✓ Receipt 1 received - Step 2/3: Print a DIFFERENT receipt"
+      - Step 3: "✓ Receipt 2 received - Step 3/3: Print one more DIFFERENT receipt"
+      - Complete: "✓ Receipt 3 received - Generating template..."
+    - Update `countCapturedReceipts()` to update step state when new receipt is detected
+    - Show visual feedback ("✓ Receipt X received") when receipt is detected
+    - Auto-trigger `generateTemplate()` when 3 receipts are detected
+    - Hide static "Generate Template" button when guided workflow is active
+    - _Bug_Condition: isBugCondition2(input) where NOT templateExists() AND printerConfigured() AND uiShowsStaticButton()_
+    - _Expected_Behavior: Guided 3-step workflow with real-time feedback_
+    - _Preservation: Dashboard UI and other components remain unchanged_
+    - _Requirements: 1.2, 2.2_
+
+  - [x] 3.4 Update dashboard to use consistent printer status format
+    - Open `src/public/dashboard.html`
+    - Locate `checkPrinterStatus()` function
+    - Update to handle new response format from fixed IPC handler
+    - Check for `status === 'configured'` instead of other status values
+    - Ensure dashboard displays same status as template generator
+    - _Bug_Condition: N/A (preservation task)_
+    - _Expected_Behavior: Dashboard continues to show correct printer status_
+    - _Preservation: Dashboard functionality remains unchanged_
+    - _Requirements: 3.1, 3.4_
+
+  - [x] 3.5 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - Consistent Printer Status & Receipt Detection
+    - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
+    - The test from task 1 encodes the expected behavior
+    - When this test passes, it confirms the expected behavior is satisfied
+    - Run bug condition exploration test from step 1
+    - **EXPECTED OUTCOME**: Test PASSES (confirms bugs are fixed)
+    - Verify:
+      - Template generator shows same printer status as dashboard
+      - Template generator shows guided 3-step workflow
+      - Template generator detects receipts in queue folder
+      - UI shows "✓ Receipt X received" for each detected receipt
+    - _Requirements: Expected Behavior Properties from design - 2.1, 2.2, 2.3, 2.4, 2.5_
+
+  - [x] 3.6 Verify preservation tests still pass
+    - **Property 2: Preservation** - Dashboard and Receipt Capture Service
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation property tests from step 2
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+    - Verify:
+      - Dashboard status display works correctly
+      - Configuration save/load works correctly
+      - Receipt capture service works correctly
+      - Other UI components work correctly
+    - Confirm all tests still pass after fix (no regressions)
+
+- [x] 4. Checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise
+  - Verify template generator shows consistent printer status
+  - Verify guided 3-step workflow displays correctly
+  - Verify receipts are detected in real-time
+  - Verify dashboard functionality is preserved
+  - Verify receipt capture service is preserved

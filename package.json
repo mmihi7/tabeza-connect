@@ -2,7 +2,7 @@
   "name": "@tabeza/connect",
   "version": "1.7.14",
   "description": "Tabeza Connect - Bridges your POS system with Tabeza cloud for digital receipts",
-  "main": "src/electron-main.js",
+  "main": "electron-main.js",
   "author": "Tabeza",
   "license": "MIT",
   "homepage": "https://tabeza.co.ke",

@@ -90,6 +90,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getConfig: () => ipcRenderer.invoke('get-config'),
   
   /**
+   * Get current Bar ID
+   * @returns {Promise<string>} Bar ID or 'NOT_CONFIGURED'
+   */
+  getBarId: () => ipcRenderer.invoke('get-bar-id'),
+  
+  /**
    * Save Bar ID to configuration
    * @param {string} barId - Bar ID from Tabeza staff app
    * @returns {Promise<object>} Result object with success status
@@ -233,6 +239,53 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return ipcRenderer.invoke('mark-whats-new-seen', dontShowAgain);
   },
   
+  // ───────────────────────────────────────────────────────────────────────────
+  // Generic IPC bridge (used by status-window.html which calls ipc.invoke(channel)
+  // directly rather than the named methods above)
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Generic invoke — routes any whitelisted channel to the main process.
+   * Allows: const ipc = window.electronAPI; await ipc.invoke('get-bar-id')
+   */
+  invoke: (channel, ...args) => {
+    const allowedChannels = [
+      'get-bar-id', 'save-bar-id', 'get-config', 'save-config',
+      'get-pipeline-status', 'get-samples-status', 'get-setup-state',
+      'mark-step-complete', 'reset-setup-state', 'get-window-state',
+      'save-active-section', 'check-printer-status', 'check-printer-setup',
+      'launch-printer-setup', 'setup-printer', 'get-printers',
+      'check-template-status', 'check-template-exists', 'launch-template-generator',
+      'save-template', 'generate-template', 'get-template-status',
+      'test-print', 'test-template', 'save-api-settings',
+      'repair-folder-structure', 'check-folder-structure',
+      'get-log-entries', 'clear-logs', 'open-log-file', 'open-capture-folder',
+      'repair-folders', 'get-app-version', 'get-state',
+      'should-show-whats-new', 'mark-whats-new-seen',
+      'printer-setup-wizard-complete',
+      'action-test-print', 'action-test-cloud', 'action-restart-service',
+      'action-verify-redmon', 'action-export-diagnostics', 'action-kill-processes',
+      'start-service', 'stop-service', 'restart-service', 'get-service-status',
+    ];
+    if (!allowedChannels.includes(channel)) {
+      return Promise.reject(new Error(`IPC channel not allowed: ${channel}`));
+    }
+    return ipcRenderer.invoke(channel, ...args);
+  },
+
+  /**
+   * Generic on — listens for push events from the main process.
+   * Allows: ipc.on('log-entry', (entry) => ...)
+   */
+  on: (channel, callback) => {
+    const allowedChannels = [
+      'log-entry', 'state-changed', 'state-sync',
+      'config-updated', 'printer-setup-complete'
+    ];
+    if (!allowedChannels.includes(channel)) return;
+    ipcRenderer.on(channel, (event, ...args) => callback(...args));
+  },
+
   // ───────────────────────────────────────────────────────────────────────────
   // Real-Time State Synchronization Event Listeners
   // ───────────────────────────────────────────────────────────────────────────

@@ -1,0 +1,1 @@
+Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Print\Monitors\Redirected Port\Ports\TabezaCapturePort" | Format-List *
