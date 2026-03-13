@@ -3,37 +3,36 @@
 // Part of the virtual printer capture architecture
 
 const EventEmitter = require('events');
-const fs = require('fs');
-const fsp = require('fs').promises;
+const fs = require('fs').promises;
 const path = require('path');
 const USBPrinterConnection = require('./connections/usb-printer');
 const NetworkPrinterConnection = require('./connections/network-printer');
 const SerialPrinterConnection = require('./connections/serial-printer');
-const WindowsPrinterConnection = require('./connections/win-printer');
-
-// Debug logging to file
-const debugFile = 'C:\\TabezaPrints\\adapter-debug.log';
-function debugLog(msg) {
-    const timestamp = new Date().toISOString();
-    try {
-        fs.appendFileSync(debugFile, `[${timestamp}] ${msg}\n`);
-    } catch (e) {
-        // Ignore file errors
-    }
-}
-
-debugLog('=== Printer Adapter Module Loaded ===');
 
 class PhysicalPrinterAdapter extends EventEmitter {
     constructor(config = {}) {
         super();
-        
-        debugLog('CONSTRUCTOR - Called with config');
-        debugLog('CONSTRUCTOR - Config has printers: ' + !!(config && config.printers));
-        if (config && config.printers) {
-            debugLog('CONSTRUCTOR - Printers count: ' + config.printers.length);
-            debugLog('CONSTRUCTOR - Printers: ' + JSON.stringify(config.printers));
+
+    console.log('[PhysicalPrinterAdapter] DEBUG - Constructor called');
+    console.log('[PhysicalPrinterAdapter] DEBUG - Config has printers:', config && config.printers ? 'yes' : 'no');
+    if (config && config.printers && Array.isArray(config.printers)) {
+        console.log('[PhysicalPrinterAdapter] DEBUG - Printers count:', config.printers.length);
+    }
+    
+    log(level, ...args) {
+        const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
+        // Try to use global logging functions if available
+        if (typeof global.info === 'function' && level === 'info') {
+            global.info(`[PrinterAdapter] ${message}`);
+        } else if (typeof global.warn === 'function' && level === 'warn') {
+            global.warn(`[PrinterAdapter] ${message}`);
+        } else if (typeof global.error === 'function' && level === 'error') {
+            global.error(`[PrinterAdapter] ${message}`);
+        } else {
+            // Fallback to console
+            console.log(`[${new Date().toISOString()}][${level.toUpperCase()}] [PrinterAdapter] ${message}`);
         }
+    }
         
         this.config = config;
         this.printers = new Map(); // printerName -> PrinterConnection
@@ -49,92 +48,66 @@ class PhysicalPrinterAdapter extends EventEmitter {
             avgForwardTime: 0,
             queueDepth: 0
         };
-        
-        debugLog('CONSTRUCTOR - Completed');
     }
     
     async start() {
-        debugLog('START - Method called');
         if (this.isRunning) {
-            debugLog('START - Already running');
             console.log('[PhysicalPrinterAdapter] Already running');
             return;
         }
         
         console.log('[PhysicalPrinterAdapter] Starting...');
-        debugLog('START - Beginning startup');
         
-        try {
-            // Load printer configuration
-            debugLog('START - Loading printer config');
-            await this.loadPrinterConfig();
-            
-            // Start configuration file watcher
-            debugLog('START - Starting config watcher');
-            this.startConfigWatcher();
-            
-            // Start forwarding worker
-            this.isRunning = true;
-            debugLog('START - Starting forwarding worker');
-            this.startForwardingWorker();
-            
-            console.log('[PhysicalPrinterAdapter] Started');
-            debugLog('START - Completed successfully');
-            this.emit('started');
-        } catch (error) {
-            debugLog('START - ERROR: ' + error.message);
-            debugLog('START - Stack: ' + error.stack);
-            console.error('[PhysicalPrinterAdapter] Failed to start:', error);
-            throw error;
-        }
+        // Load printer configuration
+        await this.loadPrinterConfig();
+        
+        // Start configuration file watcher
+        this.startConfigWatcher();
+        
+        // Start forwarding worker
+        this.isRunning = true;
+        this.startForwardingWorker();
+        
+        console.log('[PhysicalPrinterAdapter] Started');
+        this.emit('started');
     }
     
     async stop() {
-        debugLog('STOP - Method called');
         if (!this.isRunning) {
-            debugLog('STOP - Not running');
             console.log('[PhysicalPrinterAdapter] Not running');
             return;
         }
         
         console.log('[PhysicalPrinterAdapter] Stopping...');
-        debugLog('STOP - Beginning shutdown');
         
         this.isRunning = false;
         
         // Stop configuration watcher
         if (this.configWatcher) {
-            debugLog('STOP - Closing config watcher');
             this.configWatcher.close();
             this.configWatcher = null;
         }
         
         // Stop forwarding worker
         if (this.workerInterval) {
-            debugLog('STOP - Clearing worker interval');
             clearInterval(this.workerInterval);
             this.workerInterval = null;
         }
         
         // Close all printer connections
-        debugLog('STOP - Closing printer connections. Count: ' + this.printers.size);
         for (const [name, printer] of this.printers.entries()) {
             try {
-                if (printer.connection && printer.connection.disconnect) {
-                    debugLog('STOP - Disconnecting printer: ' + name);
-                    await printer.connection.disconnect();
+                if (printer.disconnect) {
+                    await printer.disconnect();
                 }
             } catch (err) {
-                debugLog('STOP - Error disconnecting ' + name + ': ' + err.message);
-                console.error(`[PhysicalPrinterAdapter] Error disconnecting ${name}:`, err.message);
+                this.log(`error`, `[PhysicalPrinterAdapter] Error disconnecting ${name}:`, err.message);
             }
         }
         
         this.printers.clear();
-        debugLog('STOP - Printers cleared');
         
         console.log('[PhysicalPrinterAdapter] Stopped');
-        debugLog('STOP - Completed');
         this.emit('stopped');
     }
     
@@ -142,12 +115,11 @@ class PhysicalPrinterAdapter extends EventEmitter {
      * Start watching config.json for changes
      */
     startConfigWatcher() {
-        debugLog('CONFIG WATCHER - Starting');
         const chokidar = require('chokidar');
         const configPath = path.join('C:\\TabezaPrints', 'config.json');
+        console.log('[PhysicalPrinterAdapter] DEBUG - Loading config from:', configPath);
         
         console.log('[PhysicalPrinterAdapter] Starting config file watcher');
-        debugLog('CONFIG WATCHER - Watching: ' + configPath);
         
         this.configWatcher = chokidar.watch(configPath, {
             persistent: true,
@@ -159,70 +131,50 @@ class PhysicalPrinterAdapter extends EventEmitter {
         });
         
         this.configWatcher.on('change', async () => {
-            debugLog('CONFIG WATCHER - File changed');
             console.log('[PhysicalPrinterAdapter] Config file changed, reloading...');
             try {
                 await this.reloadConfig();
-                debugLog('CONFIG WATCHER - Reload completed');
             } catch (err) {
-                debugLog('CONFIG WATCHER - Reload error: ' + err.message);
-                console.error('[PhysicalPrinterAdapter] Error reloading config:', err.message);
+                this.log(`error`, '[PhysicalPrinterAdapter] Error reloading config:', err.message);
             }
         });
         
         this.configWatcher.on('error', (error) => {
-            debugLog('CONFIG WATCHER - Error: ' + error.message);
-            console.error('[PhysicalPrinterAdapter] Config watcher error:', error.message);
+            this.log(`error`, '[PhysicalPrinterAdapter] Config watcher error:', error.message);
         });
-        
-        debugLog('CONFIG WATCHER - Started');
     }
     
     async loadPrinterConfig() {
         // Load printer configuration from config.json
         const configPath = path.join('C:\\TabezaPrints', 'config.json');
-        
-        debugLog('LOAD CONFIG - Path: ' + configPath);
+        console.log('[PhysicalPrinterAdapter] DEBUG - Loading config from:', configPath);
         
         try {
-            debugLog('LOAD CONFIG - Reading file');
-            const configData = await fsp.readFile(configPath, 'utf8');
-            debugLog('LOAD CONFIG - File read, size: ' + configData.length + ' bytes');
-            
+            const configData = await fs.readFile(configPath, 'utf8');
             const config = JSON.parse(configData);
-            debugLog('LOAD CONFIG - JSON parsed successfully');
-            debugLog('LOAD CONFIG - Has printers property: ' + !!(config && config.printers));
+            console.log('[PhysicalPrinterAdapter] DEBUG - Config loaded successfully');
+            console.log('[PhysicalPrinterAdapter] DEBUG - Printers array exists:', config.printers ? 'yes' : 'no');
+            if (config.printers) {
+                console.log('[PhysicalPrinterAdapter] DEBUG - Printers count:', config.printers.length);
+            }
             
             if (config.printers && Array.isArray(config.printers)) {
-                debugLog('LOAD CONFIG - Printers array found, length: ' + config.printers.length);
-                console.log(`[PhysicalPrinterAdapter] Loaded ${config.printers.length} printer(s) from config`);
-                
-                // Log each printer config
-                for (let i = 0; i < config.printers.length; i++) {
-                    debugLog('LOAD CONFIG - Printer ' + i + ': ' + JSON.stringify(config.printers[i]));
-                }
+                this.log(`info`, ` Loaded ${config.printers.length} printer(s) from config`);
                 
                 // Initialize printer connections
-                debugLog('LOAD CONFIG - Initializing printers');
                 for (const printerConfig of config.printers) {
                     if (printerConfig.enabled !== false) {
                         await this.initializePrinter(printerConfig);
-                    } else {
-                        debugLog('LOAD CONFIG - Printer ' + printerConfig.name + ' is disabled, skipping');
                     }
                 }
-                debugLog('LOAD CONFIG - Printer initialization complete');
             } else {
-                debugLog('LOAD CONFIG - No printers array in config or not an array');
                 console.log('[PhysicalPrinterAdapter] No printers configured');
             }
         } catch (err) {
-            debugLog('LOAD CONFIG - ERROR: ' + err.message);
-            debugLog('LOAD CONFIG - Stack: ' + err.stack);
             if (err.code === 'ENOENT') {
                 console.log('[PhysicalPrinterAdapter] No config file found - using defaults');
             } else {
-                console.error('[PhysicalPrinterAdapter] Error loading config:', err.message);
+                this.log(`error`, '[PhysicalPrinterAdapter] Error loading config:', err.message);
             }
         }
     }
@@ -232,69 +184,49 @@ class PhysicalPrinterAdapter extends EventEmitter {
      * Closes existing connections and reinitializes printers
      */
     async reloadConfig() {
-        debugLog('RELOAD CONFIG - Starting');
         console.log('[PhysicalPrinterAdapter] Reloading configuration...');
         
         // Close all existing printer connections
-        debugLog('RELOAD CONFIG - Closing existing connections. Count: ' + this.printers.size);
         for (const [name, printer] of this.printers.entries()) {
             try {
                 if (printer.connection && printer.connection.disconnect) {
-                    debugLog('RELOAD CONFIG - Disconnecting: ' + name);
                     await printer.connection.disconnect();
                 }
             } catch (err) {
-                debugLog('RELOAD CONFIG - Error disconnecting ' + name + ': ' + err.message);
-                console.error(`[PhysicalPrinterAdapter] Error disconnecting ${name}:`, err.message);
+                this.log(`error`, `[PhysicalPrinterAdapter] Error disconnecting ${name}:`, err.message);
             }
         }
         
         // Clear printers map
         this.printers.clear();
-        debugLog('RELOAD CONFIG - Printers map cleared');
         
         // Reload configuration
         await this.loadPrinterConfig();
         
         console.log('[PhysicalPrinterAdapter] Configuration reloaded successfully');
-        debugLog('RELOAD CONFIG - Completed');
         this.emit('configReloaded');
     }
     
     async initializePrinter(config) {
-        debugLog('INIT PRINTER - Starting for: ' + config.name);
-        debugLog('INIT PRINTER - Type: ' + config.type);
-        debugLog('INIT PRINTER - Config: ' + JSON.stringify(config));
-        
         try {
             let connection;
             
             switch (config.type) {
                 case 'usb':
-                    debugLog('INIT PRINTER - Creating USB connection');
                     connection = new USBPrinterConnection(config.connection);
                     break;
                 case 'network':
-                    debugLog('INIT PRINTER - Creating network connection');
                     connection = new NetworkPrinterConnection(config.connection);
                     break;
                 case 'serial':
-                    debugLog('INIT PRINTER - Creating serial connection');
                     connection = new SerialPrinterConnection(config.connection);
                     break;
-		case 'windows':
-                    debugLog('INIT PRINTER - Creating Windows printer connection');
-                    connection = new WindowsPrinterConnection({ printerName: config.name });
-                    break;
                 default:
-                    debugLog('INIT PRINTER - Unknown type: ' + config.type);
                     throw new Error(`Unknown printer type: ${config.type}`);
             }
             
-            debugLog('INIT PRINTER - Connection object created, connecting...');
             // Connect to printer
             await connection.connect();
-            debugLog('INIT PRINTER - Connected successfully');
             
             // Store connection
             this.printers.set(config.name, {
@@ -304,26 +236,20 @@ class PhysicalPrinterAdapter extends EventEmitter {
                 isDefault: config.isDefault || false
             });
             
-            debugLog('INIT PRINTER - Stored in map. Map size now: ' + this.printers.size);
-            console.log(`[PhysicalPrinterAdapter] Initialized printer: ${config.name} (${config.type})`);
+            this.log(`info`, ` Initialized printer: ${config.name} (${config.type})`);
             
         } catch (err) {
-            debugLog('INIT PRINTER - ERROR: ' + err.message);
-            debugLog('INIT PRINTER - Stack: ' + err.stack);
-            console.error(`[PhysicalPrinterAdapter] Failed to initialize ${config.name}:`, err.message);
+            this.log(`error`, `[PhysicalPrinterAdapter] Failed to initialize ${config.name}:`, err.message);
         }
     }
     
     startForwardingWorker() {
-        debugLog('FORWARD WORKER - Starting');
         console.log('[PhysicalPrinterAdapter] Starting forwarding worker');
         
         // Poll queue every 2 seconds
         this.workerInterval = setInterval(() => {
             this.processForwardQueue();
         }, 2000);
-        
-        debugLog('FORWARD WORKER - Started with interval 2000ms');
     }
     
     async processForwardQueue() {
@@ -332,7 +258,6 @@ class PhysicalPrinterAdapter extends EventEmitter {
         }
         
         const job = this.forwardQueue[0]; // Peek at first job (FIFO)
-        debugLog('PROCESS QUEUE - Processing job: ' + job.jobId + ', queue depth: ' + this.forwardQueue.length);
         
         try {
             const startTime = Date.now();
@@ -341,7 +266,6 @@ class PhysicalPrinterAdapter extends EventEmitter {
             await this.forwardJob(job);
             
             const forwardTime = Date.now() - startTime;
-            debugLog('PROCESS QUEUE - Job forwarded in ' + forwardTime + 'ms');
             
             // Update statistics
             this.stats.jobsForwarded++;
@@ -353,13 +277,12 @@ class PhysicalPrinterAdapter extends EventEmitter {
             this.forwardQueue.shift();
             this.stats.queueDepth = this.forwardQueue.length;
             
-            console.log(`[PhysicalPrinterAdapter] Forwarded job ${job.jobId} in ${forwardTime}ms (${this.forwardQueue.length} remaining)`);
+            this.log(`info`, ` Forwarded job ${job.jobId} in ${forwardTime}ms (${this.forwardQueue.length} remaining)`);
             
             this.emit('jobForwarded', { jobId: job.jobId, forwardTime });
             
         } catch (err) {
-            debugLog('PROCESS QUEUE - Forward failed: ' + err.message);
-            console.error(`[PhysicalPrinterAdapter] Forward failed for job ${job.jobId}:`, err.message);
+            this.log(`error`, `[PhysicalPrinterAdapter] Forward failed for job ${job.jobId}:`, err.message);
             
             // Increment retry count
             job.forwardAttempts = (job.forwardAttempts || 0) + 1;
@@ -367,12 +290,11 @@ class PhysicalPrinterAdapter extends EventEmitter {
             
             if (job.forwardAttempts >= 5) {
                 // Move to failed queue after 5 attempts
-                debugLog('PROCESS QUEUE - Job failed after 5 attempts, moving to failed queue');
                 this.forwardQueue.shift();
                 this.stats.jobsFailed++;
                 this.stats.queueDepth = this.forwardQueue.length;
                 
-                console.error(`[PhysicalPrinterAdapter] Job ${job.jobId} failed after 5 attempts - moving to failed queue`);
+                this.log(`error`, `[PhysicalPrinterAdapter] Job ${job.jobId} failed after 5 attempts - moving to failed queue`);
                 
                 await this.moveToFailedQueue(job);
                 
@@ -381,8 +303,7 @@ class PhysicalPrinterAdapter extends EventEmitter {
                 // Exponential backoff: 5s, 10s, 20s, 40s
                 const backoffDelay = 5000 * Math.pow(2, job.forwardAttempts - 1);
                 
-                debugLog('PROCESS QUEUE - Retry ' + job.forwardAttempts + '/5 in ' + backoffDelay + 'ms');
-                console.log(`[PhysicalPrinterAdapter] Retry ${job.forwardAttempts}/5 for job ${job.jobId} in ${backoffDelay}ms`);
+                this.log(`info`, ` Retry ${job.forwardAttempts}/5 for job ${job.jobId} in ${backoffDelay}ms`);
                 
                 // Move to end of queue for retry
                 this.forwardQueue.shift();
@@ -395,53 +316,36 @@ class PhysicalPrinterAdapter extends EventEmitter {
     }
     
     async forwardJob(job) {
-        debugLog('FORWARD JOB - Getting default printer');
         // Get default printer from config
         const defaultPrinter = this.getDefaultPrinter();
         
         if (!defaultPrinter) {
-            debugLog('FORWARD JOB - No default printer configured');
             throw new Error('No default printer configured');
         }
         
-        debugLog('FORWARD JOB - Default printer: ' + defaultPrinter.name);
-        console.log(`[PhysicalPrinterAdapter] Forwarding job ${job.jobId} to ${defaultPrinter.name}`);
+        this.log(`info`, ` Forwarding job ${job.jobId} to ${defaultPrinter.name}`);
         
         // Check printer status
-        debugLog('FORWARD JOB - Checking printer status');
         const status = await defaultPrinter.connection.getStatus();
-        debugLog('FORWARD JOB - Status: ' + JSON.stringify(status));
         
         if (!status.ready) {
-            debugLog('FORWARD JOB - Printer not ready: ' + (status.errorMessage || 'Unknown'));
             throw new Error(`Printer not ready: ${status.errorMessage || 'Unknown error'}`);
         }
         
         if (status.paperOut) {
-            debugLog('FORWARD JOB - Printer out of paper');
             throw new Error('Printer out of paper');
         }
         
         // Send raw data to printer
-        debugLog('FORWARD JOB - Sending data, size: ' + job.rawData.length + ' bytes');
         const bytesSent = await defaultPrinter.connection.send(job.rawData);
         
-        debugLog('FORWARD JOB - Sent ' + bytesSent + ' bytes successfully');
-        console.log(`[PhysicalPrinterAdapter] Job ${job.jobId} forwarded successfully (${bytesSent} bytes)`);
+        this.log(`info`, ` Job ${job.jobId} forwarded successfully (${bytesSent} bytes)`);
     }
     
     getDefaultPrinter() {
-        debugLog('GET DEFAULT - Called, printers in map: ' + this.printers.size);
-        
-        // List all printers in map
-        for (const [name, printer] of this.printers.entries()) {
-            debugLog('GET DEFAULT - Printer in map: ' + name + ', enabled: ' + printer.enabled + ', isDefault: ' + printer.isDefault);
-        }
-        
         // Return first enabled printer marked as default
         for (const [name, printer] of this.printers.entries()) {
             if (printer.enabled && printer.isDefault) {
-                debugLog('GET DEFAULT - Found default printer: ' + name);
                 return { name, ...printer };
             }
         }
@@ -449,42 +353,35 @@ class PhysicalPrinterAdapter extends EventEmitter {
         // If no default, return first enabled printer
         for (const [name, printer] of this.printers.entries()) {
             if (printer.enabled) {
-                debugLog('GET DEFAULT - No default, using first enabled: ' + name);
                 return { name, ...printer };
             }
         }
         
-        debugLog('GET DEFAULT - No printers found in map');
         return null;
     }
     
     async moveToFailedQueue(job) {
-        debugLog('MOVE TO FAILED - Job: ' + job.jobId);
         try {
             const failedDir = path.join('C:\\TabezaPrints', 'failed_prints');
-            await fsp.mkdir(failedDir, { recursive: true });
+            await fs.mkdir(failedDir, { recursive: true });
             
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
             const failedFile = path.join(failedDir, `${timestamp}_${job.jobId}.json`);
             
-            await fsp.writeFile(failedFile, JSON.stringify(job, null, 2), 'utf8');
+            await fs.writeFile(failedFile, JSON.stringify(job, null, 2), 'utf8');
             
-            debugLog('MOVE TO FAILED - Moved to: ' + failedFile);
-            console.log(`[PhysicalPrinterAdapter] Moved failed job to: ${failedFile}`);
+            this.log(`info`, ` Moved failed job to: ${failedFile}`);
         } catch (err) {
-            debugLog('MOVE TO FAILED - Error: ' + err.message);
-            console.error(`[PhysicalPrinterAdapter] Error moving job to failed queue:`, err.message);
+            this.log(`error`, `[PhysicalPrinterAdapter] Error moving job to failed queue:`, err.message);
         }
     }
     
     enqueueJob(job) {
-        debugLog('ENQUEUE - Job: ' + job.jobId + ', current queue depth: ' + this.forwardQueue.length);
         this.forwardQueue.push(job);
         this.stats.jobsReceived++;
         this.stats.queueDepth = this.forwardQueue.length;
         
-        console.log(`[PhysicalPrinterAdapter] Enqueued job ${job.jobId} (queue depth: ${this.forwardQueue.length})`);
-        debugLog('ENQUEUE - New queue depth: ' + this.forwardQueue.length);
+        this.log(`info`, ` Enqueued job ${job.jobId} (queue depth: ${this.forwardQueue.length})`);
         
         this.emit('jobEnqueued', { jobId: job.jobId, queueDepth: this.forwardQueue.length });
     }
@@ -507,8 +404,7 @@ class PhysicalPrinterAdapter extends EventEmitter {
         this.forwardQueue = [];
         this.stats.queueDepth = 0;
         
-        console.log(`[PhysicalPrinterAdapter] Cleared queue (${count} jobs removed)`);
-        debugLog('CLEAR QUEUE - Removed ' + count + ' jobs');
+        this.log(`info`, ` Cleared queue (${count} jobs removed)`);
         
         return count;
     }
@@ -519,20 +415,20 @@ class PhysicalPrinterAdapter extends EventEmitter {
             
             // Check if directory exists
             try {
-                await fsp.access(failedDir);
+                await fs.access(failedDir);
             } catch (err) {
                 // Directory doesn't exist, return empty array
                 return [];
             }
             
-            const files = await fsp.readdir(failedDir);
+            const files = await fs.readdir(failedDir);
             const failedJobs = [];
             
             for (const file of files) {
                 if (file.endsWith('.json')) {
                     try {
                         const filePath = path.join(failedDir, file);
-                        const content = await fsp.readFile(filePath, 'utf8');
+                        const content = await fs.readFile(filePath, 'utf8');
                         const job = JSON.parse(content);
                         
                         failedJobs.push({
@@ -544,7 +440,7 @@ class PhysicalPrinterAdapter extends EventEmitter {
                             dataSize: job.rawData ? Buffer.from(job.rawData).length : 0
                         });
                     } catch (err) {
-                        console.error(`[PhysicalPrinterAdapter] Error reading failed job ${file}:`, err.message);
+                        this.log(`error`, `[PhysicalPrinterAdapter] Error reading failed job ${file}:`, err.message);
                     }
                 }
             }
@@ -554,7 +450,7 @@ class PhysicalPrinterAdapter extends EventEmitter {
             
             return failedJobs;
         } catch (err) {
-            console.error('[PhysicalPrinterAdapter] Error getting failed jobs:', err.message);
+            this.log(`error`, '[PhysicalPrinterAdapter] Error getting failed jobs:', err.message);
             return [];
         }
     }
@@ -565,20 +461,20 @@ class PhysicalPrinterAdapter extends EventEmitter {
             
             // Check if directory exists
             try {
-                await fsp.access(failedDir);
+                await fs.access(failedDir);
             } catch (err) {
                 // Directory doesn't exist, nothing to retry
                 return { success: true, retriedCount: 0, message: 'No failed jobs found' };
             }
             
-            const files = await fsp.readdir(failedDir);
+            const files = await fs.readdir(failedDir);
             let retriedCount = 0;
             
             for (const file of files) {
                 if (file.endsWith('.json')) {
                     try {
                         const filePath = path.join(failedDir, file);
-                        const content = await fsp.readFile(filePath, 'utf8');
+                        const content = await fs.readFile(filePath, 'utf8');
                         const job = JSON.parse(content);
                         
                         // Reset retry counter and error
@@ -589,13 +485,13 @@ class PhysicalPrinterAdapter extends EventEmitter {
                         this.enqueueJob(job);
                         
                         // Delete the failed job file
-                        await fsp.unlink(filePath);
+                        await fs.unlink(filePath);
                         
                         retriedCount++;
                         
-                        console.log(`[PhysicalPrinterAdapter] Re-queued failed job: ${job.jobId}`);
+                        this.log(`info`, ` Re-queued failed job: ${job.jobId}`);
                     } catch (err) {
-                        console.error(`[PhysicalPrinterAdapter] Error retrying failed job ${file}:`, err.message);
+                        this.log(`error`, `[PhysicalPrinterAdapter] Error retrying failed job ${file}:`, err.message);
                     }
                 }
             }
@@ -606,7 +502,7 @@ class PhysicalPrinterAdapter extends EventEmitter {
                 message: `Successfully re-queued ${retriedCount} failed job(s)`
             };
         } catch (err) {
-            console.error('[PhysicalPrinterAdapter] Error retrying failed jobs:', err.message);
+            this.log(`error`, '[PhysicalPrinterAdapter] Error retrying failed jobs:', err.message);
             return {
                 success: false,
                 retriedCount: 0,
@@ -624,30 +520,30 @@ class PhysicalPrinterAdapter extends EventEmitter {
         try {
             const usbPrinters = await this.detectUSBPrinters();
             detected.push(...usbPrinters);
-            console.log(`[PhysicalPrinterAdapter] Found ${usbPrinters.length} USB printer(s)`);
+            this.log(`info`, ` Found ${usbPrinters.length} USB printer(s)`);
         } catch (err) {
-            console.error('[PhysicalPrinterAdapter] USB detection failed:', err.message);
+            this.log(`error`, '[PhysicalPrinterAdapter] USB detection failed:', err.message);
         }
         
         // Detect network printers (scan common IPs)
         try {
             const networkPrinters = await this.detectNetworkPrinters();
             detected.push(...networkPrinters);
-            console.log(`[PhysicalPrinterAdapter] Found ${networkPrinters.length} network printer(s)`);
+            this.log(`info`, ` Found ${networkPrinters.length} network printer(s)`);
         } catch (err) {
-            console.error('[PhysicalPrinterAdapter] Network detection failed:', err.message);
+            this.log(`error`, '[PhysicalPrinterAdapter] Network detection failed:', err.message);
         }
         
         // Detect serial printers
         try {
             const serialPrinters = await this.detectSerialPrinters();
             detected.push(...serialPrinters);
-            console.log(`[PhysicalPrinterAdapter] Found ${serialPrinters.length} serial printer(s)`);
+            this.log(`info`, ` Found ${serialPrinters.length} serial printer(s)`);
         } catch (err) {
-            console.error('[PhysicalPrinterAdapter] Serial detection failed:', err.message);
+            this.log(`error`, '[PhysicalPrinterAdapter] Serial detection failed:', err.message);
         }
         
-        console.log(`[PhysicalPrinterAdapter] Total printers detected: ${detected.length}`);
+        this.log(`info`, ` Total printers detected: ${detected.length}`);
         
         return detected;
     }
@@ -696,7 +592,7 @@ class PhysicalPrinterAdapter extends EventEmitter {
                 }
             }
         } catch (err) {
-            console.error('[PhysicalPrinterAdapter] USB scan error:', err.message);
+            this.log(`error`, '[PhysicalPrinterAdapter] USB scan error:', err.message);
         }
         
         return detected;
@@ -807,7 +703,8 @@ class PhysicalPrinterAdapter extends EventEmitter {
     
     async detectSerialPrinters() {
         const { SerialPort } = require('serialport');
-        const detected = [];
+
+const detected = [];
         
         try {
             const ports = await SerialPort.list();
@@ -832,7 +729,7 @@ class PhysicalPrinterAdapter extends EventEmitter {
                 }
             }
         } catch (err) {
-            console.error('[PhysicalPrinterAdapter] Serial scan error:', err.message);
+            this.log(`error`, '[PhysicalPrinterAdapter] Serial scan error:', err.message);
         }
         
         return detected;
@@ -840,4 +737,6 @@ class PhysicalPrinterAdapter extends EventEmitter {
 }
 
 module.exports = PhysicalPrinterAdapter;
+
+
 

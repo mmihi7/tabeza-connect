@@ -1,0 +1,47 @@
+{
+  "barId": "438c80c1-fe11-4ac5-8a48-2fc45104ba31",
+  "driverId": "driver-MIHI-PC",
+  "apiUrl": "https://tabz-kikao.vercel.app",
+  "apiKey": "sk-e2a4d13722174c0caf57e37a7e2513cb",
+  "captureMode": "redmon",
+  "logLevel": "info",
+  "logPath": "C:\\ProgramData\\Tabeza\\logs",
+  "httpPort": 8765,
+  "watchFolder": "C:\\TabezaPrints",
+  "printer": {
+    "type": "usb",
+    "port": "USB001",
+    "timeout": 5000
+  },
+  "printers": [
+    {
+      "name": "EPSON L3210 Series",
+      "type": "usb",
+      "port": "USB001",
+      "enabled": true,
+      "isDefault": true,
+      "timeout": 5000
+    }
+  ],
+  "capture": {
+    "basePath": "C:\\TabezaPrints",
+    "maxFileSize": 1048576,
+    "minDiskSpace": 104857600
+  },
+  "upload": {
+    "pollInterval": 2000,
+    "maxRetries": 5,
+    "retryBackoff": [5000, 10000, 20000, 40000]
+  },
+  "service": {
+    "name": "TabezaConnect",
+    "displayName": "Tabeza POS Connect",
+    "description": "Captures receipt data from POS and syncs with Tabeza staff app",
+    "port": 8765
+  },
+  "logging": {
+    "level": "info",
+    "maxFileSize": 10485760,
+    "maxFiles": 30
+  }
+}

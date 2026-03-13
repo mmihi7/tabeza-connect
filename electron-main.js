@@ -1893,7 +1893,7 @@ ipcMain.handle('setup-printer', async (event, printerName) => {
     
     // Use the Redmon-based configure script (not the old pooling script)
     const scriptPath = isDev 
-      ? path.join(__dirname, 'installer/scripts/configure-redmon-printer.ps1')
+      ? path.join(__dirname, 'src/installer/scripts/configure-redmon-printer.ps1')
       : path.join(process.resourcesPath, 'installer/scripts/configure-redmon-printer.ps1');
 
     if (!fs.existsSync(scriptPath)) {

@@ -1074,14 +1074,14 @@ class IntegratedCaptureService {
           templateMissing: this.templateMissing // Requirement 15A.4: Pass template status
         });
         info('✅ SpoolWatcher created successfully');
-//         debug('SpoolWatcher initialized with config:', this.spoolWatcher.config);
+        debug('SpoolWatcher initialized with config:', this.spoolWatcher.config);
       } catch (spoolError) {
         error(`Failed to initialize SpoolWatcher: ${spoolError.message}`);
         error('SpoolWatcher initialization failed. Service will continue without file monitoring.');
         error('This may cause: capture.exe not creating files, or raw folder permissions issue.');
         error('DEBUG: SpoolError details:', spoolError);
-//         debug('SpoolWatcher initialization failed with error:', spoolError);
-//         debug('SpoolWatcher initialization failed with stack:', spoolError.stack);
+        debug('SpoolWatcher initialization failed with error:', spoolError);
+        debug('SpoolWatcher initialization failed with stack:', spoolError.stack);
         // Continue without SpoolWatcher - service will still work for other features
         this.spoolWatcher = null;
       }
@@ -1091,11 +1091,8 @@ class IntegratedCaptureService {
         this.printerAdapter = new PhysicalPrinterAdapter(this.config);
         await this.printerAdapter.start();
         info('✅ PhysicalPrinterAdapter started');
-          } catch (printerError) {
+      } catch (printerError) {
         error(`Failed to initialize PhysicalPrinterAdapter: ${printerError.message}`);
-        error(`PhysicalPrinterAdapter stack: ${printerError.stack}`);
-        // Log the full error object
-        console.error('[PhysicalPrinterAdapter] Full error:', printerError);
         // Continue without PhysicalPrinterAdapter - service will still work for file monitoring
         this.printerAdapter = null;
       }
@@ -1263,5 +1260,3 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason) => {
   error(`Unhandled rejection: ${reason}`);
 });
-
-
