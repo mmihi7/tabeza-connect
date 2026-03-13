@@ -1,0 +1,18 @@
+{
+  "patterns": {
+    "receipt_number": "(?i)receipt #(\\d+)",
+    "total": "(?i)total (\\d+\\.\\d+)"
+  },
+  "fields": [
+    {
+      "name": "receipt_number",
+      "type": "text",
+      "pattern": "(?i)receipt #(\\d+)"
+    },
+    {
+      "name": "total",
+      "type": "number",
+      "pattern": "(?i)total (\\d+\\.\\d+)"
+    }
+  ]
+}

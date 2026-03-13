@@ -1065,18 +1065,37 @@ class IntegratedCaptureService {
       this.heartbeatService.start();
       info('✅ Heartbeat service started');
 
-      // Initialize SpoolWatcher for virtual printer integration
-      this.spoolWatcher = new SpoolWatcher({
-        spoolFolder: path.join(DATA_DIR, 'raw'),
-        stabilizationDelay: 500,
-        filePattern: /\.prn$/i,
-        templateMissing: this.templateMissing // Requirement 15A.4: Pass template status
-      });
+      // Initialize SpoolWatcher for REDMON Program Mode (capture.exe creates .prn files)
+      try {
+        this.spoolWatcher = new SpoolWatcher({
+          spoolFolder: path.join(DATA_DIR, 'raw'),
+          stabilizationDelay: 2000,
+          filePattern: /\.prn$/i,
+          templateMissing: this.templateMissing // Requirement 15A.4: Pass template status
+        });
+        info('✅ SpoolWatcher created successfully');
+        debug('SpoolWatcher initialized with config:', this.spoolWatcher.config);
+      } catch (spoolError) {
+        error(`Failed to initialize SpoolWatcher: ${spoolError.message}`);
+        error('SpoolWatcher initialization failed. Service will continue without file monitoring.');
+        error('This may cause: capture.exe not creating files, or raw folder permissions issue.');
+        error('DEBUG: SpoolError details:', spoolError);
+        debug('SpoolWatcher initialization failed with error:', spoolError);
+        debug('SpoolWatcher initialization failed with stack:', spoolError.stack);
+        // Continue without SpoolWatcher - service will still work for other features
+        this.spoolWatcher = null;
+      }
       
       // Initialize PhysicalPrinterAdapter
-      this.printerAdapter = new PhysicalPrinterAdapter(this.config);
-      await this.printerAdapter.start();
-      info('✅ PhysicalPrinterAdapter started');
+      try {
+        this.printerAdapter = new PhysicalPrinterAdapter(this.config);
+        await this.printerAdapter.start();
+        info('✅ PhysicalPrinterAdapter started');
+      } catch (printerError) {
+        error(`Failed to initialize PhysicalPrinterAdapter: ${printerError.message}`);
+        // Continue without PhysicalPrinterAdapter - service will still work for file monitoring
+        this.printerAdapter = null;
+      }
       
       // Connect SpoolWatcher to PhysicalPrinterAdapter
       this.spoolWatcher.on('forwardJob', (jobData) => {
