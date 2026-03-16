@@ -98,7 +98,7 @@ Write-Host "Creating Windows service..." -ForegroundColor Cyan
 $binaryPath = "`"$exePath`""
 
 Write-Host "  Creating service..." -ForegroundColor Gray
-$createResult = sc.exe create $serviceName binPath= $binaryPath DisplayName= $displayName start= auto
+sc.exe create $serviceName binPath= $binaryPath DisplayName= $displayName start= auto
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  [ERROR] Failed to create service (exit code: $LASTEXITCODE)" -ForegroundColor Red
