@@ -437,17 +437,9 @@ class LocalQueue {
       throw new Error('Invalid timestamp format (must be ISO 8601)');
     }
     
-    // Validate that either text or escposBytes is provided
-    // In pooling mode, text can be null if escposBytes is provided (cloud will parse)
-    if (!receipt.text && !receipt.escposBytes) {
-      throw new Error('Receipt must have either text or escposBytes');
-    }
-    
-    // Validate text is not empty if provided
-    if (receipt.text !== null && receipt.text !== undefined) {
-      if (typeof receipt.text !== 'string' || receipt.text.trim().length === 0) {
-        throw new Error('Receipt text cannot be empty string');
-      }
+    // Validate that at least one data field is provided
+    if (!receipt.text && !receipt.escposBytes && !receipt.parsedData) {
+      throw new Error('Receipt must have either text, escposBytes, or parsedData');
     }
   }
   

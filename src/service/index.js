@@ -190,8 +190,8 @@ class SimpleHTTPServer {
           });
         }
 
-        // Update config file
-        const configPath = 'C:\\TabezaPrints\\config.json';
+        // Update config file - write to the path RegistryReader reads from
+        const configPath = 'C:\\ProgramData\\Tabeza\\config.json';
         let config = {};
         
         if (fs.existsSync(configPath)) {
@@ -201,6 +201,12 @@ class SimpleHTTPServer {
         config.barId = barId;
         if (apiUrl) {
           config.apiUrl = apiUrl;
+        }
+        
+        // Ensure directory exists
+        const configDir = require('path').dirname(configPath);
+        if (!fs.existsSync(configDir)) {
+          fs.mkdirSync(configDir, { recursive: true });
         }
         
         fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
@@ -733,7 +739,7 @@ Bar ID: ${this.config.barId}
         }
         
         // Update config file
-        const configPath = 'C:\\TabezaPrints\\config.json';
+        const configPath = 'C:\\ProgramData\\Tabeza\\config.json';
         let config = {};
         
         if (fs.existsSync(configPath)) {
@@ -1100,11 +1106,80 @@ class IntegratedCaptureService {
         this.printerAdapter = null;
       }
       
-      // Connect SpoolWatcher to PhysicalPrinterAdapter
-      this.spoolWatcher.on('forwardJob', (jobData) => {
+      // Connect SpoolWatcher to PhysicalPrinterAdapter AND cloud upload queue
+      this.spoolWatcher.on('forwardJob', async (jobData) => {
         info(`SpoolWatcher forwarding job: ${jobData.jobId}`);
-        this.printerAdapter.enqueueJob(jobData);
-      });
+        
+        // Forward to physical printer FIRST — this must never be blocked by cloud upload
+        if (this.printerAdapter) {
+          this.printerAdapter.enqueueJob(jobData);
+        }
+        
+        // Cloud upload is fully fire-and-forget — never blocks or affects printing
+        setImmediate(async () => {
+          try {
+            if (!this.config.barId) {
+              warn(`[CloudUpload] Skipping cloud upload: barId not configured`);
+              return;
+            }
+            
+            const rawBuffer = jobData.rawData;
+            if (!rawBuffer || rawBuffer.length === 0) {
+              warn(`[CloudUpload] No raw data in job ${jobData.jobId}, skipping`);
+              return;
+            }
+            
+            const escposBytes = Buffer.isBuffer(rawBuffer)
+              ? rawBuffer.toString('base64')
+              : Buffer.from(rawBuffer).toString('base64');
+
+            // Strip ESC/POS control bytes to get plain text
+            const plainText = this.escposProcessor.convertToText(
+              Buffer.isBuffer(rawBuffer) ? rawBuffer : Buffer.from(rawBuffer)
+            );
+
+            // Parse plain text using AI-generated template
+            let parsedData = null;
+            if (plainText && this.receiptParser) {
+              try {
+                const parseResult = await this.receiptParser.parse(plainText);
+                if (parseResult.success && parseResult.data) {
+                  parsedData = {
+                    items: parseResult.data.items || [],
+                    total: parseResult.data.total || 0,
+                    receiptNumber: parseResult.data.receiptNumber,
+                    rawText: plainText,
+                    confidence: parseResult.confidence > 70 ? 'high' : parseResult.confidence > 40 ? 'medium' : 'low',
+                  };
+                  info(`[CloudUpload] Parsed receipt: ${parsedData.items.length} items, total ${parsedData.total}`);
+                }
+              } catch (parseErr) {
+                warn(`[CloudUpload] Parse failed, sending raw: ${parseErr.message}`);
+              }
+            }
+            
+            const receiptId = await this.localQueue.enqueue({
+              barId: this.config.barId,
+              deviceId: this.config.driverId || 'unknown',
+              timestamp: jobData.capturedAt || new Date().toISOString(),
+              escposBytes: escposBytes,
+              parsedData: parsedData,
+              text: plainText || null,
+              metadata: {
+                jobId: jobData.jobId,
+                printerName: jobData.printerName || 'Unknown Printer',
+                fileName: jobData.captureFileName,
+                documentName: jobData.documentName || 'Receipt',
+                source: 'spool-capture',
+              }
+            });
+            
+            info(`[CloudUpload] Receipt enqueued for upload: ${receiptId} (job: ${jobData.jobId})`);
+          } catch (enqueueErr) {
+            error(`[CloudUpload] Failed to enqueue receipt for upload: ${enqueueErr.message}`);
+          }
+        }); // end setImmediate
+      }); // end forwardJob handler
       
       // Set up SpoolWatcher event handlers
       this.spoolWatcher.on('printJobProcessed', (jobData) => {

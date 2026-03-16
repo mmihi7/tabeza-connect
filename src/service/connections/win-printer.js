@@ -65,11 +65,14 @@ class WindowsPrinterConnection {
             
             const status = stdout.trim();
             
+            // Treat any non-error state as ready — Windows returns various status strings
+            const notReady = status.includes('Error') || status.includes('Offline') || status.includes('Unknown');
+            const paperOut = status.includes('OutOfPaper') || status.includes('PaperOut');
             return {
-                ready: status === 'Normal' || status === 'Idle',
-                paperOut: status === 'OutOfPaper',
-                error: status !== 'Normal' && status !== 'Idle' && status !== 'OutOfPaper',
-                errorMessage: status !== 'Normal' ? `Printer status: ${status}` : null
+                ready: !notReady,
+                paperOut: paperOut,
+                error: notReady,
+                errorMessage: notReady ? `Printer status: ${status}` : null
             };
         } catch (err) {
             return {

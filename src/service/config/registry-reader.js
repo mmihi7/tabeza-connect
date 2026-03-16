@@ -22,8 +22,9 @@ const DEFAULTS = {
   httpPort: 8765
 };
 
-// Config file path
+// Config file path - check both locations
 const CONFIG_FILE_PATH = 'C:\\ProgramData\\Tabeza\\config.json';
+const CONFIG_FILE_PATH_ALT = 'C:\\TabezaPrints\\config.json';
 
 class RegistryReader {
   /**
@@ -63,15 +64,18 @@ class RegistryReader {
    */
   static readConfigFile() {
     try {
-      // Check if file exists
-      if (!fs.existsSync(CONFIG_FILE_PATH)) {
-        return null;
-      }
+      // Check primary path first, then fallback
+      const filePath = fs.existsSync(CONFIG_FILE_PATH) 
+        ? CONFIG_FILE_PATH 
+        : fs.existsSync(CONFIG_FILE_PATH_ALT) 
+          ? CONFIG_FILE_PATH_ALT 
+          : null;
 
-      // Read and parse JSON
-      const fileContent = fs.readFileSync(CONFIG_FILE_PATH, 'utf8');
+      if (!filePath) return null;
+
+      const fileContent = fs.readFileSync(filePath, 'utf8');
       const config = JSON.parse(fileContent);
-
+      console.log(`[RegistryReader] Loaded config from: ${filePath}`);
       return config;
     } catch (error) {
       // Log warning for malformed JSON or read errors
@@ -149,6 +153,9 @@ class RegistryReader {
       }
       if (!config.httpPort && fileConfig.httpPort) {
         config.httpPort = fileConfig.httpPort;
+      }
+      if (!config.driverId && fileConfig.driverId) {
+        config.driverId = fileConfig.driverId;
       }
     }
 

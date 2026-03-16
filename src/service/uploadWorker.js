@@ -262,12 +262,14 @@ class UploadWorker extends EventEmitter {
     
     // Prepare request payload
     const payload = {
-      driverId: this.deviceId,  // Rename deviceId → driverId
+      driverId: this.deviceId,
       barId: this.barId,
       timestamp: receipt.timestamp,
-      rawData: receipt.escposBytes,  // Rename escposBytes → rawData
+      rawData: receipt.escposBytes || null,
+      parsedData: receipt.parsedData || null,  // structured data from AI template
+      rawText: receipt.text || null,
       printerName: receipt.metadata?.printerName || 'Tabeza POS Connect',
-      documentName: receipt.metadata?.fileName || 'Receipt',
+      documentName: receipt.metadata?.documentName || receipt.metadata?.fileName || 'Receipt',
       metadata: {
         ...receipt.metadata,
         source: 'pooling-capture',
