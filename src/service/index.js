@@ -1278,6 +1278,8 @@ class IntegratedCaptureService {
         });
 
         this.spoolWatcher.on('forwardJob', async (job) => {
+          info(`🔄 forwardJob received: jobId=${job.jobId}, spoolFile=${job.spoolFile}, size=${job.size} bytes`);
+          
           // 1. Forward raw bytes to physical printer
           if (this.printerAdapter) {
             info(`Receipt captured → forwarding to printer (jobId=${job.jobId})`);

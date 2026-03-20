@@ -186,7 +186,20 @@ class UploadWorker extends EventEmitter {
         await this.currentUpload;
         
         // Success! Mark as uploaded and remove from queue
-        await this.localQueue.markUploaded(receiptId);
+        try {
+          await this.localQueue.markUploaded(receiptId);
+          log.ok(`Receipt uploaded and marked: ${receiptId}`);
+        } catch (markError) {
+          log.error(`Failed to mark receipt as uploaded: ${receiptId} - ${markError.message}`);
+          // Force remove from queue to prevent infinite loop
+          try {
+            await this.localQueue.remove(receiptId);
+            log.warn(`Force removed receipt from queue: ${receiptId}`);
+          } catch (removeError) {
+            log.error(`Failed to force remove receipt: ${receiptId} - ${removeError.message}`);
+          }
+          // Don't retry - upload was successful
+        }
         
         this.stats.uploadsSucceeded++;
         this.stats.lastUploadSuccess = new Date().toISOString();

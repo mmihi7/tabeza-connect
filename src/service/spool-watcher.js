@@ -89,14 +89,27 @@ class SpoolWatcher extends EventEmitter {
         const fileName = path.basename(filePath);
 
         if (!this.filePattern.test(fileName)) return;
-        if (this.processedFiles.has(filePath) || this.processingFiles.has(filePath)) return;
+        if (this.processedFiles.has(filePath) || this.processingFiles.has(filePath)) {
+            log.warn(`Skipping already processed file: ${fileName}`);
+            return;
+        }
+
+        // List all .prn files in directory for debugging
+        try {
+            const allFiles = await fs.readdir(this.spoolFolder);
+            const prnFiles = allFiles.filter(f => f.endsWith('.prn'));
+            log.info(`📁 Current .prn files: ${prnFiles.join(', ')}`);
+        } catch (err) {
+            log.error(`Failed to list directory: ${err.message}`);
+        }
 
         this.stats.filesDetected++;
         this.stats.lastFileAt = new Date().toISOString();
         this.processingFiles.add(filePath);
         this.processedFiles.add(filePath); // Mark immediately to block duplicate events
 
-        log.step(`Detected: ${fileName}`);
+        log.step(`Detected: ${fileName} (total detected: ${this.stats.filesDetected})`);
+        log.info(`Processing set size: ${this.processingFiles.size}, Processed set size: ${this.processedFiles.size}`);
 
         try {
             log.debug(`Stabilising (${this.stabilizationDelay}ms)...`);

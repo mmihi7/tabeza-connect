@@ -79,17 +79,24 @@ if ($ok) { Write-Host "OK:$($bytes.Length)" } else { Write-Host "FAIL"; exit 1 }
 `;
 
 class WindowsPrinterConnection {
-    constructor(config = {}) {
-        this.printerName = config.printerName || 'EPSON L3210 Series';
+    constructor(printerName, config = {}) {
+        this.printerName = printerName;
+        this.config = config;
         this.tempDir = path.join('C:\\TabezaPrints', 'temp');
-        // Write the PS script once to a known path
-        this._psScriptPath = path.join('C:\\TabezaPrints', 'raw-print.ps1');
+        this._psScriptPath = path.join(__dirname, 'raw-print.ps1');
+        
+        // Deduplication cache to prevent multiple sends of same data
+        this._recentSends = new Map();
+        this._dedupeWindow = 5000; // 5 seconds
+        
+        // Ensure temp directory exists
+        if (!fs.existsSync(this.tempDir)) {
+            fs.mkdirSync(this.tempDir, { recursive: true });
+        }
     }
 
     async connect() {
         try {
-            await fs.promises.mkdir(this.tempDir, { recursive: true });
-
             // Write PS script to disk (idempotent)
             await fs.promises.writeFile(this._psScriptPath, RAW_PRINT_PS, 'utf8');
 
@@ -112,6 +119,27 @@ class WindowsPrinterConnection {
     }
 
     async send(data) {
+        // Create hash of data for deduplication
+        const dataHash = require('crypto').createHash('md5').update(data).digest('hex');
+        const now = Date.now();
+        
+        // Check if we recently sent this exact same data
+        const lastSent = this._recentSends.get(dataHash);
+        if (lastSent && (now - lastSent) < this._dedupeWindow) {
+            log.warn(`Duplicate send blocked: ${dataHash.slice(0, 8)}... (sent ${(now - lastSent)}ms ago)`);
+            return data.length; // Pretend it was sent
+        }
+        
+        // Mark as sent
+        this._recentSends.set(dataHash, now);
+        
+        // Clean old entries
+        for (const [hash, timestamp] of this._recentSends.entries()) {
+            if (now - timestamp > this._dedupeWindow * 2) {
+                this._recentSends.delete(hash);
+            }
+        }
+        
         const tempFile = path.join(this.tempDir, `print_${Date.now()}.prn`);
         log.step(`Sending ${data.length} bytes to "${this.printerName}" via WritePrinter (raw)`);
         try {
@@ -137,6 +165,8 @@ class WindowsPrinterConnection {
             return data.length;
         } catch (err) {
             log.error(`Send failed: ${err.message}`);
+            // Remove from deduplication cache on failure so it can be retried
+            this._recentSends.delete(dataHash);
             throw err;
         } finally {
             fs.promises.unlink(tempFile).catch(() => {});
