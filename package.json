@@ -39,13 +39,32 @@
   "build": {
     "appId": "com.tabeza.connect",
     "productName": "TabezaConnect",
-    "copyright": "Copyright © 2024 Tabeza",
+    "copyright": "Copyright 2024 Tabeza",
     "directories": {
       "output": "dist"
     },
     "files": [
+      "electron-main.js",
       "src/**/*",
-      "package.json"
+      "package.json",
+      "!**/node_modules/**/ffmpeg*",
+      "!**/node_modules/**/*ffmpeg*",
+      "!**/*.dll",
+      "!ffmpeg.dll",
+      "!node_modules/electron/dist/ffmpeg.dll"
+    ],
+    "electronDownload": {
+      "mirror": "https://npmmirror.com/mirrors/electron/"
+    },
+    "buildDependenciesFromSource": false,
+    "includeSubNodeModules": false,
+    "afterPack": "build/afterPack.js",
+    "downloadAlternateFFmpeg": false,
+    "protocols": [
+      {
+        "name": "Tabeza Protocol",
+        "schemes": ["tabeza"]
+      }
     ],
     "extraResources": [
       {
@@ -89,14 +108,14 @@
     "win": {
       "target": [
         {
-          "target": "nsis",
+          "target": "dir",
           "arch": [
-            "x64"
+            "x64",
+            "ia32"
           ]
         }
       ],
-      "icon": "assets/icon-green.ico",
-      "requestedExecutionLevel": "requireAdministrator"
+      "icon": "assets/icon-green.ico"
     },
     "nsis": {
       "oneClick": false,

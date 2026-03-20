@@ -266,6 +266,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'action-test-print', 'action-test-cloud', 'action-restart-service',
       'action-verify-redmon', 'action-export-diagnostics', 'action-kill-processes',
       'start-service', 'stop-service', 'restart-service', 'get-service-status',
+      'get-logs', 'get-windows-printers', 'select-printer', 'test-print-invoke',
     ];
     if (!allowedChannels.includes(channel)) {
       return Promise.reject(new Error(`IPC channel not allowed: ${channel}`));

@@ -1,7 +1,13 @@
 // usb-printer.js
 // USB Printer Connection - Forwards print jobs to USB thermal printers
 
-const usb = require('usb');
+let usb;
+try {
+    usb = require('usb');
+} catch (error) {
+    console.log('USB module not available - USB printer functionality disabled');
+    console.log('Error:', error.message);
+}
 
 class USBPrinterConnection {
     constructor(config) {
@@ -13,6 +19,10 @@ class USBPrinterConnection {
     }
     
     async connect() {
+        if (!usb) {
+            throw new Error('USB module not available - USB printer functionality disabled');
+        }
+        
         try {
             // Find USB device
             this.device = usb.findByIds(this.vendorId, this.productId);

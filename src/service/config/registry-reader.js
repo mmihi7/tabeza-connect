@@ -18,13 +18,14 @@ const REGISTRY_PATH = 'HKLM:\\SOFTWARE\\Tabeza\\TabezaConnect';
 // Default configuration values
 const DEFAULTS = {
   apiUrl: 'https://tabeza.co.ke',
-  watchFolder: 'C:\\ProgramData\\Tabeza\\TabezaPrints',
+  watchFolder: 'C:\\TabezaPrints\\raw',
   httpPort: 8765
 };
 
-// Config file path - check both locations
-const CONFIG_FILE_PATH = 'C:\\ProgramData\\Tabeza\\config.json';
-const CONFIG_FILE_PATH_ALT = 'C:\\TabezaPrints\\config.json';
+// Config file path - check TabezaPrints first (consolidated root), then legacy ProgramData
+const CONFIG_FILE_PATH = 'C:\\TabezaPrints\\config.json';
+const CONFIG_FILE_PATH_ALT = 'C:\\ProgramData\\Tabeza\\config.json';
+const CONFIG_FILE_PATH_LOCAL = require('path').join(process.cwd(), 'config.json');
 
 class RegistryReader {
   /**
@@ -64,26 +65,31 @@ class RegistryReader {
    */
   static readConfigFile() {
     try {
-      // Check primary path first, then fallback
-      const filePath = fs.existsSync(CONFIG_FILE_PATH) 
-        ? CONFIG_FILE_PATH 
-        : fs.existsSync(CONFIG_FILE_PATH_ALT) 
-          ? CONFIG_FILE_PATH_ALT 
-          : null;
+      // Merge local cwd config (dev) with C:\TabezaPrints\config.json (prod).
+      // TabezaPrints wins for scalar fields (barId, apiUrl, etc.) but local cwd
+      // fills in anything missing — most importantly the `printers` array which
+      // may not yet be written to TabezaPrints\config.json on a fresh install.
+      // C:\ProgramData\Tabeza is NOT included — C:\TabezaPrints is the single root.
+      const paths = [CONFIG_FILE_PATH_LOCAL, CONFIG_FILE_PATH];
+      let merged = {};
+      let foundAny = false;
 
-      if (!filePath) return null;
-
-      const fileContent = fs.readFileSync(filePath, 'utf8');
-      const config = JSON.parse(fileContent);
-      console.log(`[RegistryReader] Loaded config from: ${filePath}`);
-      return config;
-    } catch (error) {
-      // Log warning for malformed JSON or read errors
-      if (error instanceof SyntaxError) {
-        console.warn(`[WARN] Malformed config.json at ${CONFIG_FILE_PATH}: ${error.message}`);
-      } else {
-        console.warn(`[WARN] Failed to read config.json: ${error.message}`);
+      for (const filePath of paths) {
+        if (!fs.existsSync(filePath)) continue;
+        try {
+          const config = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+          // Later paths (TabezaPrints) override earlier ones (local cwd)
+          merged = Object.assign({}, merged, config);
+          foundAny = true;
+          console.log(`[RegistryReader] Merged config from: ${filePath}`);
+        } catch (parseErr) {
+          console.warn(`[WARN] Skipping malformed config at ${filePath}: ${parseErr.message}`);
+        }
       }
+
+      return foundAny ? merged : null;
+    } catch (error) {
+      console.warn(`[WARN] Failed to read config.json: ${error.message}`);
       return null;
     }
   }
@@ -156,6 +162,10 @@ class RegistryReader {
       }
       if (!config.driverId && fileConfig.driverId) {
         config.driverId = fileConfig.driverId;
+      }
+      // Pass through printers array for PhysicalPrinterAdapter
+      if (!config.printers && fileConfig.printers) {
+        config.printers = fileConfig.printers;
       }
     }
 

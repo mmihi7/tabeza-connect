@@ -17,6 +17,9 @@
  */
 
 const { EventEmitter } = require('events');
+const { forPrefix } = require('../utils/logger');
+
+const log = forPrefix('[UPLOAD]');
 
 // Retry configuration
 const RETRY_DELAYS = [5000, 10000, 20000, 40000]; // 5s, 10s, 20s, 40s
@@ -74,16 +77,11 @@ class UploadWorker extends EventEmitter {
    */
   async start() {
     if (this.isRunning) {
-      console.log('⚠️  Upload worker already running');
+      log.warn('Upload worker already running');
       return;
     }
     
-    console.log('🚀 Starting async upload worker...');
-    console.log(`   API endpoint: ${this.apiEndpoint}`);
-    console.log(`   Bar ID: ${this.barId}`);
-    console.log(`   Device ID: ${this.deviceId}`);
-    console.log(`   Poll interval: ${this.pollInterval}ms`);
-    console.log('');
+    log.step(`Starting — endpoint: ${this.apiEndpoint} | barId: ${this.barId} | poll: ${this.pollInterval}ms`);
     
     this.isRunning = true;
     
@@ -95,7 +93,7 @@ class UploadWorker extends EventEmitter {
       await this.processQueue();
     }, this.pollInterval);
     
-    console.log('✅ Upload worker started successfully');
+    log.ok('Upload worker started');
     
     this.emit('started');
   }
@@ -108,7 +106,7 @@ class UploadWorker extends EventEmitter {
       return;
     }
     
-    console.log('🛑 Stopping upload worker...');
+    log.step('Stopping upload worker...');
     
     this.isRunning = false;
     
@@ -119,11 +117,11 @@ class UploadWorker extends EventEmitter {
     
     // Wait for current upload to complete (if any)
     if (this.currentUpload) {
-      console.log('⏳ Waiting for current upload to complete...');
+      log.info('Waiting for current upload to complete...');
       await this.currentUpload;
     }
     
-    console.log('✅ Upload worker stopped');
+    log.ok('Upload worker stopped');
     
     this.emit('stopped');
   }
@@ -146,7 +144,7 @@ class UploadWorker extends EventEmitter {
         return;
       }
       
-      console.log(`📤 Processing queue (${queueSize} pending receipts)...`);
+      log.step(`Processing queue — ${queueSize} pending receipt(s)`);
       
       // Process receipts one at a time
       while (this.isRunning) {
@@ -162,7 +160,7 @@ class UploadWorker extends EventEmitter {
       }
       
     } catch (error) {
-      console.error('❌ Error processing queue:', error.message);
+      log.error('Error processing queue', error.message);
       this.stats.lastError = {
         timestamp: new Date().toISOString(),
         error: error.message,
@@ -194,7 +192,7 @@ class UploadWorker extends EventEmitter {
         this.stats.lastUploadSuccess = new Date().toISOString();
         this.stats.isOnline = true;
         
-        console.log(`✅ Receipt uploaded successfully: ${receiptId}`);
+        log.ok(`Receipt uploaded: ${receiptId}`);
         
         this.emit('upload-success', receiptId);
         
@@ -222,8 +220,7 @@ class UploadWorker extends EventEmitter {
         if (attempt <= MAX_RETRIES) {
           const delay = RETRY_DELAYS[attempt - 1];
           
-          console.warn(`⚠️  Upload failed (attempt ${attempt}/${MAX_RETRIES}): ${error.message}`);
-          console.log(`   Retrying in ${delay / 1000}s...`);
+          log.warn(`Upload failed (attempt ${attempt}/${MAX_RETRIES}): ${error.message} — retrying in ${delay / 1000}s`);
           
           this.stats.retriesAttempted++;
           this.stats.isOnline = false;
@@ -235,9 +232,8 @@ class UploadWorker extends EventEmitter {
           
         } else {
           // Max retries exceeded
-          console.error(`❌ Upload failed after ${MAX_RETRIES} retries: ${receiptId}`);
-          console.error(`   Error: ${error.message}`);
-          console.error(`   Receipt will remain in queue for next service restart`);
+          log.error(`Upload failed after ${MAX_RETRIES} retries: ${receiptId} — ${error.message}`);
+          log.warn(`Receipt ${receiptId} stays in queue for next service restart`);
           
           this.emit('upload-failed', receiptId, error);
           
@@ -356,7 +352,7 @@ class UploadWorker extends EventEmitter {
    * Useful for testing and manual triggers
    */
   async forceProcess() {
-    console.log('🔄 Forcing queue processing...');
+    log.step('Forcing queue processing...');
     await this.processQueue();
   }
 }

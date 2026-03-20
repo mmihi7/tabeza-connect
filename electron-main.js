@@ -15,6 +15,10 @@ const path = require('path');
 const fs = require('fs');
 const { spawn, exec } = require('child_process');
 
+// Disable FFmpeg since TabezaConnect doesn't need media playback
+app.commandLine.appendSwitch('disable-accelerated-video-decode');
+app.commandLine.appendSwitch('disable-ffmpeg');
+
 // Single instance lock - MUST be at top before any app ready
 const gotTheLock = app.requestSingleInstanceLock ? app.requestSingleInstanceLock() : app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -202,6 +206,17 @@ app.whenReady().then(async () => {
     : path.join(process.resourcesPath, 'assets');
 
   log('INFO', `isDev: ${isDev}, ASSETS_PATH: ${ASSETS_PATH}`);
+  
+  // Check for FFmpeg DLL (for debugging - app should work without it)
+  const ffmpegPath = isDev 
+    ? path.join(__dirname, 'ffmpeg.dll')
+    : path.join(process.resourcesPath, 'ffmpeg.dll');
+  
+  if (fs.existsSync(ffmpegPath)) {
+    log('INFO', 'FFmpeg DLL found - media support available');
+  } else {
+    log('INFO', 'FFmpeg DLL missing - continuing without media support (normal for TabezaConnect)');
+  }
   
   // Initialize state synchronization system FIRST
   initializeStateSync();
@@ -2126,6 +2141,11 @@ ipcMain.handle('repair-folder-structure', async () => {
     showPrinterSetupWizard();
   });
 
+  // Handle open bar ID setup request (from template generator prerequisite banner)
+  ipcMain.on('open-bar-id-setup', () => {
+    showManagementUI();
+  });
+
   // Add dashboard-specific IPC handlers
   ipcMain.handle('get-pipeline-status', async () => {
     log('INFO', 'get-pipeline-status requested');
@@ -2365,11 +2385,58 @@ ipcMain.handle('get-template-status', async () => {
 ipcMain.handle('generate-template', async () => {
   log('INFO', 'generate-template: Starting template generation via Tabeza Staff API');
   try {
+    // ── Prerequisite 1: Bar ID must be configured ──────────────────────────
+    let barId = '';
+    try {
+      if (fs.existsSync(CONFIG_PATH)) {
+        const configData = fs.readFileSync(CONFIG_PATH, 'utf8').replace(/^\uFEFF/, '');
+        barId = JSON.parse(configData).barId || '';
+      }
+    } catch (e) {
+      log('WARN', `generate-template: Could not read barId from config: ${e.message}`);
+    }
+
+    if (!barId || barId.trim() === '') {
+      log('ERROR', 'generate-template: Blocked — Bar ID not configured');
+      return {
+        success: false,
+        error: 'Bar ID is not configured. Please set your Bar ID before generating a template.',
+        prerequisiteFailed: 'barId'
+      };
+    }
+
+    // ── Prerequisite 2: Tabeza POS Printer (Redmon) must be installed ──────
+    const printerCheck = await new Promise((resolve) => {
+      exec(
+        `powershell.exe -Command "Get-Printer -Name 'Tabeza POS Printer' -ErrorAction SilentlyContinue | ConvertTo-Json"`,
+        (error, stdout) => {
+          if (error || !stdout.trim()) {
+            resolve({ exists: false });
+          } else {
+            try {
+              const p = JSON.parse(stdout.trim());
+              resolve({ exists: !!p.Name });
+            } catch (_) {
+              resolve({ exists: false });
+            }
+          }
+        }
+      );
+    });
+
+    if (!printerCheck.exists) {
+      log('ERROR', 'generate-template: Blocked — Tabeza POS Printer not installed');
+      return {
+        success: false,
+        error: 'Tabeza POS Printer is not installed. Please complete printer setup before generating a template.',
+        prerequisiteFailed: 'printer'
+      };
+    }
+
+    log('INFO', 'generate-template: Prerequisites met — barId and printer both configured');
     log('INFO', 'generate-template: Attempting to fetch from http://localhost:3003/api/receipts/generate-template');
     
     // Read samples directly and send to Tabeza Staff
-    const fs = require('fs');
-    const path = require('path');
     const samplesDir = 'C:\\TabezaPrints\\samples';
     
     let receipts = [];
@@ -2383,13 +2450,23 @@ ipcMain.handle('generate-template', async () => {
       });
       log('INFO', `generate-template: Using ${first3Files.length} files: ${first3Files.join(', ')}`);
     }
-    
-    const res = await fetch('http://localhost:3003/api/receipts/generate-template', {
+
+    // Read API URL from config
+    // Read API URL from config
+    let apiUrl = 'http://localhost:3003';
+    try {
+      if (fs.existsSync(CONFIG_PATH)) {
+        const configData = fs.readFileSync(CONFIG_PATH, 'utf8').replace(/^\uFEFF/, '');
+        apiUrl = JSON.parse(configData).apiUrl || apiUrl;
+      }
+    } catch (e) { /* use default */ }
+
+    const res = await fetch(`${apiUrl}/api/receipts/generate-template`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         test_receipts: receipts,
-        bar_id: '438c80c1-fe11-4ac5-8a48-2fc45104ba31'
+        bar_id: barId
       })
     });
     
@@ -2404,32 +2481,37 @@ ipcMain.handle('generate-template', async () => {
     const result = await res.json();
     log('INFO', `generate-template: Response: ${JSON.stringify(result)}`);
 
-    if (result.success) {
+    if (result.success && result.template) {
       log('INFO', 'generate-template: Template generated successfully');
-      log('INFO', 'generate-template: Template saved to database by Tabeza Staff');
-      
-      // Create a simple template file for local parsing
+
+      // Save the ACTUAL template returned by DeepSeek (has patterns + fields)
+      // receiptParser.js requires template.version && template.patterns to be valid
       const templatePath = 'C:\\TabezaPrints\\templates\\template.json';
       if (!fs.existsSync('C:\\TabezaPrints\\templates')) {
         fs.mkdirSync('C:\\TabezaPrints\\templates', { recursive: true });
       }
-      
-      // Create a basic template indicating success
-      const basicTemplate = {
-        name: 'AI Generated Template',
-        version: '1.0',
-        description: 'Template generated by Tabeza Staff AI',
-        success: true,
-        databaseId: result.template?.id,
-        barId: '438c80c1-fe11-4ac5-8a48-2fc45104ba31',
-        generatedAt: new Date().toISOString()
+
+      // Use the full template from the cloud response — do NOT replace with a stub
+      const fullTemplate = {
+        ...result.template,
+        generatedAt: result.template.generatedAt || new Date().toISOString(),
       };
-      
-      fs.writeFileSync(templatePath, JSON.stringify(basicTemplate, null, 2));
-      
+
+      fs.writeFileSync(templatePath, JSON.stringify(fullTemplate, null, 2));
+      log('INFO', `generate-template: Full template saved to ${templatePath}`);
+      log('INFO', `generate-template: Template has patterns: ${!!fullTemplate.patterns}, fields: ${fullTemplate.fields?.length || 0}`);
+
+      // Auto-mark template setup step as complete
+      try {
+        setupStateManager.markStepComplete('template');
+        log('INFO', 'generate-template: Template setup step marked complete');
+      } catch (stateErr) {
+        log('WARN', `generate-template: Could not mark template step complete: ${stateErr.message}`);
+      }
+
       // Notify main window to refresh state
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('template-generated', basicTemplate);
+        mainWindow.webContents.send('template-generated', fullTemplate);
       }
       updateTrayMenu();
     }

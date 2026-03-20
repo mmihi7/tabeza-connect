@@ -28,19 +28,19 @@ VersionInfoVersion={#AppVersion}
 VersionInfoCompany={#AppPublisher}
 VersionInfoDescription={#AppName} Setup
 
-ArchitecturesAllowed=x64compatible
-ArchitecturesInstallIn64BitMode=x64compatible
+ArchitecturesAllowed=x86 x64
+ArchitecturesInstallIn64BitMode=x64
 
-DefaultDirName={commonpf64}\TabezaConnect
+DefaultDirName={pf}\TabezaConnect
 DisableDirPage=yes
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 
 PrivilegesRequired=admin
 
-OutputDir=dist-inno
+OutputDir=..\..\dist
 OutputBaseFilename=TabezaConnect-Setup-v{#AppVersion}
-SetupIconFile=assets\icon-green.ico
+SetupIconFile=..\..\assets\icon-green.ico
 UninstallDisplayIcon={app}\TabezaConnect.exe
 
 Compression=lzma2/ultra64
@@ -48,6 +48,7 @@ SolidCompression=yes
 LZMAUseSeparateProcess=yes
 WizardStyle=modern
 SetupLogging=yes
+LicenseFile=..\..\LICENSE.txt
 
 ; ===========================================================================
 [Languages]
@@ -55,62 +56,12 @@ SetupLogging=yes
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 ; ===========================================================================
+[Messages]
+; ===========================================================================
+WelcomeLabel2=This will install TabezaConnect on your computer.%n%nTabezaConnect captures receipt data from your POS system and syncs it with the Tabeza staff app.%n%nIMPORTANT: Tabeza works ALONGSIDE your existing printer. Your current printer setup will NOT change.%n%nAfter installation, right-click the TabezaConnect tray icon to configure your Bar ID and settings.
+
+; ===========================================================================
 [Code]
-var
-  BarIDPage: TInputQueryWizardPage;
-  BarIDValue: String;
-  ApiKeyPage: TInputQueryWizardPage;
-  ApiKeyValue: String;
-
-procedure InitializeWizard;
-begin
-  // Bar ID Page
-  BarIDPage := CreateInputQueryPage(wpWelcome,
-    'Venue Configuration',
-    'Enter your Tabeza Bar ID',
-    'Your Bar ID can be found in the Tabeza dashboard under Settings > Venue.' + #13#10 +
-    'This ID is required for the service to connect to your Tabeza account.');
-  BarIDPage.Add('Bar ID (Required):', False);
-  
-  // API Key Page (optional - for offline installs)
-  ApiKeyPage := CreateInputQueryPage(BarIDPage.ID,
-    'API Configuration',
-    'Enter your DeepSeek API Key (Optional)',
-    'If you have an internet connection, we can fetch this automatically.' + #13#10 +
-    'Leave blank to fetch from Tabeza cloud (recommended).' + #13#10 +
-    'Only enter manually if you are offline or have a custom key.');
-  ApiKeyPage.Add('DeepSeek API Key (Optional):', False);
-end;
-
-function NextButtonClick(CurPageID: Integer): Boolean;
-begin
-  Result := True;
-  
-  if CurPageID = BarIDPage.ID then
-  begin
-    if Trim(BarIDPage.Values[0]) = '' then
-    begin
-      MsgBox('Bar ID is required. Please enter your venue Bar ID.', mbError, MB_OK);
-      Result := False;
-      Exit;
-    end;
-    
-    // Validate Bar ID format (alphanumeric, no spaces)
-    if Pos(' ', Trim(BarIDPage.Values[0])) > 0 then
-    begin
-      MsgBox('Bar ID should not contain spaces. Please remove any spaces.', mbError, MB_OK);
-      Result := False;
-      Exit;
-    end;
-    
-    BarIDValue := Trim(BarIDPage.Values[0]);
-  end
-  else if CurPageID = ApiKeyPage.ID then
-  begin
-    ApiKeyValue := Trim(ApiKeyPage.Values[0]);
-  end;
-end;
-
 procedure LogToFile(Message: string);
 var
   LogFile: string;
@@ -125,8 +76,6 @@ var
   InstallPath: String;
   ScriptPath: String;
   ErrorMsg: String;
-  FetchApiKeyCmd: String;
-  TempFile: String;
 begin
   if CurStep = ssPostInstall then
   begin
@@ -135,7 +84,6 @@ begin
     
     LogToFile('=== TabezaConnect Installation Log ===');
     LogToFile('Installation Path: ' + InstallPath);
-    LogToFile('Bar ID: ' + BarIDValue);
     LogToFile('Start Time: ' + GetDateTimeString('yyyy-mm-dd hh:nn:ss', '-', ':'));
 
     // Step 1: Windows Defender exclusions (non-fatal)
@@ -161,71 +109,21 @@ begin
       LogToFile('  ' + ErrorMsg);
     end;
 
-    // Step 2.5: Fetch API key if not provided manually
-    LogToFile('Step 2.5: Configuring API key...');
-    if ApiKeyValue = '' then
-    begin
-      LogToFile('  Fetching API key from Tabeza cloud...');
-      TempFile := InstallPath + '\temp_apikey.txt';
-      
-      // Download API key from your backend
-      FetchApiKeyCmd := 
-        '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "' +
-        '$wc = New-Object System.Net.WebClient; ' +
-        'try { ' +
-        '  $url = ''{#BackendAPI}/get-key?barId=' + BarIDValue + '&version={#AppVersion}''; ' +
-        '  $response = $wc.DownloadString($url); ' +
-        '  $key = ($response | ConvertFrom-Json).apiKey; ' +
-        '  $key | Out-File -FilePath ''' + TempFile + ''' -Encoding UTF8; ' +
-        '  exit 0; ' +
-        '} catch { ' +
-        '  Write-Error $_.Exception.Message; ' +
-        '  exit 1; ' +
-        '}"';
-      
-      if Exec('powershell.exe', FetchApiKeyCmd, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0) then
-      begin
-        // Read the fetched key
-        if FileExists(TempFile) then
-        begin
-          LoadStringFromFile(TempFile, ApiKeyValue);
-          ApiKeyValue := Trim(ApiKeyValue);
-          DeleteFile(TempFile);
-          LogToFile('  ✅ API key fetched successfully');
-        end
-        else
-        begin
-          LogToFile('  ⚠️ Could not read fetched API key');
-        end;
-      end
-      else
-      begin
-        LogToFile('  ⚠️ Could not fetch API key from cloud (code: ' + IntToStr(ResultCode) + ')');
-        LogToFile('  ⚠️ Template generation will be limited');
-      end;
-    end
-    else
-    begin
-      LogToFile('  Using manually provided API key');
-    end;
-
-    // Step 3: Write config.json (now with fetched API key)
-    LogToFile('Step 3: Writing config.json...');
+    // Step 3: Install Redmon
+    LogToFile('Step 3: Installing Redmon port monitor...');
     if Exec('powershell.exe',
-      '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ScriptPath + 'write-config.ps1"' +
-      ' -BarID "' + BarIDValue + '" -InstallDir "' + InstallPath + '"' +
-      ' -ApiKey "' + ApiKeyValue + '"',
+      '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ScriptPath + 'install-redmon.ps1" -InstallDir "' + InstallPath + '"',
       '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0) then
     begin
-      LogToFile('  ✅ config.json written successfully');
+      LogToFile('  Redmon installed successfully');
     end
     else
     begin
-      ErrorMsg := 'Warning: Could not write config.json (code ' + IntToStr(ResultCode) + ')';
+      ErrorMsg := 'Warning: Could not install Redmon (code ' + IntToStr(ResultCode) + ')';
       LogToFile('  ' + ErrorMsg);
     end;
 
-    // Step 4: Configure virtual printer and print pool
+    // Step 4: Configure virtual printer (Redmon approach)
     LogToFile('Step 4: Configuring printer...');
     
     // First, detect physical printers
@@ -235,37 +133,23 @@ begin
       ' -OutputFile "' + InstallPath + '\printer-detection.json"',
       '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0) then
     begin
-      LogToFile('  ✅ Printers detected');
+      LogToFile('  Printers detected');
       
-      // Configure virtual printer
+      // Configure virtual printer with Redmon
       if Exec('powershell.exe',
-        '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ScriptPath + 'configure-printer.ps1"' +
-        ' -WatchFolder "C:\TabezaPrints"',
+        '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ScriptPath + 'configure-redmon-printer.ps1"',
         '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode <= 1) then
       begin
-        LogToFile('  ✅ Virtual printer configured');
-        
-        // Configure print pool
-        if Exec('powershell.exe',
-          '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ScriptPath + 'configure-print-pool.ps1"' +
-          ' -ConfigFile "' + InstallPath + '\printer-detection.json"',
-          '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0) then
-        begin
-          LogToFile('  ✅ Print pool configured successfully');
-        end
-        else
-        begin
-          LogToFile('  ⚠️ Could not configure print pool (code: ' + IntToStr(ResultCode) + ')');
-        end;
+        LogToFile('  Virtual printer configured');
       end
       else
       begin
-        LogToFile('  ⚠️ Could not configure virtual printer (code: ' + IntToStr(ResultCode) + ')');
+        LogToFile('  Could not configure virtual printer (code: ' + IntToStr(ResultCode) + ')');
       end;
     end
     else
     begin
-      LogToFile('  ⚠️ Could not detect printers (code: ' + IntToStr(ResultCode) + ')');
+      LogToFile('  Could not detect printers (code: ' + IntToStr(ResultCode) + ')');
     end;
 
     // Step 5: Register Windows service
@@ -283,19 +167,22 @@ begin
     // Register new service
     if Exec('powershell.exe',
       '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ScriptPath + 'register-service.ps1"' +
-      ' -InstallDir "' + InstallPath + '" -BarID "' + BarIDValue + '"',
+      ' -InstallDir "' + InstallPath + '"',
       '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0) then
     begin
-      LogToFile('  ✅ Service registered successfully');
+      LogToFile('  Service registered successfully');
       
       // Start the service
       Exec('powershell.exe',
         '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "Start-Service -Name ''''{#ServiceName}''''"',
         '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      
+      // Note: The checkbox for launching the app will be handled by the [Run] section
+      // based on the user's selection in the final setup page
     end
     else
     begin
-      LogToFile('  ⚠️ Could not register service (code: ' + IntToStr(ResultCode) + ')');
+      LogToFile('  Could not register service (code: ' + IntToStr(ResultCode) + ')');
     end;
     
     LogToFile('Installation completed at: ' + GetDateTimeString('yyyy-mm-dd hh:nn:ss', '-', ':'));
@@ -320,17 +207,18 @@ begin
 end;
 
 [Files]
-Source: "dist-app\TabezaConnect.exe";       DestDir: "{app}"; Flags: ignoreversion
-Source: "dist-app\tabeza-service.exe";      DestDir: "{app}"; Flags: ignoreversion
-Source: "config-production.json";           DestDir: "{app}"; DestName: "config.json"; Flags: ignoreversion
-Source: "TabezaConnect-Launcher.bat";       DestDir: "{app}"; Flags: ignoreversion
-Source: "assets\icon-green.ico";            DestDir: "{app}"; Flags: ignoreversion
-Source: "src\installer\scripts\*.ps1";      DestDir: "{app}\scripts"; Flags: ignoreversion
+Source: "..\..\dist\win-unpacked\*";                     DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+Source: "..\..\src\service\dist\tabeza-printer-service.exe"; DestDir: "{app}"; DestName: "tabeza-service.exe"; Flags: ignoreversion
+Source: "..\..\config-production.json";           DestDir: "{app}"; DestName: "config.json"; Flags: ignoreversion
+Source: "..\..\LICENSE.txt";                        DestDir: "{app}"; Flags: ignoreversion
+Source: "scripts\*.ps1";      DestDir: "{app}\scripts"; Flags: ignoreversion
+Source: "redmon19\*";         DestDir: "{app}\redmon19"; Flags: ignoreversion recursesubdirs
 
 [Dirs]
-Name: "{#WatchFolder}";   Permissions: users-modify
-Name: "{app}\logs";       Permissions: users-modify
-Name: "{app}\scripts";    Permissions: users-read
+Name: "{#WatchFolder}";   Permissions: users-full
+Name: "{app}\logs";       Permissions: users-full
+Name: "{app}\scripts";    Permissions: users-full
+Name: "{app}\redmon19";   Permissions: users-full
 
 [Icons]
 Name: "{group}\{#AppName}";           Filename: "{app}\TabezaConnect.exe"; WorkingDir: "{app}"
@@ -339,4 +227,4 @@ Name: "{commondesktop}\{#AppName}";   Filename: "{app}\TabezaConnect.exe"; Worki
 Name: "{group}\View Installation Log"; Filename: "{app}\install.log"
 
 [Run]
-Filename: "{app}\TabezaConnect-Launcher.bat"; Description: "Launch TabezaConnect"; Flags: postinstall nowait skipifsilent
+Filename: "{app}\TabezaConnect.exe"; Description: "Launch TabezaConnect"; Flags: nowait postinstall skipifsilent

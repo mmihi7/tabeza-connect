@@ -1,91 +1,176 @@
 // win-printer.js
-// Windows Printer Connection - Uses Windows print API
+// Windows Raw Printer Connection — Sends ESC/POS bytes directly via Win32 WritePrinter API
+// Bypasses GDI/Out-Printer which mangles binary data and splits on newlines
 
-const { exec } = require('child_process');
+'use strict';
+
+const { execFile } = require('child_process');
 const util = require('util');
 const fs = require('fs');
 const path = require('path');
-const execPromise = util.promisify(exec);
+const { forPrefix } = require('../../utils/logger');
+
+const execFilePromise = util.promisify(execFile);
+const log = forPrefix('[PRINTER]');
+
+// PowerShell script that sends raw bytes to a printer using Win32 WritePrinter API
+// This is the only correct way to send ESC/POS to a Windows printer without GDI mangling
+const RAW_PRINT_PS = `
+param([string]$PrinterName, [string]$FilePath)
+
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+
+public class RawPrinter {
+    [DllImport("winspool.drv", CharSet=CharSet.Auto, SetLastError=true)]
+    public static extern bool OpenPrinter(string pPrinterName, out IntPtr phPrinter, IntPtr pDefault);
+
+    [DllImport("winspool.drv", CharSet=CharSet.Auto, SetLastError=true)]
+    public static extern bool ClosePrinter(IntPtr hPrinter);
+
+    [DllImport("winspool.drv", CharSet=CharSet.Auto, SetLastError=true)]
+    public static extern int StartDocPrinter(IntPtr hPrinter, int Level, ref DOCINFO pDocInfo);
+
+    [DllImport("winspool.drv", SetLastError=true)]
+    public static extern bool EndDocPrinter(IntPtr hPrinter);
+
+    [DllImport("winspool.drv", SetLastError=true)]
+    public static extern bool StartPagePrinter(IntPtr hPrinter);
+
+    [DllImport("winspool.drv", SetLastError=true)]
+    public static extern bool EndPagePrinter(IntPtr hPrinter);
+
+    [DllImport("winspool.drv", SetLastError=true)]
+    public static extern bool WritePrinter(IntPtr hPrinter, byte[] pBytes, int dwCount, out int dwWritten);
+
+    [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Auto)]
+    public struct DOCINFO {
+        [MarshalAs(UnmanagedType.LPTStr)] public string pDocName;
+        [MarshalAs(UnmanagedType.LPTStr)] public string pOutputFile;
+        [MarshalAs(UnmanagedType.LPTStr)] public string pDataType;
+    }
+
+    public static bool SendRawBytes(string printerName, byte[] bytes) {
+        IntPtr hPrinter;
+        if (!OpenPrinter(printerName, out hPrinter, IntPtr.Zero)) return false;
+        try {
+            var di = new DOCINFO { pDocName = "TabezaReceipt", pOutputFile = null, pDataType = "RAW" };
+            if (StartDocPrinter(hPrinter, 1, ref di) == 0) return false;
+            try {
+                if (!StartPagePrinter(hPrinter)) return false;
+                int written;
+                bool ok = WritePrinter(hPrinter, bytes, bytes.Length, out written);
+                EndPagePrinter(hPrinter);
+                return ok && written == bytes.Length;
+            } finally {
+                EndDocPrinter(hPrinter);
+            }
+        } finally {
+            ClosePrinter(hPrinter);
+        }
+    }
+}
+"@ -Language CSharp
+
+$bytes = [System.IO.File]::ReadAllBytes($FilePath)
+$ok = [RawPrinter]::SendRawBytes($PrinterName, $bytes)
+if ($ok) { Write-Host "OK:$($bytes.Length)" } else { Write-Host "FAIL"; exit 1 }
+`;
 
 class WindowsPrinterConnection {
-    constructor(config) {
+    constructor(config = {}) {
         this.printerName = config.printerName || 'EPSON L3210 Series';
         this.tempDir = path.join('C:\\TabezaPrints', 'temp');
+        // Write the PS script once to a known path
+        this._psScriptPath = path.join('C:\\TabezaPrints', 'raw-print.ps1');
     }
 
     async connect() {
         try {
-            // Ensure temp directory exists
             await fs.promises.mkdir(this.tempDir, { recursive: true });
-            
-            // Test if printer exists
-            const { stdout } = await execPromise(`powershell -Command "Get-Printer -Name '${this.printerName}' -ErrorAction SilentlyContinue"`);
-            
-            if (!stdout.trim()) {
+
+            // Write PS script to disk (idempotent)
+            await fs.promises.writeFile(this._psScriptPath, RAW_PRINT_PS, 'utf8');
+
+            log.step(`Connecting to "${this.printerName}"...`);
+            const { stdout } = await execFilePromise('powershell.exe', [
+                '-NoProfile', '-NonInteractive', '-Command',
+                `Get-Printer -Name '${this.printerName.replace(/'/g, "''")}' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name`
+            ]);
+
+            if (!stdout || !stdout.trim()) {
                 throw new Error(`Printer '${this.printerName}' not found`);
             }
-            
-            console.log(`[WindowsPrinter] Connected to ${this.printerName}`);
+
+            log.ok(`Connected to "${this.printerName}"`);
             return true;
         } catch (err) {
-            console.error('[WindowsPrinter] Connection failed:', err.message);
+            log.error(`Connection failed: ${err.message}`);
             throw err;
         }
     }
 
     async send(data) {
+        const tempFile = path.join(this.tempDir, `print_${Date.now()}.prn`);
+        log.step(`Sending ${data.length} bytes to "${this.printerName}" via WritePrinter (raw)`);
         try {
-            // Create a temporary file with the print data
-            const tempFile = path.join(this.tempDir, `print_${Date.now()}.prn`);
             await fs.promises.writeFile(tempFile, data);
-            
-            // Use PowerShell's Out-Printer to send raw data to the printer
-            // This is the most reliable method for raw printing
-            const command = `powershell -Command "Get-Content -Path '${tempFile}' -Raw | Out-Printer -Name '${this.printerName}'"`;
-            
-            await execPromise(command);
-            
-            // Clean up temp file
-            await fs.promises.unlink(tempFile).catch(() => {});
-            
-            console.log(`[WindowsPrinter] Sent ${data.length} bytes to ${this.printerName}`);
+
+            const escaped = this.printerName.replace(/'/g, "''");
+            const { stdout, stderr } = await execFilePromise('powershell.exe', [
+                '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+                '-File', this._psScriptPath,
+                '-PrinterName', this.printerName,
+                '-FilePath', tempFile
+            ], { timeout: 15000 });
+
+            const out = (stdout || '').trim();
+            log.debug(`WritePrinter result: "${out}"`);
+
+            if (!out.startsWith('OK:')) {
+                const errMsg = (stderr || '').trim() || out || 'Unknown error';
+                throw new Error(`WritePrinter failed: ${errMsg}`);
+            }
+
+            log.ok(`Sent ${data.length} bytes → "${this.printerName}" (raw)`);
             return data.length;
         } catch (err) {
-            console.error('[WindowsPrinter] Send failed:', err.message);
+            log.error(`Send failed: ${err.message}`);
             throw err;
+        } finally {
+            fs.promises.unlink(tempFile).catch(() => {});
         }
     }
 
     async getStatus() {
         try {
-            // Get printer status using PowerShell
-            const { stdout } = await execPromise(
-                `powershell -Command "$printer = Get-Printer -Name '${this.printerName}'; $printer.PrinterStatus"`
-            );
-            
-            const status = stdout.trim();
-            
-            // Treat any non-error state as ready — Windows returns various status strings
-            const notReady = status.includes('Error') || status.includes('Offline') || status.includes('Unknown');
-            const paperOut = status.includes('OutOfPaper') || status.includes('PaperOut');
+            const { stdout } = await execFilePromise('powershell.exe', [
+                '-NoProfile', '-NonInteractive', '-Command',
+                `Get-Printer -Name '${this.printerName.replace(/'/g, "''")}' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty PrinterStatus`
+            ]);
+
+            const status = (stdout || '').trim();
+            const isError    = status === '2'   || status.toLowerCase().includes('error');
+            const isOffline  = status === '128'  || status.toLowerCase().includes('offline');
+            const isPaperOut = status === '5'    || status.toLowerCase().includes('paper');
+            const ready = !isError && !isOffline;
+
+            log.debug(`Status check "${this.printerName}": ${status} → ready=${ready}, paperOut=${isPaperOut}`);
             return {
-                ready: !notReady,
-                paperOut: paperOut,
-                error: notReady,
-                errorMessage: notReady ? `Printer status: ${status}` : null
+                ready,
+                paperOut:     isPaperOut,
+                error:        isError || isOffline,
+                errorMessage: (isError || isOffline) ? `Printer status: ${status}` : null,
             };
         } catch (err) {
-            return {
-                ready: false,
-                paperOut: false,
-                error: true,
-                errorMessage: err.message
-            };
+            log.warn(`Status check failed: ${err.message}`);
+            return { ready: false, paperOut: false, error: true, errorMessage: err.message };
         }
     }
 
     async disconnect() {
-        console.log('[WindowsPrinter] Disconnected');
+        log.info(`Disconnected from "${this.printerName}"`);
     }
 }
 

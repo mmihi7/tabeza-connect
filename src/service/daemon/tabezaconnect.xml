@@ -1,0 +1,37 @@
+<service>
+	<id>tabezaconnect.exe</id>
+	<name>TabezaConnect</name>
+	<description>Captures receipt data from POS and syncs with Tabeza staff app</description>
+	<executable>C:\nvm4w\nodejs\node.exe</executable>
+	<argument>--harmony</argument>
+	<argument>C:\Users\mwene\AppData\Roaming\npm\node_modules\node-windows\lib\wrapper.js</argument>
+	<argument>--file</argument>
+	<argument>C:\Projects\tabeza-connect\src\service\index.js</argument>
+	<argument>--scriptoptions=</argument>
+	<argument>--log</argument>
+	<argument>TabezaConnect wrapper</argument>
+	<argument>--grow</argument>
+	<argument>0.25</argument>
+	<argument>--wait</argument>
+	<argument>1</argument>
+	<argument>--maxrestarts</argument>
+	<argument>3</argument>
+	<argument>--abortonerror</argument>
+	<argument>n</argument>
+	<argument>--stopparentfirst</argument>
+	<argument>undefined</argument>
+	<logmode>rotate</logmode>
+	<stoptimeout>30sec</stoptimeout>
+	<env name="TABEZA_BAR_ID" value="438c80c1-fe11-4ac5-8a48-2fc45104ba31"/>
+	<env name="TABEZA_API_URL" value="http://localhost:3003"/>
+	<env name="TABEZA_DRIVER_ID" value="driver-MIHI-PC"/>
+	<env name="TABEZA_WATCH_FOLDER" value="C:\TabezaPrints"/>
+	<env name="TABEZA_HTTP_PORT" value="8765"/>
+	<env name="NODE_ENV" value="production"/>
+	<serviceaccount>
+		<domain>MIHI-PC</domain>
+		<user>LocalSystem</user>
+		<password></password>
+	</serviceaccount>
+	<workingdirectory>C:\Projects\tabeza-connect</workingdirectory>
+</service>

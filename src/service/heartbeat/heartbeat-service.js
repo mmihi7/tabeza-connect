@@ -138,10 +138,21 @@ class HeartbeatService {
       });
 
       clearTimeout(timeoutId);
+
+      // Guard against non-JSON responses (e.g. HTML error pages from Next.js)
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await response.text();
+        console.warn(`[HeartbeatService] Non-JSON response (${response.status}): ${text.slice(0, 120)}`);
+        // Don't throw — heartbeat failures are non-fatal, will retry
+        return;
+      }
+
       const result = await response.json();
       
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${result.message || 'Unknown error'}`);
+        console.warn(`[HeartbeatService] Heartbeat rejected (${response.status}): ${result.error || result.message || 'Unknown error'}`);
+        return;
       }
 
       console.log(`[HeartbeatService] Heartbeat sent successfully (status: ${response.status})`);

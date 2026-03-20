@@ -107,8 +107,8 @@ router.post('/generate', async (req, res) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          receipts,
-          barId: config.barId
+          test_receipts: receipts,
+          bar_id: config.barId
         }),
         signal: controller.signal
       });

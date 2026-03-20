@@ -793,15 +793,66 @@
 
 <!-- PIPELINE TAB -->
 <div class="tab-panel active" id="tab-pipeline">
-  <div class="pipeline-wrap">
-    <div class="pipeline-label">RECEIPT FLOW · CLICK NODES FOR DETAILS</div>
-    <div class="pipeline-row" id="pipeline-row"></div>
+
+  <!-- ── SETUP MODE (shown until template is generated) ── -->
+  <div id="setup-panel" class="hidden">
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:12px;">
+      <div style="font-size:11px;color:var(--muted);letter-spacing:.1em;margin-bottom:14px;">FIRST-TIME SETUP · RECEIPT CAPTURE</div>
+
+      <!-- Step indicator -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:18px;">
+        <div id="setup-step-dot" style="width:10px;height:10px;border-radius:50%;background:#fbbf24;box-shadow:0 0 8px #fbbf24;flex-shrink:0;"></div>
+        <span id="setup-step-label" style="font-size:12px;font-weight:700;color:#f1f5f9;">Print 3 different receipts from your POS to generate a parsing template</span>
+      </div>
+
+      <!-- Progress bar -->
+      <div style="position:relative;background:var(--surface);border:1px solid var(--border);border-radius:20px;height:22px;margin-bottom:18px;overflow:hidden;">
+        <div id="setup-progress-bar" style="height:100%;background:linear-gradient(90deg,var(--ok),#16a34a);border-radius:20px;transition:width .5s ease-out;width:0%;"></div>
+        <div id="setup-progress-text" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:10px;font-weight:700;color:var(--text);z-index:2;">0 / 3 receipts captured</div>
+      </div>
+
+      <!-- 3 receipt slots -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
+        <div id="setup-slot-1" style="background:var(--surface);border:2px solid var(--border);border-radius:10px;padding:14px;text-align:center;transition:all .3s;">
+          <div style="font-size:22px;margin-bottom:6px;">📄</div>
+          <div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:3px;">Receipt 1</div>
+          <div id="setup-slot-1-status" style="font-size:9px;color:var(--muted);">Waiting...</div>
+        </div>
+        <div id="setup-slot-2" style="background:var(--surface);border:2px solid var(--border);border-radius:10px;padding:14px;text-align:center;transition:all .3s;">
+          <div style="font-size:22px;margin-bottom:6px;">📄</div>
+          <div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:3px;">Receipt 2</div>
+          <div id="setup-slot-2-status" style="font-size:9px;color:var(--muted);">Waiting...</div>
+        </div>
+        <div id="setup-slot-3" style="background:var(--surface);border:2px solid var(--border);border-radius:10px;padding:14px;text-align:center;transition:all .3s;">
+          <div style="font-size:22px;margin-bottom:6px;">📄</div>
+          <div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:3px;">Receipt 3</div>
+          <div id="setup-slot-3-status" style="font-size:9px;color:var(--muted);">Waiting...</div>
+        </div>
+      </div>
+
+      <!-- Status messages -->
+      <div id="setup-generating" class="hidden" style="background:#052e16;border:1px solid var(--ok);color:var(--ok);padding:10px 14px;border-radius:8px;font-size:11px;animation:pulse 1.5s infinite;">
+        🔄 Generating template with AI... this may take 30–60 seconds
+      </div>
+      <div id="setup-success" class="hidden" style="background:#052e16;border:1px solid var(--ok);color:var(--ok);padding:10px 14px;border-radius:8px;font-size:11px;">
+        ✅ Template ready — receipts will now be parsed and uploaded automatically
+      </div>
+    </div>
   </div>
-  <div class="detail-panel" id="detail-panel"></div>
-  <div class="issues-box" id="issues-box">
-    <div class="issues-title">⚠️ ACTIVE ISSUES</div>
-    <div id="issues-list"></div>
+
+  <!-- ── NORMAL PIPELINE (hidden during setup) ── -->
+  <div id="pipeline-panel">
+    <div class="pipeline-wrap">
+      <div class="pipeline-label">RECEIPT FLOW · CLICK NODES FOR DETAILS</div>
+      <div class="pipeline-row" id="pipeline-row"></div>
+    </div>
+    <div class="detail-panel" id="detail-panel"></div>
+    <div class="issues-box" id="issues-box">
+      <div class="issues-title">⚠️ ACTIVE ISSUES</div>
+      <div id="issues-list"></div>
+    </div>
   </div>
+
 </div>
 
 <!-- RECEIPT FLOW TAB -->
@@ -830,11 +881,18 @@
   <div class="config-section">
     <h3>🖨️ Printer Setup</h3>
     <div class="config-item">
-      <div class="printer-status" id="printer-status">
-        <span class="status-indicator offline"></span>
-        <span class="status-text">Checking printer status...</span>
+      <label for="printer-select">Physical Printer:</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="printer-select" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:10px 12px;color:var(--text);font-family:var(--font);font-size:12px;">
+          <option value="">Loading printers...</option>
+        </select>
+        <button class="btn btn-secondary" onclick="loadWindowsPrinters()" style="white-space:nowrap;padding:10px 12px;font-size:11px;">🔄 Refresh</button>
       </div>
-      <button class="btn btn-primary" onclick="setupPrinter()">⚙️ Connect Tabeza POS Printer</button>
+      <div class="printer-status" id="printer-status" style="margin-top:8px">
+        <span class="status-indicator offline"></span>
+        <span class="status-text" id="printer-status-text">Checking printer status...</span>
+      </div>
+      <button class="btn btn-primary" onclick="savePrinterSelection()" style="margin-top:8px">💾 Save Printer</button>
     </div>
   </div>
   
@@ -1260,6 +1318,64 @@ function setupPrinter() {
   });
 }
 
+async function loadWindowsPrinters() {
+  const select = document.getElementById('printer-select');
+  if (!select) return;
+  select.innerHTML = '<option value="">Loading...</option>';
+  try {
+    const res = await fetch('http://localhost:8765/api/printers/windows');
+    const data = await res.json();
+    const printers = data.printers || [];
+    if (printers.length === 0) {
+      select.innerHTML = '<option value="">No printers found</option>';
+      return;
+    }
+    // Get currently configured printer from status
+    let currentPrinter = null;
+    try {
+      const statusRes = await fetch('http://localhost:8765/api/status');
+      const statusData = await statusRes.json();
+      currentPrinter = statusData.printerName || null;
+    } catch (_) {}
+
+    select.innerHTML = printers.map(name =>
+      `<option value="${name}" ${name === currentPrinter ? 'selected' : ''}>${name}</option>`
+    ).join('');
+
+    if (currentPrinter) {
+      updatePrinterStatus('online', currentPrinter);
+    }
+  } catch (err) {
+    select.innerHTML = '<option value="">Error loading printers</option>';
+    console.error('[loadWindowsPrinters]', err);
+  }
+}
+
+async function savePrinterSelection() {
+  const select = document.getElementById('printer-select');
+  const printerName = select ? select.value : '';
+  if (!printerName) {
+    showNotification('Error', 'Please select a printer');
+    return;
+  }
+  try {
+    const res = await fetch('http://localhost:8765/api/printers/select', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ printerName })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showNotification('Saved', `Printer set to: ${printerName}`);
+      updatePrinterStatus('online', printerName);
+    } else {
+      showNotification('Error', data.error || 'Failed to save printer');
+    }
+  } catch (err) {
+    showNotification('Error', err.message);
+  }
+}
+
 function testPrint() {
   showNotification('Test Print', 'Sending test receipt...');
   
@@ -1288,14 +1404,21 @@ function saveApiSettings() {
   });
 }
 
-function updatePrinterStatus(status) {
+function updatePrinterStatus(status, printerName) {
   const statusElement = document.getElementById('printer-status');
-  const indicator = statusElement.querySelector('.status-indicator');
-  const text = statusElement.querySelector('.status-text');
+  const indicator = statusElement ? statusElement.querySelector('.status-indicator') : null;
+  const text = document.getElementById('printer-status-text') || (statusElement ? statusElement.querySelector('.status-text') : null);
   
-  indicator.className = `status-indicator ${status}`;
-  text.textContent = status === 'online' ? 'Tabeza POS Printer Connected' : 
-                    status === 'error' ? 'Printer Setup Failed' : 'Printer Offline';
+  if (indicator) indicator.className = `status-indicator ${status}`;
+  if (text) {
+    if (status === 'online') {
+      text.textContent = printerName ? `Active: ${printerName}` : 'Printer Connected';
+    } else if (status === 'error') {
+      text.textContent = 'Printer Setup Failed';
+    } else {
+      text.textContent = 'Printer Offline';
+    }
+  }
 }
 
 function loadCurrentConfig() {
@@ -1610,6 +1733,9 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Initialize status refresh
   refreshStatus();
+
+  // Start setup polling — will self-stop once template is ready
+  startSetupPolling();
 });
 
 function initializeTabs() {
@@ -1634,9 +1760,161 @@ function initializeTabs() {
         renderPipeline();
       } else if (tabName === 'receipt-flow') {
         renderReceiptFlow();
+      } else if (tabName === 'config') {
+        loadWindowsPrinters();
       }
     });
   });
+}
+
+// ── Setup Panel (Pipeline tab — first-time setup mode) ────────────────────────
+let _setupPollTimer      = null;
+let _setupComplete       = false;
+let _firstPollDone       = false;   // guard: don't hide pipeline until first poll returns
+let _isGeneratingTemplate = false;  // guard: prevent duplicate generation calls
+
+function startSetupPolling() {
+  if (_setupPollTimer) return; // already running
+  _setupPollTimer = setInterval(pollSetupStatus, 3000);
+  pollSetupStatus(); // immediate first call
+}
+
+function stopSetupPolling() {
+  if (_setupPollTimer) {
+    clearInterval(_setupPollTimer);
+    _setupPollTimer = null;
+  }
+}
+
+async function pollSetupStatus() {
+  try {
+    const res = await fetch('http://localhost:8765/api/template/status');
+    if (!res.ok) return;
+    const data = await res.json();
+    const captured = data.capturedReceipts || 0;
+    const templateReady = data.templateGenerated || false;
+
+    // Auto-trigger generation when 3 samples are ready and template not yet generated
+    if (captured >= 3 && !templateReady && !_isGeneratingTemplate) {
+      _isGeneratingTemplate = true;
+      // Show generating state immediately before the async call
+      const genEl = document.getElementById('setup-generating');
+      if (genEl) genEl.classList.remove('hidden');
+      const stepLabel = document.getElementById('setup-step-label');
+      if (stepLabel) stepLabel.textContent = 'Generating template with AI...';
+
+      try {
+        const result = await fetch('http://localhost:8765/api/template/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        const genData = await result.json();
+        if (!genData.success) {
+          console.error('[SetupPanel] Template generation failed:', genData.error);
+          _isGeneratingTemplate = false; // allow retry on next poll
+        }
+        // On success the next pollSetupStatus call will see templateGenerated=true
+      } catch (genErr) {
+        console.error('[SetupPanel] Template generation error:', genErr);
+        _isGeneratingTemplate = false; // allow retry
+      }
+      return; // don't call updateSetupPanel mid-generation
+    }
+
+    updateSetupPanel(captured, templateReady);
+  } catch { /* service not yet reachable — ignore */ }
+}
+
+function updateSetupPanel(captured, templateReady) {
+  if (_setupComplete) return;
+
+  const setupPanel    = document.getElementById('setup-panel');
+  const pipelinePanel = document.getElementById('pipeline-panel');
+  if (!setupPanel || !pipelinePanel) return;
+
+  if (templateReady) {
+    // Transition to normal pipeline view
+    _setupComplete = true;
+    stopSetupPolling();
+
+    // Show success briefly, then flip to pipeline
+    const genEl = document.getElementById('setup-generating');
+    if (genEl) genEl.classList.add('hidden');
+    document.getElementById('setup-success').classList.remove('hidden');
+    _markAllSlotsCaptured();
+
+    setTimeout(() => {
+      setupPanel.classList.add('hidden');
+      pipelinePanel.classList.remove('hidden');
+      renderPipeline();
+    }, 2500);
+    return;
+  }
+
+  // First poll has returned — now we know whether to show setup or pipeline
+  if (!_firstPollDone) {
+    _firstPollDone = true;
+    // Only enter setup mode if template is genuinely missing
+    setupPanel.classList.remove('hidden');
+    pipelinePanel.classList.add('hidden');
+  }
+
+  // Update progress bar
+  const pct = Math.min((captured / 3) * 100, 100);
+  const bar  = document.getElementById('setup-progress-bar');
+  const txt  = document.getElementById('setup-progress-text');
+  if (bar) bar.style.width = pct + '%';
+  if (txt) txt.textContent = `${captured} / 3 receipts captured`;
+
+  // Update slots
+  for (let i = 1; i <= 3; i++) {
+    const slot   = document.getElementById(`setup-slot-${i}`);
+    const status = document.getElementById(`setup-slot-${i}-status`);
+    if (!slot || !status) continue;
+
+    if (i <= captured) {
+      slot.style.borderColor  = 'var(--ok)';
+      slot.style.background   = '#052e16';
+      status.textContent      = '✓ Captured';
+      status.style.color      = 'var(--ok)';
+      status.style.fontWeight = '700';
+    } else {
+      slot.style.borderColor  = 'var(--border)';
+      slot.style.background   = 'var(--surface)';
+      status.textContent      = 'Waiting...';
+      status.style.color      = 'var(--muted)';
+      status.style.fontWeight = 'normal';
+    }
+  }
+
+  // Step label
+  const stepLabel = document.getElementById('setup-step-label');
+  const stepDot   = document.getElementById('setup-step-dot');
+  if (captured >= 3) {
+    // All 3 captured — generation is in progress (triggered above in pollSetupStatus)
+    const genEl = document.getElementById('setup-generating');
+    if (genEl) genEl.classList.remove('hidden');
+    if (stepLabel) stepLabel.textContent = 'Generating template with AI...';
+    if (stepDot)   { stepDot.style.background = 'var(--ok)'; stepDot.style.boxShadow = '0 0 8px var(--ok)'; }
+  } else {
+    const remaining = 3 - captured;
+    if (stepLabel) stepLabel.textContent = `Print ${remaining} more receipt${remaining > 1 ? 's' : ''} from your POS to "Tabeza POS Printer"`;
+    if (stepDot)   { stepDot.style.background = '#fbbf24'; stepDot.style.boxShadow = '0 0 8px #fbbf24'; }
+  }
+}
+
+function _markAllSlotsCaptured() {
+  for (let i = 1; i <= 3; i++) {
+    const slot   = document.getElementById(`setup-slot-${i}`);
+    const status = document.getElementById(`setup-slot-${i}-status`);
+    if (slot)   { slot.style.borderColor = 'var(--ok)'; slot.style.background = '#052e16'; }
+    if (status) { status.textContent = '✓ Captured'; status.style.color = 'var(--ok)'; status.style.fontWeight = '700'; }
+  }
+  const bar = document.getElementById('setup-progress-bar');
+  const txt = document.getElementById('setup-progress-text');
+  if (bar) bar.style.width = '100%';
+  if (txt) txt.textContent = '3 / 3 receipts captured';
 }
   // ─────────────────────────────────────────────
 //  IPC bridge  (works with preload script)
@@ -1688,6 +1966,9 @@ const NODES = [
   { id:'service',    icon:'⚙️',  label:'TabezaConnect Service',  sub:'Core processor',
     tip:'Parses receipts using templates, uploads to cloud, manages Bar ID config.',
     fix:'Kill all TabezaConnect.exe instances, then launch a single clean instance.' },
+  { id:'queue',      icon:'📤',  label:'Upload Queue',           sub:'Local queue',
+    tip:'Receipts captured locally, waiting to be uploaded. Pending = not yet sent. Uploaded = confirmed sent.',
+    fix:'Check internet connection. If pending > 0 and not draining, restart the service.' },
   { id:'cloud',      icon:'☁️',  label:'Cloud Upload',           sub:'Remote storage',
     tip:'Stores parsed receipt data — shared with Tabeza restaurant app.',
     fix:'Verify API key / network connectivity once service is stable.' },
@@ -1897,15 +2178,22 @@ function addLog(entry) {
   logs.push(entry);
   if (logs.length > 500) logs.shift(); // cap at 500
   const body = document.getElementById('log-body');
+  if (!body) return;
+
+  // Only auto-scroll if user is already near the bottom
+  const atBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
+
   const line = document.createElement('div');
   line.className = 'log-line';
+  // Escape msg to prevent HTML injection from log content
+  const safeMsg = String(entry.msg || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   line.innerHTML = `
     <span class="log-time">${entry.time}</span>
     <span class="log-level ${entry.level}">${entry.level}</span>
-    <span class="log-msg ${entry.level}">${entry.msg}</span>
+    <span class="log-msg ${entry.level}">${safeMsg}</span>
   `;
   body.appendChild(line);
-  body.scrollTop = body.scrollHeight;
+  if (atBottom) body.scrollTop = body.scrollHeight;
 }
 
 // ─────────────────────────────────────────────
@@ -2003,27 +2291,56 @@ async function refreshStatus() {
   // Load template samples
   loadSamples();
 
-  // Load recent logs from service log file
-  try {
-    const logRes = await fetch('http://localhost:8765/api/logs/recent?lines=20');
-    if (logRes.ok) {
-      const logs = await logRes.json();
-      logs.forEach(addLog);
-    }
-  } catch (e) {
-    // No logs available yet
-  }
+  // Load recent logs from service log file (initial load — last 50 lines)
+  await pollLogs(50);
 
   // Initial pipeline render
   await refreshStatus();
   renderActions();
 
-  // Live log pushes from main process
-  ipc.on('log-entry', (entry) => addLog(entry));
+  // Live log pushes from main process (if tray pushes them)
+  ipc.on('log-entry', (entry) => {
+    _logSeenKeys.add(_logKey(entry));
+    addLog(entry);
+  });
 
-  // Poll status every 10 seconds
+  // Poll logs every 4 seconds for new entries
+  setInterval(() => pollLogs(100), 4000);
+
+  // Poll pipeline status every 10 seconds
   setInterval(refreshStatus, 10_000);
 })();
+
+// ─────────────────────────────────────────────
+//  Log polling — deduplicates against already-shown entries
+// ─────────────────────────────────────────────
+const _logSeenKeys = new Set();
+
+function _logKey(entry) {
+  return `${entry.time}|${entry.level}|${entry.msg}`;
+}
+
+async function pollLogs(lines = 100) {
+  try {
+    const res = await fetch(`http://localhost:8765/api/logs/recent?lines=${lines}`);
+    if (!res.ok) return;
+    const entries = await res.json();
+    let newCount = 0;
+    for (const entry of entries) {
+      const key = _logKey(entry);
+      if (!_logSeenKeys.has(key)) {
+        _logSeenKeys.add(key);
+        addLog(entry);
+        newCount++;
+      }
+    }
+    // Cap the seen-key set so it doesn't grow forever
+    if (_logSeenKeys.size > 2000) {
+      const arr = [..._logSeenKeys];
+      arr.splice(0, arr.length - 1000).forEach(k => _logSeenKeys.delete(k));
+    }
+  } catch { /* service not yet reachable */ }
+}
 </script>
 </body>
 </html>

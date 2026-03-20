@@ -29,6 +29,7 @@ const crypto = require('crypto');
 const { textify } = require('../utils/textifier');
 const ReceiptParser = require('../service/receiptParser');
 const logger = require('./logger');
+const pipelineLog = require('../utils/logger');
 
 // Generate UUID v4 using crypto (built-in, no dependencies)
 function uuidv4() {
@@ -126,155 +127,207 @@ const PATHS = {
 async function main() {
   const startTime = Date.now();
   let filename = null;
-  
+  const log = pipelineLog.forPrefix('[REDMON]');
+
   try {
-    // Log startup
+    log.step('capture.exe invoked by Redmon');
     logger.info('Capture script started', {
       barId: CONFIG.barId || 'NOT SET',
       basePath: CONFIG.basePath,
     });
-    
-    // Validate configuration
+
     if (!CONFIG.barId) {
-      throw new Error('TABEZA_BAR_ID environment variable not set');
+      throw new Error('Bar ID not configured. Set barId in C:\\TabezaPrints\\config.json or pass --bar-id argument.');
     }
-    
-    // Check disk space
+
     await checkDiskSpace();
-    
-    // Read raw bytes from stdin
-    logger.debug('Reading stdin');
+
+    // Read raw ESC/POS bytes from stdin
+    log.info('Reading raw ESC/POS bytes from stdin...');
     const rawBytes = await readStdin();
-    logger.debug('Stdin read complete', { size: rawBytes.length });
-    
-    // Validate size
+
     if (rawBytes.length === 0) {
       throw new Error('No data received from stdin');
     }
-    
-    if (rawBytes.length > CONFIG.maxFileSize) {
-      logger.warn('Print job exceeds max size, truncating', {
-        actualSize: rawBytes.length,
-        maxSize: CONFIG.maxFileSize,
-      });
-      rawBytes = rawBytes.slice(0, CONFIG.maxFileSize);
-    }
-    
-    // Generate timestamp-based filename
+
+    log.ok(`Received ${rawBytes.length} bytes from Redmon via stdin`);
+
+    // Generate filename and save raw file — always, regardless of template state
     filename = generateTimestamp();
-    
-    // Save raw file
-    logger.debug('Saving raw file');
+
+    const rawLog = pipelineLog.forPrefix('[RAW]');
+    rawLog.step(`Saving raw .prn → raw\\${filename}.prn`);
     await saveRawFile(rawBytes, filename);
-    
-    // Textify (strip ESC/POS codes)
-    logger.debug('Textifying');
-    const textifyStart = Date.now();
+    rawLog.ok(`Saved raw\\${filename}.prn (${rawBytes.length} bytes)`);
+
+    // Textify
     const plainText = textify(rawBytes);
-    const textifyDuration = Date.now() - textifyStart;
-    
+    await saveTextFile(plainText, filename);
+    rawLog.info(`Saved text\\${filename}.txt (${plainText.length} chars)`);
+
     logger.logTextify({
       inputSize: rawBytes.length,
       outputSize: plainText.length,
-      duration: textifyDuration,
+      duration: 0,
     });
-    
-    // Save text file
-    await saveTextFile(plainText, filename);
-    
-    // Check if template exists for parsing
+
     const templateExists = await checkTemplateExists();
-    let parseResult = null;
-    
+
     if (templateExists) {
-      // Parse with template
-      logger.debug('Parsing with template');
-      const parseStart = Date.now();
+      const parserLog = pipelineLog.forPrefix('[PARSER]');
+      parserLog.step('Template found — parsing receipt');
       const parser = new ReceiptParser();
       await parser.initialize();
-      parseResult = await parser.parse(plainText);
-      const parseDuration = Date.now() - parseStart;
-      
+      const parseResult = await parser.parse(plainText);
+
+      parserLog.info(`Parse complete — confidence: ${parseResult.confidence}%, items: ${parseResult.data?.items?.length ?? 0}, success: ${parseResult.success}`);
+
       logger.logParse({
         confidence: parseResult.confidence,
         success: parseResult.success,
         itemCount: parseResult.data?.items?.length || 0,
-        duration: parseDuration,
+        duration: parseResult.parseTime || 0,
       });
-      
-      // Log any parse errors or warnings
-      if (parseResult.errors && parseResult.errors.length > 0) {
-        logger.warn('Parse errors detected', { errors: parseResult.errors });
-      }
-      
-      if (parseResult.warnings && parseResult.warnings.length > 0) {
-        logger.warn('Parse warnings detected', { warnings: parseResult.warnings });
-      }
-      
-      // Save parsed JSON
+
       await saveParsedFile(parseResult, plainText, filename);
-      
-      // Add to upload queue
-      logger.debug('Queueing for upload');
+
+      const queueLog = pipelineLog.forPrefix('[QUEUE]');
+      queueLog.step('Queuing receipt for cloud upload');
       const queueId = await queueForUpload(parseResult, plainText, filename);
-      
-      logger.logQueue({
-        queueId: queueId,
-        barId: CONFIG.barId,
-        parsed: parseResult.success,
-      });
+      queueLog.ok(`Enqueued → queue\\pending\\${queueId}.json`);
+
+      logger.logQueue({ queueId, barId: CONFIG.barId, parsed: parseResult.success });
+      log.ok(`Receipt pipeline complete in ${Date.now() - startTime}ms`, { filename, queueId });
+
     } else {
-      // No template yet - just save raw and samples for template generation
-      logger.info('No template found - saving raw receipt for template generation');
-      
-      // Create a basic parse result for logging
-      parseResult = {
-        success: false,
-        confidence: 0,
-        errors: ['No template available yet'],
-        warnings: [],
-        data: {},
-        template: null
-      };
+      const rawCount = await countRawFiles();
+      const templateLog = pipelineLog.forPrefix('[TEMPLATE]');
+      templateLog.warn(`No template yet — raw receipts collected: ${rawCount}/3`);
+
+      if (rawCount >= 3) {
+        templateLog.step('3+ raw receipts available — triggering template generation');
+        await triggerTemplateGeneration();
+      } else {
+        templateLog.info(`Need ${3 - rawCount} more receipt(s) before template generation`);
+      }
     }
-    
-    // Calculate total time
-    const totalTime = Date.now() - startTime;
-    
+
     logger.logCapture({
-      filename: filename,
+      filename,
       size: rawBytes.length,
-      duration: totalTime,
+      duration: Date.now() - startTime,
       success: true,
     });
-    
-    // Save to samples folder for template generation
-    await saveToSamples(plainText, filename);
-    
-    logger.info('Capture complete', {
-      filename: filename,
-      totalTime: totalTime,
-      confidence: parseResult.confidence,
-    });
-    
-    // Exit successfully
+
     process.exit(0);
-    
+
   } catch (error) {
+    const log = pipelineLog.forPrefix('[REDMON]');
+    log.error(`Capture failed: ${error.message}`);
     logger.error('Capture failed', {
       error: error.message,
       stack: error.stack,
-      filename: filename,
+      filename,
       duration: Date.now() - startTime,
     });
-    
-    // Try to save error details for diagnostics
+
     if (filename) {
       await saveErrorFile(error, filename);
     }
-    
-    // Exit with error code
+
     process.exit(1);
+  }
+}
+
+/**
+ * Count captured receipts by reading text\ folder (raw\ is deleted by SpoolWatcher after forwarding)
+ * @returns {Promise<number>}
+ */
+async function countRawFiles() {
+  try {
+    await fs.mkdir(PATHS.text, { recursive: true });
+    const files = await fs.readdir(PATHS.text);
+    return files.filter(f => f.endsWith('.txt')).length;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Read all raw .txt files and call the cloud API to generate a template.
+ * On success, saves template.json and then parses + queues all raw receipts.
+ */
+async function triggerTemplateGeneration() {
+  const log = pipelineLog.forPrefix('[TEMPLATE]');
+  try {
+    const textFiles = (await fs.readdir(PATHS.text).catch(() => [])).filter(f => f.endsWith('.txt'));
+
+    if (textFiles.length < 3) {
+      log.warn(`Not enough text files for template generation (${textFiles.length}/3)`);
+      return;
+    }
+
+    const receipts = await Promise.all(
+      textFiles.slice(0, 10).map(f => fs.readFile(path.join(PATHS.text, f), 'utf8'))
+    );
+
+    log.step(`Calling cloud API for template generation — ${receipts.length} samples → ${CONFIG.apiUrl}`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+    const response = await fetch(`${CONFIG.apiUrl}/api/receipts/generate-template`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ test_receipts: receipts, bar_id: CONFIG.barId }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`Cloud API returned ${response.status}`);
+    }
+
+    const result = await response.json();
+    const template = result.template;
+
+    if (!template || !template.patterns) {
+      throw new Error('Cloud API returned invalid template');
+    }
+
+    const templatePath = path.join(CONFIG.basePath, 'templates', 'template.json');
+    await fs.mkdir(path.dirname(templatePath), { recursive: true });
+    await fs.writeFile(templatePath, JSON.stringify(template, null, 2), 'utf8');
+    log.ok(`Template saved → ${templatePath} (version: ${template.version || 'unknown'})`);
+
+    // Now parse and queue all existing raw receipts
+    log.step('Parsing and queuing all existing raw receipts...');
+    const parser = new ReceiptParser();
+    await parser.initialize();
+
+    for (const textFile of textFiles) {
+      try {
+        const plainText = await fs.readFile(path.join(PATHS.text, textFile), 'utf8');
+        const baseName = textFile.replace('.txt', '');
+        const parseResult = await parser.parse(plainText);
+        await saveParsedFile(parseResult, plainText, baseName);
+        const queueId = await queueForUpload(parseResult, plainText, baseName);
+        log.info(`Queued existing receipt: ${baseName} → ${queueId}`);
+      } catch (err) {
+        log.warn(`Failed to queue existing receipt: ${textFile} — ${err.message}`);
+      }
+    }
+
+    log.ok('Template generation complete — all existing receipts queued');
+
+  } catch (error) {
+    const log = pipelineLog.forPrefix('[TEMPLATE]');
+    if (error.name === 'AbortError') {
+      log.error('Template generation timed out (60s)');
+    } else {
+      log.error(`Template generation failed: ${error.message}`);
+    }
   }
 }
 
@@ -546,47 +599,9 @@ async function queueForUpload(parseResult, plainText, filename) {
   }
 }
 
-/**
- * Save receipt to samples folder for template generation
- * Only saves if less than 10 samples exist (to avoid overfilling)
- * 
- * @param {string} plainText - Plain text receipt
- * @param {string} filename - Base filename
- */
-async function saveToSamples(plainText, filename) {
-  try {
-    // Check if samples folder exists, create if not
-    await fs.mkdir(PATHS.samples, { recursive: true });
-    
-    // Check existing sample count
-    const existing = await fs.readdir(PATHS.samples).catch(() => []);
-    const sampleCount = existing.filter(f => f.endsWith('.txt')).length;
-    
-    // Only save if less than 10 samples
-    if (sampleCount >= 10) {
-      logger.debug('Sample folder full, not saving', { sampleCount });
-      return;
-    }
-    
-    // Save to samples with timestamp
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const sampleFilename = `sample-${timestamp}.txt`;
-    const samplePath = path.join(PATHS.samples, sampleFilename);
-    
-    await fs.writeFile(samplePath, plainText, 'utf8');
-    logger.info('Receipt saved to samples for template generation', { 
-      samplePath, 
-      sampleCount: sampleCount + 1 
-    });
-  } catch (error) {
-    // Don't fail the whole capture if sample saving fails
-    logger.warn('Failed to save to samples', { error: error.message });
-  }
-}
-
 // Run main function
 if (require.main === module) {
   main();
 }
 
-module.exports = { main, readStdin, generateTimestamp, saveToSamples };
+module.exports = { main, readStdin, generateTimestamp, countRawFiles, triggerTemplateGeneration };

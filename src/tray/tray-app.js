@@ -22,6 +22,9 @@ const { app, Tray, Menu, BrowserWindow, nativeImage, ipcMain, shell, dialog } = 
 const path  = require('path');
 const fs    = require('fs');
 const { exec } = require('child_process');
+const { forPrefix } = require('../utils/logger');
+
+const trayLog = forPrefix('[TRAY]');
 
 // ── Application state enum ───────────────────────────────────────────────────
 const ApplicationState = {
@@ -80,7 +83,7 @@ class TrayApp {
     // Cached status for IPC replies
     this._lastStatus = null;
 
-    console.log('[TrayApp] Initialized. minimized =', this.minimized);
+    trayLog.info(`Initialized — minimized=${this.minimized}`);
   }
 
   // ── Public entry point ────────────────────────────────────────────────────
@@ -89,18 +92,16 @@ class TrayApp {
 
     this._registerIPC();
     this._createTrayIcon();
-    this._createStatusWindow();   // create window now, hidden
+    this._createStatusWindow();
 
-    // Show the window unless --minimized was passed
     if (!this.minimized) {
       this._showWindow();
     }
 
-    // Start polling
     setTimeout(() => this._pollStatus(), MONITOR_INITIAL_MS);
     this.monitorTimer = setInterval(() => this._pollStatus(), MONITOR_INTERVAL_MS);
 
-    console.log('[TrayApp] Started');
+    trayLog.ok(`Started — minimized=${this.minimized}`);
   }
 
   // ── Tray icon ─────────────────────────────────────────────────────────────
@@ -113,11 +114,10 @@ class TrayApp {
     this.tray = new Tray(icon);
     this.tray.setToolTip('Tabeza POS Connect - Starting...');
 
-    // Double-click → show window (Req 2.3)
     this.tray.on('double-click', () => this._showWindow());
 
     this._rebuildContextMenu();
-    console.log('[TrayApp] Tray icon created');
+    trayLog.ok('Tray icon created');
   }
 
   _updateTrayIcon(state) {
@@ -130,7 +130,7 @@ class TrayApp {
     if (!icon.isEmpty()) {
       this.tray.setImage(icon);
     } else {
-      console.warn('[TrayApp] Icon empty:', iconPath);
+      trayLog.warn(`Icon empty: ${iconPath}`);
     }
 
     let tooltip = cfg.tooltip;
@@ -146,18 +146,20 @@ class TrayApp {
   // ── Status window (BrowserWindow) ─────────────────────────────────────────
   _createStatusWindow() {
     this.window = new BrowserWindow({
-      width:           500,
-      height:          420,
-      resizable:       false,
-      maximizable:     false,
+      width:           900,
+      height:          680,
+      resizable:       true,
+      maximizable:     true,
       fullscreenable:  false,
       show:            false,           // start hidden
       skipTaskbar:     true,            // don't appear in taskbar
       title:           'Tabeza POS Connect',
       icon:            path.join(__dirname, '../../assets/icon-green.ico'),
+      backgroundColor: '#020617',       // dark background matches UI
       webPreferences: {
-        nodeIntegration:   true,        // needed for ipcRenderer in renderer
-        contextIsolation:  false,
+        nodeIntegration:  false,
+        contextIsolation: true,
+        preload:          path.join(__dirname, '../preload.js'),
       },
     });
 
@@ -168,6 +170,7 @@ class TrayApp {
       if (this.state !== ApplicationState.SHUTTING_DOWN) {
         e.preventDefault();
         this.window.hide();
+        trayLog.info('Status window hidden (minimised to tray)');
       }
     });
 
@@ -181,7 +184,7 @@ class TrayApp {
     // Remove the default menu bar
     this.window.setMenuBarVisibility(false);
 
-    console.log('[TrayApp] Status window created (hidden)');
+    trayLog.info('Status window created (hidden)');
   }
 
   _showWindow() {
@@ -226,7 +229,7 @@ class TrayApp {
     // Remove the default menu bar
     this.wizardWindow.setMenuBarVisibility(false);
 
-    console.log('[TrayApp] Template wizard window created (hidden)');
+    trayLog.info('Template wizard window created (hidden)');
   }
 
   _showWizardWindow() {
@@ -251,25 +254,110 @@ class TrayApp {
 
   // ── IPC handlers ─────────────────────────────────────────────────────────
   _registerIPC() {
-    // Renderer asks for current status
+    const SVC = 'http://localhost:8765';
+
+    // Helper: proxy a fetch to the service
+    const proxy = async (method, path, body) => {
+      try {
+        const opts = {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(15000),
+        };
+        if (body) opts.body = JSON.stringify(body);
+        const res = await fetch(`${SVC}${path}`, opts);
+        return await res.json();
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    };
+
+    // ── Legacy on() handlers ──────────────────────────────────────────────
     ipcMain.on('get-status', async (event) => {
       event.reply('status-reply', await this._buildStatusPayload());
     });
-
-    // Renderer "Open Configuration" button
-    ipcMain.on('open-config', () => this._openConfiguration());
-
-    // Renderer "Test Print" button
-    ipcMain.on('test-print', () => this._testPrint());
-
-    // Renderer "Template Generator" button
+    ipcMain.on('open-config',          () => this._openConfiguration());
+    ipcMain.on('test-print',           () => this._testPrint());
     ipcMain.on('open-template-wizard', () => this._showWizardWindow());
+    ipcMain.on('open-printer-setup',   () => this._openPrinterSetup());
+    ipcMain.on('hide-window',          () => this._hideWindow());
 
-    // Renderer "Printer Setup" button
-    ipcMain.on('open-printer-setup', () => this._openPrinterSetup());
+    // ── invoke() handlers (used by status-window.html) ───────────────────
 
-    // Renderer "OK" button → hide window
-    ipcMain.on('hide-window', () => this._hideWindow());
+    // Status / pipeline
+    ipcMain.handle('get-pipeline-status', () => proxy('GET', '/api/status'));
+    ipcMain.handle('get-bar-id', async () => {
+      const r = await proxy('GET', '/api/config');
+      return r?.barId || r?.config?.barId || null;
+    });
+    ipcMain.handle('get-config', () => proxy('GET', '/api/config'));
+
+    // Template
+    ipcMain.handle('get-samples-status', async () => {
+      try {
+        const statusRes = await fetch(`${SVC}/api/template/status`, {
+          signal: AbortSignal.timeout(5000),
+        });
+        const status = await statusRes.json();
+
+        // Also fetch the actual sample texts so the UI can deduplicate
+        let samples = [];
+        try {
+          const samplesRes = await fetch(`${SVC}/api/template/samples`, {
+            signal: AbortSignal.timeout(5000),
+          });
+          if (samplesRes.ok) {
+            const data = await samplesRes.json();
+            samples = data.samples || [];
+          }
+        } catch { /* samples endpoint may not exist yet */ }
+
+        return {
+          success: true,
+          samples,
+          hasTemplate:       status.templateGenerated || false,
+          capturedReceipts:  status.capturedReceipts  || 0,
+          receiptsNeeded:    Math.max(0, 3 - (status.capturedReceipts || 0)),
+        };
+      } catch (err) {
+        return { success: false, error: err.message, samples: [], hasTemplate: false };
+      }
+    });
+    ipcMain.handle('generate-template',  (_, args) => proxy('POST', '/api/template/generate', args || {}));
+    ipcMain.handle('test-template',      () => proxy('GET', '/api/template/status'));
+
+    // Bar ID save
+    ipcMain.handle('save-bar-id', (_, barId) =>
+      proxy('POST', '/api/configure', { barId })
+    );
+
+    // API settings save
+    ipcMain.handle('save-api-settings', (_, { endpoint }) =>
+      proxy('POST', '/api/configure', { apiUrl: endpoint })
+    );
+
+    // Printer
+    ipcMain.handle('setup-printer', () => proxy('GET', '/api/printer/status'));
+    ipcMain.handle('get-windows-printers', () => proxy('GET', '/api/printers/windows'));
+    ipcMain.handle('select-printer', (_, name) =>
+      proxy('POST', '/api/printers/select', { printerName: name })
+    );
+
+    // Test print (invoke version)
+    ipcMain.handle('test-print-invoke', () =>
+      proxy('POST', '/api/test-print', {})
+    );
+
+    // Logs
+    ipcMain.handle('get-logs', () => proxy('GET', '/api/logs/recent'));
+
+    // Action channels (used by triggerAction in status-window.html)
+    ipcMain.handle('action-restart-service',   () => proxy('POST', '/api/restart', {}));
+    ipcMain.handle('action-test-print',        () => proxy('POST', '/api/test-print', {}));
+    ipcMain.handle('action-test-cloud',        () => proxy('GET',  '/api/status'));
+    ipcMain.handle('action-verify-redmon',     () => proxy('GET',  '/api/printer/status'));
+    ipcMain.handle('action-kill-processes',    () => proxy('POST', '/api/restart', {}));
+    ipcMain.handle('action-export-diagnostics',() => proxy('GET',  '/api/status'));
   }
 
   // ── Context menu ─────────────────────────────────────────────────────────
@@ -282,6 +370,7 @@ class TrayApp {
     const queueSize = queueStats?.queueSize || 0;
     const pending = queueStats?.pending || 0;
     const uploaded = queueStats?.uploaded || 0;
+    const printerName = this._lastStatus?.printerName || null;
 
     let statusLabel;
     switch (this.state) {
@@ -299,6 +388,7 @@ class TrayApp {
       { label: configured ? `Bar: ${this.barId}` : 'Bar: Not configured', enabled: false },
       { label: `${statusLabel}`, enabled: false },
       { label: `Queue: ${pending} pending, ${uploaded} uploaded`, enabled: false },
+      { label: printerName ? `Printer: ${printerName}` : 'Printer: Not configured', enabled: false },
       { type: 'separator' },
       {
         label:   'Show Status Window',
@@ -369,11 +459,11 @@ class TrayApp {
 
     const allowed = VALID_TRANSITIONS[this.state] || [];
     if (!allowed.includes(newState)) {
-      console.warn(`[TrayApp] Invalid transition ${this.state} → ${newState}`);
+      trayLog.warn(`Invalid transition ${this.state} → ${newState}`);
       return false;
     }
 
-    console.log(`[TrayApp] State: ${this.state} → ${newState}${reason ? ' (' + reason + ')' : ''}`);
+    trayLog.step(`State: ${this.state} → ${newState}${reason ? ' (' + reason + ')' : ''}`);
 
     this.state = newState;
     if (errorMsg) this.errorMessage = errorMsg;
@@ -408,6 +498,7 @@ class TrayApp {
       // Update barId from live data
       if (data.barId && data.barId !== this.barId) {
         this.barId = data.barId;
+        trayLog.info(`Bar ID updated: ${this.barId}`);
       }
 
       // Determine desired app state
@@ -430,6 +521,7 @@ class TrayApp {
         this.state !== ApplicationState.ERROR &&
         this.state !== ApplicationState.SHUTTING_DOWN
       ) {
+        trayLog.warn('Service unreachable — transitioning to ERROR');
         await this.setState(ApplicationState.ERROR, 'Service unreachable', 'Cannot connect to service');
       }
     }
@@ -627,7 +719,7 @@ class TrayApp {
 
   // ── Graceful shutdown ────────────────────────────────────────────────────
   async handleExit() {
-    console.log('[TrayApp] Graceful exit...');
+    trayLog.step('Graceful exit requested...');
 
     await this.setState(ApplicationState.SHUTTING_DOWN, 'User requested exit');
 
@@ -644,14 +736,13 @@ class TrayApp {
     }, 5000);
 
     try {
-      // Ask service to shut down gracefully
       const serviceModule = require.cache[require.resolve('../service/index.js')];
       if (serviceModule?.exports?.shutdown) {
         await serviceModule.exports.shutdown();
-        console.log('[TrayApp] Service shutdown OK');
+        trayLog.ok('Service shutdown OK');
       }
     } catch (err) {
-      console.warn('[TrayApp] Service shutdown error:', err.message);
+      trayLog.warn(`Service shutdown error: ${err.message}`);
     }
 
     clearTimeout(timer);
@@ -712,10 +803,9 @@ class TrayApp {
   _verifyIcons() {
     for (const [color, p] of Object.entries(ICON_PATHS)) {
       if (!fs.existsSync(p)) {
-        console.warn(`[TrayApp] Missing icon (${color}): ${p}`);
+        trayLog.warn(`Missing icon (${color}): ${p}`);
       }
     }
-    // Also verify the large window icon (already covered if green is same)
   }
 
   // ── Legacy public API aliases ─────────────────────────────────────────────

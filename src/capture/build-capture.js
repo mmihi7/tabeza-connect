@@ -31,7 +31,7 @@ if (!fs.existsSync(DIST_DIR)) {
 const pkgCommand = [
   'pkg',
   CAPTURE_SCRIPT,
-  '--targets', 'node20-win-x64',
+  '--targets', 'node18-win-x64',
   '--output', OUTPUT_EXE,
   '--compress', 'GZip',
 ].join(' ');

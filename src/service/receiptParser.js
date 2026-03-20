@@ -15,11 +15,20 @@
 
 const fs = require('fs').promises;
 const path = require('path');
+const { forPrefix } = require('../utils/logger');
+
+const log = forPrefix('[PARSER]');
 
 class ReceiptParser {
   constructor() {
     this.template = null;
-    this.templatePath = path.join('C:', 'ProgramData', 'Tabeza', 'template.json');
+    // Check multiple locations in order of preference
+    this.templatePaths = [
+      path.join('C:', 'TabezaPrints', 'templates', 'template.json'),
+      path.join('C:', 'TabezaPrints', 'template.json'),
+      path.join('C:', 'ProgramData', 'Tabeza', 'template.json'),
+    ];
+    this.templatePath = this.templatePaths[0]; // default for saving
     
     // Statistics
     this.stats = {
@@ -37,14 +46,14 @@ class ReceiptParser {
    * Initialize parser by loading template
    */
   async initialize() {
-    console.log('🔧 Initializing local receipt parser...');
+    log.step('Initializing local receipt parser...');
     
     try {
       await this.loadTemplate();
-      console.log('✅ Receipt parser initialized successfully');
+      log.ok('Receipt parser initialized successfully');
       return true;
     } catch (error) {
-      console.error('❌ Failed to initialize receipt parser:', error.message);
+      log.error('Failed to initialize receipt parser', error.message);
       throw error;
     }
   }
@@ -53,26 +62,28 @@ class ReceiptParser {
    * Load parsing template from disk
    */
   async loadTemplate() {
-    try {
-      const templateData = await fs.readFile(this.templatePath, 'utf8');
-      this.template = JSON.parse(templateData);
-      
-      // Validate template structure
-      this.validateTemplate(this.template);
-      
-      this.stats.templateLoaded = true;
-      console.log(`✅ Template loaded: ${this.template.name || 'Unknown'}`);
-      console.log(`   Fields: ${this.template.fields?.length || 0}`);
-      console.log(`   Version: ${this.template.version || 'Unknown'}`);
-      
-    } catch (error) {
-      if (error.code === 'ENOENT') {
-        console.warn('⚠️  No template found, using default parsing');
-        this.template = this.getDefaultTemplate();
-      } else {
-        throw new Error(`Failed to load template: ${error.message}`);
+    // Try each path in order of preference
+    for (const templatePath of (this.templatePaths || [this.templatePath])) {
+      try {
+        const templateData = await fs.readFile(templatePath, 'utf8');
+        const parsed = JSON.parse(templateData);
+        this.validateTemplate(parsed);
+        this.template = parsed;
+        this.templatePath = templatePath; // remember which one worked
+        this.stats.templateLoaded = true;
+        log.ok(`Template loaded from: ${templatePath}`);
+        log.info(`Fields: ${this.template.fields?.length || 0}, Version: ${this.template.version || 'Unknown'}`);
+        return;
+      } catch (error) {
+        if (error.code !== 'ENOENT') {
+          log.warn(`Template at ${templatePath} invalid: ${error.message}`);
+        }
+        // try next path
       }
     }
+    // None found — use default
+    log.warn('No template found in any location, using default parsing');
+    this.template = this.getDefaultTemplate();
   }
 
   /**
@@ -499,7 +510,7 @@ class ReceiptParser {
       this.template = template;
       this.stats.templateLoaded = true;
       
-      console.log(`✅ Template saved: ${template.name || 'Unknown'}`);
+      log.ok(`Template saved: ${template.name || 'Unknown'}`);
     } catch (error) {
       throw new Error(`Failed to save template: ${error.message}`);
     }

@@ -36,8 +36,11 @@ const ReceiptParser = require('./receiptParser');
 const LocalQueue = require('./localQueue');
 const UploadWorker = require('./uploadWorker');
 const HeartbeatService = require('./heartbeat/heartbeat-service');
-const SpoolWatcher = require('./spool-watcher');
 const PhysicalPrinterAdapter = require('./printer-adapter');
+const SpoolWatcher = require('./spool-watcher');
+const { forPrefix } = require('../utils/logger');
+
+const svcLog = forPrefix('[SERVICE]');
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // INLINED HTTP SERVER - Fixes PKG bundling issue
@@ -114,10 +117,20 @@ class SimpleHTTPServer {
     this.app.get('/api/status', async (req, res) => {
       try {
         const stats = await this.service.getStats();
+        // Resolve active printer name from adapter
+        let printerName = null;
+        if (this.service.printerAdapter) {
+          const def = this.service.printerAdapter.getDefaultPrinter();
+          printerName = def ? def.name : null;
+        }
+        if (!printerName && this.service.config.printers && this.service.config.printers.length > 0) {
+          printerName = this.service.config.printers[0].name;
+        }
         res.json({
           success: true,
           barId: this.config.barId,
           apiUrl: this.config.apiUrl,
+          printerName,
           service: stats.service,
           queue: stats.queue,
           upload: stats.upload,
@@ -138,27 +151,35 @@ class SimpleHTTPServer {
       }
     });
 
-    // Recent logs endpoint
+    // Recent logs endpoint — serves from in-memory event ring buffer
+    // (always available, contains only key warn/error/ok events)
     this.app.get('/api/logs/recent', async (req, res) => {
-      const lines = parseInt(req.query.lines) || 20;
-      const logFile = 'C:\\TabezaPrints\\logs\\service.log';
+      const lines = parseInt(req.query.lines) || 100;
       try {
+        // Serve from ring buffer first (always fresh, no file dependency)
+        if (EVENT_LOG.length > 0) {
+          const recent = EVENT_LOG.slice(-lines);
+          return res.json(recent);
+        }
+        // Fallback: read from log file if ring buffer is empty (e.g. fresh start)
+        const logFile = LOG_FILE;
         if (fs.existsSync(logFile)) {
           const content = fs.readFileSync(logFile, 'utf8');
           const allLines = content.split('\n').filter(l => l.trim());
           const recent = allLines.slice(-lines).map(line => {
-            // Parse log line: [timestamp][LEVEL] message
             const match = line.match(/\[([^\]]+)\]\[(\w+)\]\s*(.*)/);
             if (match) {
               const time = match[1].split('T')[1]?.split('.')[0] || match[1];
-              return { time, level: match[2].toLowerCase(), msg: match[3] };
+              const lvl  = match[2].toLowerCase();
+              // Only surface warn/error from file fallback
+              if (lvl !== 'warn' && lvl !== 'error') return null;
+              return { time, level: lvl, msg: match[3] };
             }
-            return { time: new Date().toLocaleTimeString(), level: 'info', msg: line };
-          });
-          res.json(recent);
-        } else {
-          res.json([]);
+            return null;
+          }).filter(Boolean);
+          return res.json(recent);
         }
+        res.json([]);
       } catch (e) {
         res.json([]);
       }
@@ -190,8 +211,8 @@ class SimpleHTTPServer {
           });
         }
 
-        // Update config file - write to the path RegistryReader reads from
-        const configPath = 'C:\\ProgramData\\Tabeza\\config.json';
+        // Update config file under the consolidated TabezaPrints root
+        const configPath = 'C:\\TabezaPrints\\config.json';
         let config = {};
         
         if (fs.existsSync(configPath)) {
@@ -266,12 +287,8 @@ class SimpleHTTPServer {
         const templatePath = path.join(templatesDir, 'template.json');
         fs.writeFileSync(templatePath, JSON.stringify(template, null, 2));
         
-        // Update service template status (Requirement 15A.4)
+        // Update service template status
         this.service.templateMissing = false;
-        if (this.service.spoolWatcher) {
-          this.service.spoolWatcher.setTemplateMissing(false);
-          console.log('[SimpleHTTPServer] Updated SpoolWatcher template status: template now exists');
-        }
         
         res.json({
           success: true,
@@ -289,9 +306,10 @@ class SimpleHTTPServer {
     // Get template capture status - how many samples collected, template exists?
     this.app.get('/api/template/status', (req, res) => {
       try {
-        const rawDir = path.join(DATA_DIR, 'raw');
-        const capturedReceipts = fs.existsSync(rawDir)
-          ? fs.readdirSync(rawDir).filter(f => f.endsWith('.prn')).length
+        // Count text\ files — raw\ is emptied by SpoolWatcher after forwarding
+        const textDir = path.join(DATA_DIR, 'text');
+        const capturedReceipts = fs.existsSync(textDir)
+          ? fs.readdirSync(textDir).filter(f => f.endsWith('.txt')).length
           : 0;
 
         const templatePath = path.join(DATA_DIR, 'templates', 'template.json');
@@ -308,17 +326,37 @@ class SimpleHTTPServer {
       }
     });
 
+    // Return actual sample receipt texts for the tray template wizard
+    this.app.get('/api/template/samples', (req, res) => {
+      try {
+        const textDir = path.join(DATA_DIR, 'text');
+        const samples = [];
+        if (fs.existsSync(textDir)) {
+          const files = fs.readdirSync(textDir).filter(f => f.endsWith('.txt'));
+          for (const f of files) {
+            try {
+              const content = fs.readFileSync(path.join(textDir, f), 'utf8').trim();
+              if (content) samples.push({ filename: f, content, text: content });
+            } catch { /* skip unreadable files */ }
+          }
+        }
+        res.json({ success: true, samples });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message, samples: [] });
+      }
+    });
+
     this.app.post('/api/template/generate', async (req, res) => {
       try {
         let { receipts } = req.body;
 
-        // If no receipts passed, load from raw folder
+        // If no receipts passed, load from text\ folder
         if (!receipts || receipts.length < 3) {
-          const samplesDir = path.join(DATA_DIR, 'samples');
-          if (fs.existsSync(samplesDir)) {
-            const files = fs.readdirSync(samplesDir).filter(f => f.endsWith('.txt'));
+          const textDir = path.join(DATA_DIR, 'text');
+          if (fs.existsSync(textDir)) {
+            const files = fs.readdirSync(textDir).filter(f => f.endsWith('.txt'));
             receipts = files.map(f => {
-              const content = fs.readFileSync(path.join(samplesDir, f), 'utf8');
+              const content = fs.readFileSync(path.join(textDir, f), 'utf8');
               return content.trim();
             });
           }
@@ -337,14 +375,15 @@ class SimpleHTTPServer {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 60000);
         
+        // Cloud API expects { test_receipts, bar_id } — match the staff app contract
         const response = await fetch(apiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            receipts,
-            barId: this.config.barId
+            test_receipts: receipts,
+            bar_id: this.config.barId
           }),
           signal: controller.signal
         });
@@ -360,19 +399,24 @@ class SimpleHTTPServer {
           });
         }
 
-        // Save template to disk
-        const templateDir = path.dirname('C:\\TabezaPrints\\template.json');
+        // Save template to the correct path that the local parser reads from
+        const TEMPLATE_SAVE_PATH = 'C:\\TabezaPrints\\templates\\template.json';
+        const templateDir = path.dirname(TEMPLATE_SAVE_PATH);
         if (!fs.existsSync(templateDir)) {
           fs.mkdirSync(templateDir, { recursive: true });
         }
 
-        fs.writeFileSync('C:\\TabezaPrints\\template.json', JSON.stringify(template, null, 2), 'utf8');
+        fs.writeFileSync(TEMPLATE_SAVE_PATH, JSON.stringify(template, null, 2), 'utf8');
 
-        // Update service template status (Requirement 15A.4)
+        // Update service template status
         this.service.templateMissing = false;
-        if (this.service.spoolWatcher) {
-          this.service.spoolWatcher.setTemplateMissing(false);
-          console.log('[SimpleHTTPServer] Updated SpoolWatcher template status: template now exists');
+
+        // Backfill the 3 sample receipts that were held back during setup
+        // Now that we have a template, parse and enqueue them
+        try {
+          await this.service.backfillTextFiles();
+        } catch (backfillErr) {
+          console.warn('[SimpleHTTPServer] Backfill after template generation failed:', backfillErr.message);
         }
 
         res.json({
@@ -591,6 +635,111 @@ class SimpleHTTPServer {
           success: false,
           error: err.message
         });
+      }
+    });
+
+    // Queue stats alias — used by tray _buildStatusPayload and pipeline node
+    this.app.get('/api/queue-stats', async (req, res) => {
+      try {
+        const stats = await this.service.localQueue.getStats();
+        const uploadStats = this.service.uploadWorker
+          ? await this.service.uploadWorker.getStats()
+          : null;
+
+        // Count text\ files waiting (captured but not yet enqueued)
+        const textDir = path.join(DATA_DIR, 'text');
+        const textFiles = fs.existsSync(textDir)
+          ? fs.readdirSync(textDir).filter(f => f.endsWith('.txt')).length
+          : 0;
+
+        res.json({
+          success: true,
+          pending:   stats.pending  || 0,
+          uploaded:  stats.uploaded || 0,
+          failed:    stats.failed   || 0,
+          total:     stats.total    || 0,
+          textFiles,
+          upload: uploadStats ? {
+            isOnline:         uploadStats.isOnline,
+            uploadsSucceeded: uploadStats.uploadsSucceeded,
+            uploadsFailed:    uploadStats.uploadsFailed,
+            lastSuccess:      uploadStats.lastUploadSuccess,
+            lastError:        uploadStats.lastError,
+          } : null,
+        });
+      } catch (err) {
+        res.status(500).json({ success: false, error: err.message, pending: 0, uploaded: 0, failed: 0 });
+      }
+    });
+
+    // List all installed Windows printers
+    this.app.get('/api/printers/windows', async (req, res) => {
+      try {
+        const { exec } = require('child_process');
+        const util = require('util');
+        const execPromise = util.promisify(exec);
+        const { stdout } = await execPromise(
+          'powershell -Command "Get-Printer | Select-Object Name | ConvertTo-Json -Compress"',
+          { timeout: 8000 }
+        );
+        let names = [];
+        if (stdout && stdout.trim()) {
+          const parsed = JSON.parse(stdout.trim());
+          const arr = Array.isArray(parsed) ? parsed : [parsed];
+          names = arr.map(p => p.Name).filter(Boolean);
+        }
+        res.json({ success: true, printers: names });
+      } catch (err) {
+        res.status(500).json({ success: false, error: err.message, printers: [] });
+      }
+    });
+
+    // Select / save a printer as the default
+    this.app.post('/api/printers/select', async (req, res) => {
+      try {
+        const { printerName } = req.body;
+        if (!printerName) {
+          return res.status(400).json({ success: false, error: 'printerName is required' });
+        }
+
+        // Paths to update — project-root config.json (dev) and TabezaPrints (prod)
+        const configPaths = [
+          path.join(process.cwd(), 'config.json'),
+          'C:\\TabezaPrints\\config.json'
+        ];
+
+        for (const configPath of configPaths) {
+          try {
+            let cfg = {};
+            if (fs.existsSync(configPath)) {
+              cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            }
+            cfg.printers = [{
+              name: printerName,
+              type: 'windows',
+              enabled: true,
+              isDefault: true,
+              timeout: 5000
+            }];
+            const dir = path.dirname(configPath);
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), 'utf8');
+          } catch (_) { /* skip paths we can't write */ }
+        }
+
+        // Hot-reload the printer adapter
+        if (this.service.printerAdapter) {
+          this.service.config.printers = [{
+            name: printerName, type: 'windows', enabled: true, isDefault: true, timeout: 5000
+          }];
+          await this.service.printerAdapter.stop();
+          this.service.printerAdapter = new PhysicalPrinterAdapter(this.service.config);
+          await this.service.printerAdapter.start();
+        }
+
+        res.json({ success: true, message: `Printer set to: ${printerName}` });
+      } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
       }
     });
 
@@ -923,6 +1072,19 @@ function ensureLogDir() {
   } catch (_) {}
 }
 
+// ─── In-memory event ring buffer (tray log tab reads this) ───────────────────
+// Holds the last 200 key events. Only warn/error/ok/step go here — not noisy
+// INFO lines — so the tray log shows only what matters.
+const EVENT_LOG = [];
+const EVENT_LOG_MAX = 200;
+
+function pushEvent(level, message) {
+  const ts = new Date().toISOString();
+  const time = ts.split('T')[1].split('.')[0]; // HH:MM:SS
+  EVENT_LOG.push({ time, level: level.toLowerCase(), msg: message });
+  if (EVENT_LOG.length > EVENT_LOG_MAX) EVENT_LOG.shift();
+}
+
 function log(level, message) {
   const ts   = new Date().toISOString();
   const line = `[${ts}][${level}] ${message}`;
@@ -931,13 +1093,25 @@ function log(level, message) {
     ensureLogDir();
     fs.appendFileSync(LOG_FILE, line + '\n', 'utf8');
   } catch (_) {}
+  // Push warn/error to the event ring buffer so the tray log tab sees them
+  if (level === 'WARN' || level === 'ERROR') {
+    pushEvent(level, message);
+  }
 }
 
 log('INFO', '--- INDEX.JS WAS LOADED (INLINE HTTP SERVER VERSION) ---');
 
-const info  = (m) => log('INFO',  m);
-const warn  = (m) => log('WARN',  m);
-const error = (m) => log('ERROR', m);
+const info  = (m) => { log('INFO',  m); svcLog.info(m); };
+const warn  = (m) => { log('WARN',  m); svcLog.warn(m); };
+const error = (m) => { log('ERROR', m); svcLog.error(m); };
+
+// ok() — key success events (receipt parsed, uploaded, template generated, etc.)
+// These go to the event ring buffer AND the log file so the tray log tab shows them.
+const ok = (m) => {
+  log('INFO', `✅ ${m}`);
+  pushEvent('ok', m);
+  svcLog.ok(m);
+};
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -974,8 +1148,8 @@ class IntegratedCaptureService {
     this.uploadWorker = null;
     this.heartbeatService = null;
     this.httpServer = null;
-    this.spoolWatcher = null;
     this.printerAdapter = null;
+    this.spoolWatcher = null;
   }
 
   async start() {
@@ -1017,7 +1191,12 @@ class IntegratedCaptureService {
       path.join(QUEUE_DIR, 'pending'),
       path.join(QUEUE_DIR, 'uploaded'),
       LOG_DIR,
-      TEMPLATES_DIR
+      TEMPLATES_DIR,
+      path.join(DATA_DIR, 'raw'),
+      path.join(DATA_DIR, 'processed'),
+      path.join(DATA_DIR, 'text'),
+      path.join(DATA_DIR, 'failed'),
+      path.join(DATA_DIR, 'failed_prints'),
     ];
 
     for (const dir of directories) {
@@ -1071,27 +1250,6 @@ class IntegratedCaptureService {
       this.heartbeatService.start();
       info('✅ Heartbeat service started');
 
-      // Initialize SpoolWatcher for REDMON Program Mode (capture.exe creates .prn files)
-      try {
-        this.spoolWatcher = new SpoolWatcher({
-          spoolFolder: path.join(DATA_DIR, 'raw'),
-          stabilizationDelay: 2000,
-          filePattern: /\.prn$/i,
-          templateMissing: this.templateMissing // Requirement 15A.4: Pass template status
-        });
-        info('✅ SpoolWatcher created successfully');
-//         debug('SpoolWatcher initialized with config:', this.spoolWatcher.config);
-      } catch (spoolError) {
-        error(`Failed to initialize SpoolWatcher: ${spoolError.message}`);
-        error('SpoolWatcher initialization failed. Service will continue without file monitoring.');
-        error('This may cause: capture.exe not creating files, or raw folder permissions issue.');
-        error('DEBUG: SpoolError details:', spoolError);
-//         debug('SpoolWatcher initialization failed with error:', spoolError);
-//         debug('SpoolWatcher initialization failed with stack:', spoolError.stack);
-        // Continue without SpoolWatcher - service will still work for other features
-        this.spoolWatcher = null;
-      }
-      
       // Initialize PhysicalPrinterAdapter
       try {
         this.printerAdapter = new PhysicalPrinterAdapter(this.config);
@@ -1106,105 +1264,110 @@ class IntegratedCaptureService {
         this.printerAdapter = null;
       }
       
-      // Connect SpoolWatcher to PhysicalPrinterAdapter AND cloud upload queue
-      this.spoolWatcher.on('forwardJob', async (jobData) => {
-        info(`SpoolWatcher forwarding job: ${jobData.jobId}`);
-        
-        // Forward to physical printer FIRST — this must never be blocked by cloud upload
-        if (this.printerAdapter) {
-          this.printerAdapter.enqueueJob(jobData);
-        }
-        
-        // Cloud upload is fully fire-and-forget — never blocks or affects printing
-        setImmediate(async () => {
+      // Backfill: enqueue any text\ files that were captured but never uploaded
+      // (e.g. from a previous run before the upload pipeline was wired up)
+      await this.backfillTextFiles();
+
+      // Initialize SpoolWatcher — watches raw\ for .prn files written by capture.exe
+      // On forwardJob event, enqueues job to PhysicalPrinterAdapter for EPSON L3210 printing
+      try {
+        this.spoolWatcher = new SpoolWatcher({
+          spoolFolder: path.join(DATA_DIR, 'raw'),
+          stabilizationDelay: 500,
+          filePattern: /\.prn$/i
+        });
+
+        this.spoolWatcher.on('forwardJob', async (job) => {
+          // 1. Forward raw bytes to physical printer
+          if (this.printerAdapter) {
+            info(`Receipt captured → forwarding to printer (jobId=${job.jobId})`);
+            this.printerAdapter.enqueueJob(job);
+          } else {
+            warn(`Printer not configured — receipt captured but not printed (jobId=${job.jobId})`);
+          }
+
+          // 2. Strip ESC/POS bytes → plain text → save to text\
+          //    FLOW:
+          //    - Receipts 1-3: saved to text\ as template samples (no upload yet)
+          //    - Receipt 4+:   parsed locally with template, then enqueued for cloud upload
           try {
-            if (!this.config.barId) {
-              warn(`[CloudUpload] Skipping cloud upload: barId not configured`);
+            const plainText = this.escposProcessor.convertToText(job.rawData);
+            if (!plainText || !plainText.trim()) {
+              warn(`Empty receipt data for job ${job.jobId} — skipped`);
               return;
             }
-            
-            const rawBuffer = jobData.rawData;
-            if (!rawBuffer || rawBuffer.length === 0) {
-              warn(`[CloudUpload] No raw data in job ${jobData.jobId}, skipping`);
+
+            // Save a copy to text\ (used as template generation samples)
+            const textDir = path.join(DATA_DIR, 'text');
+            if (!fs.existsSync(textDir)) fs.mkdirSync(textDir, { recursive: true });
+            const textFile = path.join(textDir, `${job.jobId}.txt`);
+            fs.writeFileSync(textFile, plainText, 'utf8');
+
+            // Count how many text samples we have so far
+            const sampleCount = fs.readdirSync(textDir).filter(f => f.endsWith('.txt')).length;
+            const templatePath = path.join(TEMPLATES_DIR, 'template.json');
+            const templateExists = fs.existsSync(templatePath);
+
+            if (!templateExists && sampleCount <= 3) {
+              // Still collecting samples — do NOT upload yet
+              ok(`Sample ${sampleCount}/3 captured — print 3 different receipts to generate template`);
+              this.templateMissing = true;
               return;
             }
-            
-            const escposBytes = Buffer.isBuffer(rawBuffer)
-              ? rawBuffer.toString('base64')
-              : Buffer.from(rawBuffer).toString('base64');
 
-            // Strip ESC/POS control bytes to get plain text
-            const plainText = this.escposProcessor.convertToText(
-              Buffer.isBuffer(rawBuffer) ? rawBuffer : Buffer.from(rawBuffer)
-            );
-
-            // Parse plain text using AI-generated template
+            // Template exists (or we have >3 samples somehow) — parse locally then upload
             let parsedData = null;
-            if (plainText && this.receiptParser) {
+            if (templateExists) {
               try {
+                // Reload template if needed
+                if (!this.receiptParser.stats.templateLoaded) {
+                  await this.receiptParser.loadTemplate();
+                }
                 const parseResult = await this.receiptParser.parse(plainText);
-                if (parseResult.success && parseResult.data) {
-                  parsedData = {
-                    items: parseResult.data.items || [],
-                    total: parseResult.data.total || 0,
-                    receiptNumber: parseResult.data.receiptNumber,
-                    rawText: plainText,
-                    confidence: parseResult.confidence > 70 ? 'high' : parseResult.confidence > 40 ? 'medium' : 'low',
-                  };
-                  info(`[CloudUpload] Parsed receipt: ${parsedData.items.length} items, total ${parsedData.total}`);
+                if (parseResult.success) {
+                  parsedData = parseResult.data;
+                  ok(`Receipt parsed (confidence: ${parseResult.confidence}%) — queued for upload`);
+                } else {
+                  warn(`Receipt parse failed: ${parseResult.errors.join(', ')} — uploading raw text`);
                 }
               } catch (parseErr) {
-                warn(`[CloudUpload] Parse failed, sending raw: ${parseErr.message}`);
+                warn(`Receipt parse error: ${parseErr.message} — uploading raw text`);
               }
             }
-            
-            const receiptId = await this.localQueue.enqueue({
-              barId: this.config.barId,
-              deviceId: this.config.driverId || 'unknown',
-              timestamp: jobData.capturedAt || new Date().toISOString(),
-              escposBytes: escposBytes,
-              parsedData: parsedData,
-              text: plainText || null,
+
+            // Enqueue for cloud upload
+            await this.localQueue.enqueue({
+              barId:     this.config.barId,
+              deviceId:  this.config.driverId,
+              timestamp: job.capturedAt || new Date().toISOString(),
+              text:      plainText,
+              parsedData,
               metadata: {
-                jobId: jobData.jobId,
-                printerName: jobData.printerName || 'Unknown Printer',
-                fileName: jobData.captureFileName,
-                documentName: jobData.documentName || 'Receipt',
-                source: 'spool-capture',
+                source:      'spool-watcher',
+                jobId:       job.jobId,
+                spoolFile:   job.spoolFileName,
+                archiveFile: job.archiveFile,
+                sizeBytes:   job.size,
+                parsed:      !!parsedData,
               }
             });
-            
-            info(`[CloudUpload] Receipt enqueued for upload: ${receiptId} (job: ${jobData.jobId})`);
+            ok(`Receipt queued for upload (parsed=${!!parsedData})`);
           } catch (enqueueErr) {
-            error(`[CloudUpload] Failed to enqueue receipt for upload: ${enqueueErr.message}`);
+            error(`Failed to process receipt (jobId=${job.jobId}): ${enqueueErr.message}`);
           }
-        }); // end setImmediate
-      }); // end forwardJob handler
-      
-      // Set up SpoolWatcher event handlers
-      this.spoolWatcher.on('printJobProcessed', (jobData) => {
-        info(`SpoolWatcher processed file: ${jobData.jobId}`);
-        
-        // If no template yet, just count raw files - no need to copy
-        if (this.templateMissing) {
-          try {
-            const rawDir = path.join(DATA_DIR, 'raw');
-            const existing = fs.existsSync(rawDir) 
-              ? fs.readdirSync(rawDir).filter(f => f.endsWith('.prn')).length 
-              : 0;
-            info(`[TemplateCapture] Raw receipts count: ${existing} (template not ready)`);
-          } catch (e) {
-            warn(`[TemplateCapture] Failed to count raw receipts: ${e.message}`);
-          }
-        }
-      });
-      
-      this.spoolWatcher.on('error', (error) => {
-        error(`SpoolWatcher error: ${error.message || error}`);
-      });
-      
-      await this.spoolWatcher.start();
-      info('✅ SpoolWatcher initialized and started');
+        });
+
+        this.spoolWatcher.on('error', (err) => {
+          const msg = err && err.error ? err.error : (err.message || String(err));
+          warn(`SpoolWatcher error: ${msg}`);
+        });
+
+        await this.spoolWatcher.start();
+        info('✅ SpoolWatcher started (watching raw\\ for .prn files)');
+      } catch (spoolErr) {
+        error(`Failed to initialize SpoolWatcher: ${spoolErr.message}`);
+        this.spoolWatcher = null;
+      }
 
       // Start HTTP server (NOW INLINED - PKG WILL BUNDLE THIS)
       this.httpServer = new SimpleHTTPServer(this.config, this);
@@ -1278,13 +1441,82 @@ class IntegratedCaptureService {
     info(`Integrated service stopped. Total jobs processed: ${this.jobsProcessed}`);
   }
 
+  /**
+   * Backfill: enqueue any text\ files that have no corresponding pending queue entry.
+   * Only runs if a template already exists — text\ files before template generation
+   * are samples, not receipts to upload.
+   */
+  async backfillTextFiles() {
+    const textDir = path.join(DATA_DIR, 'text');
+    if (!fs.existsSync(textDir)) return;
+
+    const templatePath = path.join(TEMPLATES_DIR, 'template.json');
+    if (!fs.existsSync(templatePath)) {
+      // No template yet — text\ files are setup samples, not upload candidates
+      const sampleCount = fs.readdirSync(textDir).filter(f => f.endsWith('.txt')).length;
+      if (sampleCount > 0) {
+        info(`Backfill skipped: ${sampleCount} sample(s) in text\\ waiting for template generation`);
+      }
+      return;
+    }
+
+    const textFiles = fs.readdirSync(textDir).filter(f => f.endsWith('.txt'));
+    if (textFiles.length === 0) return;
+
+    // Get IDs already in the pending queue to avoid duplicates
+    const pendingDir = path.join(DATA_DIR, 'queue', 'pending');
+    const pendingContents = fs.existsSync(pendingDir) ? fs.readdirSync(pendingDir) : [];
+
+    const alreadyQueued = new Set();
+    for (const qf of pendingContents) {
+      try {
+        const item = JSON.parse(fs.readFileSync(path.join(pendingDir, qf), 'utf8'));
+        if (item.metadata && item.metadata.textFile) alreadyQueued.add(item.metadata.textFile);
+      } catch (_) {}
+    }
+
+    let backfilled = 0;
+    for (const file of textFiles) {
+      if (alreadyQueued.has(file)) continue;
+
+      try {
+        const text = fs.readFileSync(path.join(textDir, file), 'utf8').trim();
+        if (!text) continue;
+
+        // Parse locally before backfilling
+        let parsedData = null;
+        try {
+          const parseResult = await this.receiptParser.parse(text);
+          if (parseResult.success) parsedData = parseResult.data;
+        } catch (_) {}
+
+        await this.localQueue.enqueue({
+          barId:    this.config.barId,
+          deviceId: this.config.driverId,
+          timestamp: new Date().toISOString(),
+          text,
+          parsedData,
+          metadata: { source: 'backfill', textFile: file, parsed: !!parsedData }
+        });
+        backfilled++;
+        info(`Backfilled text file into queue: ${file}`);
+      } catch (err) {
+        warn(`Backfill failed for ${file}: ${err.message}`);
+      }
+    }
+
+    if (backfilled > 0) {
+      info(`Backfill complete: ${backfilled} receipt(s) enqueued for upload`);
+    }
+  }
+
   // Get service statistics
   async getStats() {
     const queueStats = await this.localQueue.getStats();
     const uploadStats = await this.uploadWorker?.getStats();
     const parserStats = this.receiptParser.getStats();
     const escposStats = this.escposProcessor.getStats();
-    const spoolStats = this.spoolWatcher?.getStats();
+    const spoolStats = this.spoolWatcher ? this.spoolWatcher.getStats() : null;
 
     return {
       service: {

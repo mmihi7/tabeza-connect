@@ -166,6 +166,45 @@
     .alert.show {
       display: block;
     }
+    
+    .prereq-banner {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    
+    .prereq-banner.show {
+      display: block;
+    }
+    
+    .prereq-banner h3 {
+      color: #856404;
+      font-size: 15px;
+      margin-bottom: 8px;
+    }
+    
+    .prereq-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+      font-size: 14px;
+      color: #555;
+    }
+    
+    .prereq-item .icon { font-size: 16px; }
+    .prereq-item.fail  { color: #991b1b; }
+    .prereq-item.pass  { color: #065f46; }
+    
+    .prereq-item a {
+      color: #667eea;
+      cursor: pointer;
+      text-decoration: underline;
+      margin-left: 6px;
+    }
   </style>
 </head>
 <body>
@@ -176,6 +215,19 @@
     </div>
     
     <div class="alert" id="alert"></div>
+    
+    <!-- Prerequisite check banner — shown when barId or printer not configured -->
+    <div class="prereq-banner" id="prereqBanner">
+      <h3>⚠️ Setup required before generating a template</h3>
+      <div class="prereq-item" id="prereqBarId">
+        <span class="icon">⏳</span>
+        <span>Bar ID — checking...</span>
+      </div>
+      <div class="prereq-item" id="prereqPrinter">
+        <span class="icon">⏳</span>
+        <span>Tabeza POS Printer — checking...</span>
+      </div>
+    </div>
     
     <div class="card">
       <div class="info-box">
@@ -242,7 +294,13 @@
     const path = require('path');
     
     const TEMPLATE_PATH = 'C:\\TabezaPrints\\templates\\template.json';
-    const PROCESSED_DIR = 'C:\\TabezaPrints\\processed';
+    const QUEUE_PENDING_DIR = 'C:\\TabezaPrints\\queue\\pending';
+
+    // Guided workflow state
+    let currentStep = 1;
+    let seenReceiptIds = new Set();
+    let stepReceipts = []; // receipts detected per step
+    let prerequisitesMet = false; // gate: both barId and printer must be set
     
     function showAlert(message, type = 'success') {
       const alert = document.getElementById('alert');
@@ -251,6 +309,59 @@
       setTimeout(() => {
         alert.className = 'alert';
       }, 5000);
+    }
+
+    // ── Prerequisite check ────────────────────────────────────────────────────
+    async function checkPrerequisites() {
+      const banner = document.getElementById('prereqBanner');
+      const barIdEl = document.getElementById('prereqBarId');
+      const printerEl = document.getElementById('prereqPrinter');
+
+      let barIdOk = false;
+      let printerOk = false;
+
+      // Check Bar ID
+      try {
+        const config = await ipcRenderer.invoke('get-config');
+        barIdOk = !!(config && config.barId && config.barId.trim() !== '');
+      } catch (_) {}
+
+      // Check printer
+      try {
+        const result = await ipcRenderer.invoke('check-printer-setup');
+        printerOk = result && result.exists === true;
+      } catch (_) {}
+
+      // Update Bar ID row
+      if (barIdOk) {
+        barIdEl.className = 'prereq-item pass';
+        barIdEl.innerHTML = '<span class="icon">✅</span><span>Bar ID — configured</span>';
+      } else {
+        barIdEl.className = 'prereq-item fail';
+        barIdEl.innerHTML = '<span class="icon">❌</span><span>Bar ID — not set<a onclick="openBarIdSetup()">Configure →</a></span>';
+      }
+
+      // Update printer row
+      if (printerOk) {
+        printerEl.className = 'prereq-item pass';
+        printerEl.innerHTML = '<span class="icon">✅</span><span>Tabeza POS Printer — installed</span>';
+      } else {
+        printerEl.className = 'prereq-item fail';
+        printerEl.innerHTML = '<span class="icon">❌</span><span>Tabeza POS Printer — not installed<a onclick="openPrinterSetup()">Set up →</a></span>';
+      }
+
+      prerequisitesMet = barIdOk && printerOk;
+
+      if (!prerequisitesMet) {
+        banner.classList.add('show');
+        // Disable the generate button and grey out the steps
+        const btn = document.getElementById('generateBtn');
+        if (btn) btn.disabled = true;
+      } else {
+        banner.classList.remove('show');
+      }
+
+      return prerequisitesMet;
     }
     
     async function checkPrinterStatus() {
@@ -261,12 +372,13 @@
         
         const status = document.getElementById('printerStatus');
         
-        if (result.status === 'FullyConfigured' || result.Status === 'FullyConfigured') {
+        // IPC handler returns status: 'configured' | 'not-configured'
+        if (result.status === 'configured' || result.exists === true) {
           console.log('[Template Generator] Printer is configured!');
-          status.textContent = 'Configured ✓';
+          status.textContent = `✅ ${result.printerName || 'Tabeza POS Printer'}`;
           status.className = 'step-status complete';
         } else {
-          console.log('[Template Generator] Printer not configured:', result.status || result.Status);
+          console.log('[Template Generator] Printer not configured:', result.status);
           status.textContent = 'Not configured';
           status.className = 'step-status pending';
         }
@@ -289,19 +401,65 @@
     }
     
     function countCapturedReceipts() {
+      // Don't count receipts until prerequisites are met
+      if (!prerequisitesMet) return;
+
       try {
-        if (fs.existsSync(PROCESSED_DIR)) {
-          const files = fs.readdirSync(PROCESSED_DIR);
-          const count = files.length;
-          document.getElementById('receiptCount').textContent = count;
-          document.getElementById('capturedCount').textContent = count;
-          
-          if (count >= 3) {
-            document.getElementById('generateBtn').disabled = false;
-          }
-        }
+        if (!fs.existsSync(QUEUE_PENDING_DIR)) return;
+
+        const files = fs.readdirSync(QUEUE_PENDING_DIR).filter(f => f.endsWith('.json'));
+        const newReceipts = files.filter(f => !seenReceiptIds.has(f));
+
+        newReceipts.forEach(f => {
+          seenReceiptIds.add(f);
+          stepReceipts.push(f);
+          updateGuidedStep();
+        });
+
+        const total = stepReceipts.length;
+        document.getElementById('receiptCount').textContent = total;
+        document.getElementById('capturedCount').textContent = total;
       } catch (err) {
         console.error('Failed to count receipts:', err);
+      }
+    }
+
+    function updateGuidedStep() {
+      const total = stepReceipts.length;
+
+      // Update step 2 status text
+      const step2Status = document.querySelector('.step:nth-child(3) .step-status');
+      if (step2Status) {
+        if (total === 0) {
+          step2Status.textContent = 'Waiting for receipts...';
+          step2Status.className = 'step-status pending';
+        } else if (total === 1) {
+          step2Status.textContent = '✓ Receipt 1 received — print a 2nd receipt';
+          step2Status.className = 'step-status complete';
+        } else if (total === 2) {
+          step2Status.textContent = '✓ Receipt 2 received — print one more receipt';
+          step2Status.className = 'step-status complete';
+        } else {
+          step2Status.textContent = '✓ 3 receipts captured — ready!';
+          step2Status.className = 'step-status complete';
+        }
+      }
+
+      // Update step 3 heading to guide the user
+      const step2Heading = document.querySelector('.step:nth-child(3) h3');
+      if (step2Heading) {
+        if (total === 0) step2Heading.textContent = 'Step 2/3: Print your first test receipt from your POS';
+        else if (total === 1) step2Heading.textContent = 'Step 2/3: Print a DIFFERENT receipt (different items/prices)';
+        else if (total === 2) step2Heading.textContent = 'Step 3/3: Print one more DIFFERENT receipt';
+        else step2Heading.textContent = 'Step 2/3: Print Test Receipts';
+      }
+
+      // Enable generate button and auto-trigger when 3 receipts collected
+      if (total >= 3) {
+        const btn = document.getElementById('generateBtn');
+        if (btn) btn.disabled = false;
+        // Auto-trigger template generation
+        generateTemplate();
       }
     }
     
@@ -309,8 +467,54 @@
       ipcRenderer.send('open-printer-setup');
     }
     
-    function generateTemplate() {
-      showAlert('Template generation requires the background service to be running with cloud connectivity. This feature will be available in a future update.', 'error');
+    function openBarIdSetup() {
+      ipcRenderer.send('open-bar-id-setup');
+    }
+    
+    async function generateTemplate() {
+      // Hard gate: prerequisites must be met before generating
+      if (!prerequisitesMet) {
+        showAlert('Please configure Bar ID and install Tabeza POS Printer first.', 'error');
+        return;
+      }
+
+      // Prevent double-trigger
+      const btn = document.getElementById('generateBtn');
+      if (btn) btn.disabled = true;
+
+      showAlert('Generating template with AI... (this may take 30–60 seconds)', 'success');
+
+      try {
+        // Read the 3 captured receipt files from queue/pending
+        const files = fs.readdirSync(QUEUE_PENDING_DIR)
+          .filter(f => f.endsWith('.json'))
+          .slice(0, 3);
+
+        const receipts = files.map(f => {
+          const data = JSON.parse(fs.readFileSync(path.join(QUEUE_PENDING_DIR, f), 'utf8'));
+          return data.receipt?.rawText || '';
+        }).filter(t => t.trim());
+
+        if (receipts.length < 3) {
+          showAlert('Need 3 captured receipts to generate template. Keep printing.', 'error');
+          if (btn) btn.disabled = false;
+          return;
+        }
+
+        const result = await ipcRenderer.invoke('generate-template', { receipts });
+
+        if (result && result.success) {
+          showAlert('✅ Template created! Future receipts will be parsed automatically.', 'success');
+          checkTemplateStatus();
+        } else {
+          showAlert(`Template generation failed: ${result?.error || 'Unknown error'}`, 'error');
+          if (btn) btn.disabled = false;
+        }
+      } catch (err) {
+        console.error('Template generation error:', err);
+        showAlert(`Error: ${err.message}`, 'error');
+        if (btn) btn.disabled = false;
+      }
     }
     
     // Listen for broadcast events from main process
@@ -329,16 +533,18 @@
     });
     
     // Initial checks
+    checkPrerequisites();
     checkPrinterStatus();
     checkTemplateStatus();
     countCapturedReceipts();
     
-    // Refresh every 5 seconds
+    // Refresh every 2 seconds (architecture spec: poll queue every 2s)
     setInterval(() => {
+      checkPrerequisites();
       countCapturedReceipts();
       checkTemplateStatus();
       checkPrinterStatus();
-    }, 5000);
+    }, 2000);
   </script>
 </body>
 </html>
