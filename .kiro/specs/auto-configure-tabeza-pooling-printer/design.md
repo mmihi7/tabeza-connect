@@ -2,7 +2,7 @@
 
 ## Overview
 
-This feature automates the creation and configuration of a "Tabeza POS Printer" that enables print job capture through Windows printer pooling. The system will detect an existing physical thermal printer, create a virtual printer that mirrors it, configure dual ports (physical + file capture), and validate the setup—all while preserving the existing waiter workflow.
+This feature automates the creation and configuration of a "Tabeza Agent" that enables print job capture through Windows printer pooling. The system will detect an existing physical thermal printer, create a virtual printer that mirrors it, configure dual ports (physical + file capture), and validate the setup—all while preserving the existing waiter workflow.
 
 The design follows the core principle: **Manual service always exists. Digital authority is singular. Tabeza adapts to the venue — never the reverse.**
 
@@ -50,7 +50,7 @@ After evaluating Windows printer configuration options:
 │  │  Status: Default Printer                               │ │
 │  └────────────────────────────────────────────────────────┘ │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │  Tabeza POS Printer (Virtual)                          │ │
+│  │  Tabeza Agent (Virtual)                          │ │
 │  │  Ports: USB001 + TabezaCapturePort                     │ │
 │  │  Driver: Same as Physical Printer                      │ │
 │  │  Status: Not Default                                   │ │
@@ -97,7 +97,7 @@ After evaluating Windows printer configuration options:
 [Record Current Default Printer]
        │
        ▼
-[Check if Tabeza POS Printer Exists]
+[Check if Tabeza Agent Exists]
        │
        ├──Yes──> [Validate Configuration] ──Valid──> [Skip Creation]
        │                  │
@@ -116,7 +116,7 @@ After evaluating Windows printer configuration options:
 [Get Physical Printer Driver Name]
        │
        ▼
-[Create Tabeza POS Printer]
+[Create Tabeza Agent]
   - Driver: Same as Physical
   - Ports: Physical Port + TabezaCapturePort
   - Shared: False
@@ -218,7 +218,7 @@ function New-TabezaPOSPrinter {
         [string]$DriverName,
         [string[]]$PortNames
     )
-    # Creates the Tabeza POS Printer with multiple ports
+    # Creates the Tabeza Agent with multiple ports
 }
 
 function Test-PoolingConfiguration {
@@ -254,7 +254,7 @@ $excludePatterns = @(
     'Fax',
     'OneNote',
     'Adobe PDF',
-    'Tabeza POS Printer'  # Don't detect our own virtual printer
+    'Tabeza Agent'  # Don't detect our own virtual printer
 )
 
 $candidates = $allPrinters | Where-Object {
@@ -346,7 +346,7 @@ In our case, we're creating a **Local Port** for the capture file.
 
 ### 4. Printer Creation Module
 
-**Purpose**: Creates the Tabeza POS Printer with dual ports configured for pooling
+**Purpose**: Creates the Tabeza Agent with dual ports configured for pooling
 
 **Critical Implementation Notes**:
 1. **Port Order**: Create capture port FIRST using `New-LocalCapturePort`, then create printer with thermal printer port
@@ -361,7 +361,7 @@ In our case, we're creating a **Local Port** for the capture file.
 ```powershell
 function New-TabezaPOSPrinter {
     param(
-        [string]$PrinterName = 'Tabeza POS Printer',
+        [string]$PrinterName = 'Tabeza Agent',
         [string]$DriverName,
         [string]$PhysicalPort,          # e.g., "USB001" for thermal printer
         [string]$CapturePort            # e.g., "TabezaCapturePort" (Local Port/FILE type)
@@ -596,7 +596,7 @@ function Remove-TabezaPOSPrinter {
 [Run]
 Filename: "powershell.exe"; \
   Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\configure-pooling-printer.ps1"" -CaptureFilePath ""C:\TabezaPrints\order.prn"""; \
-  StatusMsg: "Configuring Tabeza POS Printer..."; \
+  StatusMsg: "Configuring Tabeza Agent..."; \
   Flags: runhidden waituntilterminated; \
   Check: IsAdminInstallMode
 
@@ -646,7 +646,7 @@ interface PrinterConfigurationState {
   
   // Configuration phase
   tabezaPrinter: {
-    name: string;              // "Tabeza POS Printer"
+    name: string;              // "Tabeza Agent"
     driverName: string;        // Same as physicalPrinter.driverName
     ports: string[];           // ["USB001", "TabezaCapturePort"]
     isDefault: boolean;        // Always false
@@ -795,7 +795,7 @@ if (-not $driver) {
 
 **Recovery**:
 - Exit with code 1
-- Display error message: "Printer driver '$driverName' is not available. The Tabeza POS Printer cannot be created without this driver."
+- Display error message: "Printer driver '$driverName' is not available. The Tabeza Agent cannot be created without this driver."
 - Provide instructions:
   1. Reinstall the physical printer driver
   2. Verify the driver is listed in: Control Panel → Devices and Printers → Print server properties → Drivers
@@ -835,7 +835,7 @@ try {
 - Log the full error message and stack trace
 - Attempt rollback: Remove any created ports
 - Exit with code 1
-- Display error message: "Failed to create Tabeza POS Printer: [error details]"
+- Display error message: "Failed to create Tabeza Agent: [error details]"
 - Suggest manual configuration as fallback
 
 **Common Causes**:
@@ -852,7 +852,7 @@ try {
 
 **Recovery Strategy**:
 ```powershell
-$validation = Test-PoolingConfiguration -PrinterName 'Tabeza POS Printer'
+$validation = Test-PoolingConfiguration -PrinterName 'Tabeza Agent'
 
 if ($validation.Errors.Count -gt 0) {
     Write-Log "Validation failed with errors:" 'ERROR'
@@ -866,13 +866,13 @@ if ($validation.Errors.Count -gt 0) {
         Grant-CaptureFilePermissions -Path $captureFilePath
         
         # Re-validate
-        $validation = Test-PoolingConfiguration -PrinterName 'Tabeza POS Printer'
+        $validation = Test-PoolingConfiguration -PrinterName 'Tabeza Agent'
     }
     
     # If still failing, rollback
     if ($validation.Errors.Count -gt 0) {
         Write-Log "Validation still failing after attempted fixes. Rolling back..." 'ERROR'
-        Remove-TabezaPOSPrinter -PrinterName 'Tabeza POS Printer'
+        Remove-TabezaPOSPrinter -PrinterName 'Tabeza Agent'
         exit 1
     }
 }
@@ -950,7 +950,7 @@ The configuration script guarantees atomic operations:
 4. **After rollback**: Verify system is in original state
 
 **Rollback Order**:
-1. Remove Tabeza POS Printer (if created)
+1. Remove Tabeza Agent (if created)
 2. Remove TabezaCapturePort (if created)
 3. Restore original default printer
 4. Log rollback completion
@@ -981,7 +981,7 @@ Together, these provide comprehensive coverage where unit tests catch concrete b
    - Test with only PDF/Fax printers (should fail)
    - Test with single thermal printer (should succeed)
    - Test with multiple thermal printers (should prioritize correctly)
-   - Test with Tabeza POS Printer already existing (should exclude it)
+   - Test with Tabeza Agent already existing (should exclude it)
 
 2. **Port Configuration Tests**
    - Test creating new local port
@@ -1116,7 +1116,7 @@ function New-RandomCapturePath {
    - Clean Windows installation
    - Install thermal printer driver
    - Run TabezaConnect installer
-   - Verify Tabeza POS Printer is created
+   - Verify Tabeza Agent is created
    - Verify default printer is preserved
    - Send test print job
    - Verify capture file is updated
@@ -1159,10 +1159,10 @@ Before release, manually verify:
 - [ ] Works with generic thermal printer
 - [ ] Default printer is preserved after installation
 - [ ] Test print to physical printer succeeds
-- [ ] Test print to Tabeza POS Printer updates capture file
+- [ ] Test print to Tabeza Agent updates capture file
 - [ ] TabezaConnect service detects captured print jobs
 - [ ] Re-running installer is idempotent (no errors)
-- [ ] Uninstaller removes Tabeza POS Printer
+- [ ] Uninstaller removes Tabeza Agent
 - [ ] Error messages are clear and actionable
 - [ ] Log file contains useful diagnostic information
 
@@ -1233,13 +1233,13 @@ After eliminating redundancy, the following properties provide unique validation
 
 ### Property 4: Driver Inheritance
 
-*For any* physical printer with driver D, the created Tabeza POS Printer should use the same driver D.
+*For any* physical printer with driver D, the created Tabeza Agent should use the same driver D.
 
 **Validates: Requirements 2.2**
 
 ### Property 5: Dual-Port Configuration
 
-*For any* created Tabeza POS Printer, it should have exactly two ports configured: the physical port from the source printer and the TabezaCapturePort local port.
+*For any* created Tabeza Agent, it should have exactly two ports configured: the physical port from the source printer and the TabezaCapturePort local port.
 
 **Validates: Requirements 2.3, 6.1**
 
@@ -1251,13 +1251,13 @@ After eliminating redundancy, the following properties provide unique validation
 
 ### Property 7: Configuration Idempotency
 
-*For any* system state, running the configuration script twice should produce identical results: if the Tabeza POS Printer exists after the first run, the second run should verify the configuration and exit successfully without creating duplicates.
+*For any* system state, running the configuration script twice should produce identical results: if the Tabeza Agent exists after the first run, the second run should verify the configuration and exit successfully without creating duplicates.
 
 **Validates: Requirements 2.5, 7.1, 7.3**
 
 ### Property 8: Printer Sharing Disabled
 
-*For any* created Tabeza POS Printer, its Shared property should be false (not shared on the network).
+*For any* created Tabeza Agent, its Shared property should be false (not shared on the network).
 
 **Validates: Requirements 2.6**
 
@@ -1281,13 +1281,13 @@ After eliminating redundancy, the following properties provide unique validation
 
 ### Property 12: Default Printer Round-Trip
 
-*For any* system with a default printer D before configuration, after running the configuration script, the default printer should still be D (not the Tabeza POS Printer).
+*For any* system with a default printer D before configuration, after running the configuration script, the default printer should still be D (not the Tabeza Agent).
 
 **Validates: Requirements 4.1, 4.2, 4.3, 4.4, 7.5**
 
 ### Property 13: Capture File Update on Print
 
-*For any* print job sent to the Tabeza POS Printer, the capture file should be modified (size increased or modification timestamp updated).
+*For any* print job sent to the Tabeza Agent, the capture file should be modified (size increased or modification timestamp updated).
 
 **Validates: Requirements 5.3**
 
@@ -1305,7 +1305,7 @@ After eliminating redundancy, the following properties provide unique validation
 
 ### Property 16: Configuration Self-Healing
 
-*For any* existing Tabeza POS Printer with incorrect configuration (wrong ports, wrong driver), running the configuration script should detect and correct the configuration.
+*For any* existing Tabeza Agent with incorrect configuration (wrong ports, wrong driver), running the configuration script should detect and correct the configuration.
 
 **Validates: Requirements 7.2**
 
@@ -1329,7 +1329,7 @@ After eliminating redundancy, the following properties provide unique validation
 
 ### Property 20: Printer Settings Preservation
 
-*For any* physical printer with settings S (paper size, margins, print quality), the created Tabeza POS Printer should inherit the same settings S.
+*For any* physical printer with settings S (paper size, margins, print quality), the created Tabeza Agent should inherit the same settings S.
 
 **Validates: Requirements 10.5**
 
@@ -1349,8 +1349,8 @@ The following scenarios should be tested as specific examples rather than univer
 - **Validates: Requirements 1.5**
 
 **Edge Case 2: Physical Printer Offline**
-- Given: Tabeza POS Printer configured, physical printer disconnected
-- Expected: Capture file still updates when printing to Tabeza POS Printer
+- Given: Tabeza Agent configured, physical printer disconnected
+- Expected: Capture file still updates when printing to Tabeza Agent
 - **Validates: Requirements 5.5**
 
 **Example 1: Insufficient Permissions Error**
@@ -1369,7 +1369,7 @@ The following scenarios should be tested as specific examples rather than univer
 - **Validates: Requirements 8.3**
 
 **Example 4: Test Print Validation**
-- Given: Configured Tabeza POS Printer
+- Given: Configured Tabeza Agent
 - When: Send test print job
 - Expected: Capture file is updated
 - **Validates: Requirements 6.4**

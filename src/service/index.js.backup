@@ -3,7 +3,7 @@
  *
  * Architecture: RedMon Port Monitor Capture
  * ─────────────────────────────────────────────────
- * POS prints to "Tabeza POS Printer"
+ * POS prints to "Tabeza Agent"
  *   → RedMon port monitor intercepts print job
  *   → RedMon pipes raw ESC/POS bytes to capture.exe via stdin
  *   → Capture script processes and forwards to physical printer
@@ -405,13 +405,13 @@ class SimpleHTTPServer {
     // Printer status endpoint
     this.app.get('/api/printer/status', async (req, res) => {
       try {
-        // Check if Tabeza POS Printer exists using PowerShell
+        // Check if Tabeza Agent exists using PowerShell
         const { exec } = require('child_process');
         const util = require('util');
         const execPromise = util.promisify(exec);
         
         try {
-          const { stdout } = await execPromise('powershell -Command "Get-Printer -Name \'Tabeza POS Printer\' -ErrorAction SilentlyContinue | Select-Object Name, DriverName, PortName | ConvertTo-Json"');
+          const { stdout } = await execPromise('powershell -Command "Get-Printer -Name \'Tabeza Agent\' -ErrorAction SilentlyContinue | Select-Object Name, DriverName, PortName | ConvertTo-Json"');
           
           if (stdout && stdout.trim()) {
             const printerInfo = JSON.parse(stdout);
@@ -428,7 +428,7 @@ class SimpleHTTPServer {
             res.json({
               success: true,
               status: 'not_configured',
-              message: 'Tabeza POS Printer not found'
+              message: 'Tabeza Agent not found'
             });
           }
         } catch (psError) {

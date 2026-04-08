@@ -12,7 +12,7 @@ The migration module helps identify existing Tabeza Connect installations that u
 
 **Location:** `scripts/detect-pooling-printer.ps1`
 
-**Purpose:** Detects the legacy "Tabeza POS Printer" with pooling configuration.
+**Purpose:** Detects the legacy "Tabeza Agent" with pooling configuration.
 
 **Usage:**
 
@@ -62,7 +62,7 @@ console.log(summary);
 
 The detection script checks for:
 
-1. **Printer Existence**: Does "Tabeza POS Printer" exist in Windows?
+1. **Printer Existence**: Does "Tabeza Agent" exist in Windows?
 2. **Pooling Configuration**: Does the printer have multiple ports configured?
 3. **Capture Port**: Does "TabezaCapturePort" (Local Port) exist?
 4. **Configuration Files**: Are config.json and template.json present?
@@ -169,7 +169,7 @@ If PowerShell execution fails, the Node.js module includes a fallback using dire
 
 ```javascript
 // Fallback uses WMIC commands
-wmic printer where "Name='Tabeza POS Printer'" get Name,DriverName,PortName
+wmic printer where "Name='Tabeza Agent'" get Name,DriverName,PortName
 wmic path Win32_TCPIPPrinterPort where "Name='TabezaCapturePort'" get Name
 ```
 

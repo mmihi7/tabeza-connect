@@ -10,7 +10,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $PORT_NAME = "C:\TabezaPrints\order.prn"
-$POOLED_PRINTER_NAME = "Tabeza POS Printer"
+$POOLED_PRINTER_NAME = "Tabeza Agent"
 $TABEZA_PRINTS_DIR = "C:\TabezaPrints"
 
 function Write-Log {
@@ -424,7 +424,7 @@ function Show-PrinterSelection {
     $label = New-Object System.Windows.Forms.Label
     $label.Location = New-Object System.Drawing.Point(20, 20)
     $label.Size = New-Object System.Drawing.Size(460, 60)
-    $label.Text = "Select your receipt printer to configure printer pooling. This will create a 'Tabeza POS Printer' that sends print jobs to both your physical printer and Tabeza Connect."
+    $label.Text = "Select your receipt printer to configure printer pooling. This will create a 'Tabeza Agent' that sends print jobs to both your physical printer and Tabeza Connect."
     $label.AutoSize = $false
     $form.Controls.Add($label)
     

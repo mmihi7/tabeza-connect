@@ -28,7 +28,7 @@ node node_modules/jest/bin/jest.js __tests__/template-generator-printer-status-f
 - **Expected Failure**: Test will fail because:
   - IPC handler references non-existent `printer-pooling-setup.ps1` script
   - Handler checks for printer pooling instead of actual printer existence
-  - Returns "Not configured" even though "Tabeza POS Printer" exists in Windows
+  - Returns "Not configured" even though "Tabeza Agent" exists in Windows
 
 ### Bug 2: Template Generator UI Flow
 - **Test**: `EXPECTED TO FAIL: Template generator should show guided 3-step workflow`
@@ -51,7 +51,7 @@ The test will document these counterexamples:
 1. **IPC Handler Bug**: 
    - Script path: `src/installer/printer-pooling-setup.ps1` (doesn't exist)
    - Handler checks for pooling configuration
-   - Should check: `Get-Printer -Name 'Tabeza POS Printer'`
+   - Should check: `Get-Printer -Name 'Tabeza Agent'`
 
 2. **UI Workflow Bug**:
    - Current: Static "Generate Template" button

@@ -35,7 +35,7 @@ The dashboard now uses these Electron IPC methods (defined in preload.js):
 
 - `window.electronAPI.getConfig()` - Load Bar ID and settings
 - `window.electronAPI.saveBarId(barId)` - Save Bar ID
-- `window.electronAPI.checkPrinterStatus()` - Check if Tabeza POS Printer exists
+- `window.electronAPI.checkPrinterStatus()` - Check if Tabeza Agent exists
 - `window.electronAPI.checkTemplateStatus()` - Check if template.json exists
 - `window.electronAPI.launchTemplateGenerator()` - Open template generator window
 

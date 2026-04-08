@@ -29,7 +29,7 @@ This plan migrates the Tabeza Connect Electron application from Windows printer 
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 8.2_
   
   - [x] 1.3 Implement checkPrinterProfile() method
-    - Check file exists: C:\ProgramData\clawSoft\clawPDF\Profiles\Tabeza POS Printer.ini
+    - Check file exists: C:\ProgramData\clawSoft\clawPDF\Profiles\Tabeza Agent.ini
     - Read and parse INI file format
     - Validate profile configuration structure
     - Return {exists: boolean, configPath: string|null, valid: boolean}
@@ -433,7 +433,7 @@ This plan migrates the Tabeza Connect Electron application from Windows printer 
   
   - [ ] 15.2 Implement print job submission
     - Format test receipt as ESC/POS commands
-    - Send to "Tabeza POS Printer" via Windows printing API
+    - Send to "Tabeza Agent" via Windows printing API
     - Log print job submission
     - _Requirements: 13.2, 13.3_
   

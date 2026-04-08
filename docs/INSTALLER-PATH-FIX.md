@@ -4,7 +4,7 @@
 The NSIS installer and PowerShell scripts were looking for files in the wrong locations after electron-builder packaged the application. This caused:
 1. Redmon installation to fail silently during setup
 2. Printer configuration script to exit early because capture.exe wasn't found
-3. "Tabeza POS Printer" not being created during installation
+3. "Tabeza Agent" not being created during installation
 
 ## Root Cause
 Electron-builder's `extraResources` configuration copies files to `$INSTDIR\resources\` but the NSIS installer script and PowerShell scripts were looking for files directly in `$INSTDIR\`.
@@ -118,10 +118,10 @@ pnpm run build:installer
 ```
 
 ### 4. During installation
-- When prompted "Would you like to install Redmon and configure the Tabeza POS Printer now?", click **Yes**
+- When prompted "Would you like to install Redmon and configure the Tabeza Agent now?", click **Yes**
 - Watch the installation log for:
   - ✓ Redmon installed successfully
-  - ✓ Tabeza POS Printer configured successfully
+  - ✓ Tabeza Agent configured successfully
 
 ### 5. Verify installation
 ```powershell
@@ -134,7 +134,7 @@ Test-Path "C:\Program Files\TabezaConnect\resources\capture.exe"
 # Should return: True
 
 # Check if printer was created
-Get-Printer -Name "Tabeza POS Printer"
+Get-Printer -Name "Tabeza Agent"
 # Should return printer details
 
 # Check printer port configuration
@@ -152,7 +152,7 @@ powershell -ExecutionPolicy Bypass -File "C:\Program Files\TabezaConnect\resourc
 
 1. ✅ Installer prompts to install Redmon and configure printer
 2. ✅ When user clicks "Yes", Redmon installs successfully
-3. ✅ "Tabeza POS Printer" is created with Redmon port
+3. ✅ "Tabeza Agent" is created with Redmon port
 4. ✅ Redmon port is configured to pipe to capture.exe
 5. ✅ capture.exe exists at the expected location
 6. ✅ Printer appears in Windows Settings > Printers & scanners
@@ -168,7 +168,7 @@ C:\Projects\tabeza-connect\dist\TabezaConnect-Setup-v1.7.0.exe
 1. Open TabezaConnect dashboard (should open automatically)
 2. Configure Bar ID: `438c80c1-fe11-4ac5-8a48-2fc45104ba31`
 3. Verify printer status shows "Configured"
-4. Test print job capture by printing to "Tabeza POS Printer"
+4. Test print job capture by printing to "Tabeza Agent"
 
 ---
 

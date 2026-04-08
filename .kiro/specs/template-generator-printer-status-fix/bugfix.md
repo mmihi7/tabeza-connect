@@ -14,7 +14,7 @@ The Tabeza Connect application is a Windows desktop application that captures re
 
 ### Current Behavior (Defect)
 
-1.1 WHEN the user opens the template generator page THEN the system displays "Printer: Not configured" even though the dashboard shows "Printer: ✅ Tabeza POS Printer" and the printer actually exists in Windows
+1.1 WHEN the user opens the template generator page THEN the system displays "Printer: Not configured" even though the dashboard shows "Printer: ✅ Tabeza Agent" and the printer actually exists in Windows
 
 1.2 WHEN the user opens the template generator page THEN the system displays a "Generate Template" button instead of the guided 3-step real-time workflow (Print receipt 1 → wait → Print receipt 2 → wait → Print receipt 3 → auto-generate)
 
@@ -26,15 +26,15 @@ The Tabeza Connect application is a Windows desktop application that captures re
 
 ### Expected Behavior (Correct)
 
-2.1 WHEN the user opens the template generator page THEN the system SHALL display the same printer status as the dashboard ("Printer: ✅ Tabeza POS Printer" when the printer exists in Windows)
+2.1 WHEN the user opens the template generator page THEN the system SHALL display the same printer status as the dashboard ("Printer: ✅ Tabeza Agent" when the printer exists in Windows)
 
 2.2 WHEN the user opens the template generator page and no template exists THEN the system SHALL display a guided 3-step workflow with real-time feedback: "Step 1/3: Print your first test receipt" → detects receipt in queue → "✓ Receipt 1 received" → "Step 2/3: Print a DIFFERENT receipt" → detects receipt → "✓ Receipt 2 received" → "Step 3/3: Print one more DIFFERENT receipt" → detects receipt → "✓ Receipt 3 received" → auto-generates template
 
-2.3 WHEN any UI component calls the IPC handler `check-printer-setup` THEN it SHALL receive a consistent response indicating whether the "Tabeza POS Printer" exists in Windows (checking via `Get-Printer` cmdlet)
+2.3 WHEN any UI component calls the IPC handler `check-printer-setup` THEN it SHALL receive a consistent response indicating whether the "Tabeza Agent" exists in Windows (checking via `Get-Printer` cmdlet)
 
 2.4 WHEN receipts are captured and queued in `C:\TabezaPrints\queue\pending\` THEN the template generator SHALL poll the queue folder every 2 seconds and display "✓ Receipt X received" for each new receipt detected
 
-2.5 WHEN the IPC handler `check-printer-setup` executes THEN it SHALL check for the actual "Tabeza POS Printer" existence using `Get-Printer` cmdlet instead of checking for printer pooling configuration
+2.5 WHEN the IPC handler `check-printer-setup` executes THEN it SHALL check for the actual "Tabeza Agent" existence using `Get-Printer` cmdlet instead of checking for printer pooling configuration
 
 ### Unchanged Behavior (Regression Prevention)
 
@@ -91,8 +91,8 @@ FUNCTION isBugCondition2(X)
   INPUT: X of type PrintJob
   OUTPUT: boolean
   
-  // Returns true when print job sent to Tabeza POS Printer
-  RETURN X.printerName = "Tabeza POS Printer" AND X.portName = "TabezaCapturePort"
+  // Returns true when print job sent to Tabeza Agent
+  RETURN X.printerName = "Tabeza Agent" AND X.portName = "TabezaCapturePort"
 END FUNCTION
 ```
 
@@ -157,8 +157,8 @@ FUNCTION isBugCondition4(X)
   INPUT: X of type PrintJob
   OUTPUT: boolean
   
-  // Returns true when print job sent to Tabeza POS Printer
-  RETURN X.printerName = "Tabeza POS Printer" AND X.portType = "Redmon"
+  // Returns true when print job sent to Tabeza Agent
+  RETURN X.printerName = "Tabeza Agent" AND X.portType = "Redmon"
 END FUNCTION
 ```
 
@@ -183,15 +183,15 @@ END FOR
 ## Root Cause Analysis
 
 ### Bug 1: Printer Status Inconsistency
-**Root Cause:** The IPC handler `check-printer-setup` calls a PowerShell script `printer-pooling-setup.ps1` which checks for printer pooling configuration. However, the actual printer "Tabeza POS Printer" exists and uses Redmon (not pooling). The script is checking for the wrong configuration type, causing it to return "Not configured" even though the printer exists.
+**Root Cause:** The IPC handler `check-printer-setup` calls a PowerShell script `printer-pooling-setup.ps1` which checks for printer pooling configuration. However, the actual printer "Tabeza Agent" exists and uses Redmon (not pooling). The script is checking for the wrong configuration type, causing it to return "Not configured" even though the printer exists.
 
 **Evidence:** 
-- Printer exists: `Get-Printer` shows "Tabeza POS Printer" with port "TabezaCapturePort"
+- Printer exists: `Get-Printer` shows "Tabeza Agent" with port "TabezaCapturePort"
 - Redmon port is properly configured in registry with correct capture.exe path
 - Dashboard shows "Configured" (likely using a different check method or caching)
 - Template generator shows "Not configured" (using the IPC handler that checks for pooling)
 
-**Fix:** Update the IPC handler to check for "Tabeza POS Printer" existence using `Get-Printer` cmdlet instead of checking for pooling configuration.
+**Fix:** Update the IPC handler to check for "Tabeza Agent" existence using `Get-Printer` cmdlet instead of checking for pooling configuration.
 
 ### Bug 2: Template Generator UI Flow
 **Root Cause:** The template generator HTML shows a static "Generate Template" button instead of implementing the real-time guided workflow described in the architecture. The UI does not poll the queue folder for captured receipts or provide step-by-step feedback.

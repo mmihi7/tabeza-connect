@@ -57,12 +57,12 @@ Write-Host "Test 2: Profile Name Configuration" -ForegroundColor Yellow
 
 $nameValue = Get-ItemProperty -Path $profilePath -Name "Name" -ErrorAction SilentlyContinue
 
-if ($nameValue -and $nameValue.Name -eq "Tabeza POS Printer Profile") {
+if ($nameValue -and $nameValue.Name -eq "Tabeza Agent Profile") {
     Write-Host "  ✓ PASS: Profile name is correct" -ForegroundColor Green
     Write-Host "    Name: $($nameValue.Name)" -ForegroundColor Gray
 } else {
     Write-Host "  ✗ FAIL: Profile name is incorrect or missing" -ForegroundColor Red
-    Write-Host "    Expected: Tabeza POS Printer Profile" -ForegroundColor Red
+    Write-Host "    Expected: Tabeza Agent Profile" -ForegroundColor Red
     Write-Host "    Got: $($nameValue.Name)" -ForegroundColor Red
     exit 1
 }
@@ -193,12 +193,12 @@ if (-not $mappings) {
     exit 1
 }
 
-# Check if "Tabeza POS Printer" is mapped to our profile GUID
-$tabezaPrinterMapping = $mappings.'Tabeza POS Printer'
+# Check if "Tabeza Agent" is mapped to our profile GUID
+$tabezaPrinterMapping = $mappings.'Tabeza Agent'
 
 if ($tabezaPrinterMapping -eq $profileGuid) {
     Write-Host "  ✓ PASS: Printer mapping is correct" -ForegroundColor Green
-    Write-Host "    Tabeza POS Printer -> $profileGuid" -ForegroundColor Gray
+    Write-Host "    Tabeza Agent -> $profileGuid" -ForegroundColor Gray
 } else {
     Write-Host "  ✗ FAIL: Printer mapping is incorrect or missing" -ForegroundColor Red
     Write-Host "    Expected: $profileGuid" -ForegroundColor Red
@@ -239,11 +239,11 @@ Write-Host "All critical tests passed!" -ForegroundColor Green
 Write-Host ""
 Write-Host "Configuration Details:" -ForegroundColor Cyan
 Write-Host "  Profile GUID: $profileGuid" -ForegroundColor Cyan
-Write-Host "  Profile Name: Tabeza POS Printer Profile" -ForegroundColor Cyan
+Write-Host "  Profile Name: Tabeza Agent Profile" -ForegroundColor Cyan
 Write-Host "  Filename Pattern: $ExpectedFilenamePattern" -ForegroundColor Cyan
 Write-Host "  Target Directory: $normalizedExpected" -ForegroundColor Cyan
 Write-Host "  Unique Filenames: Enabled" -ForegroundColor Cyan
-Write-Host "  Printer Mapping: Tabeza POS Printer -> $profileGuid" -ForegroundColor Cyan
+Write-Host "  Printer Mapping: Tabeza Agent -> $profileGuid" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Expected Output File Format:" -ForegroundColor Cyan
 Write-Host "  20260307-143022_abc123.pdf" -ForegroundColor Cyan

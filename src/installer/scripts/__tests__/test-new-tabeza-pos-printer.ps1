@@ -57,10 +57,10 @@ if ($Cleanup) {
     Write-Host "Cleanup Mode: Removing test printer and port..." -ForegroundColor Yellow
     
     try {
-        $testPrinter = Get-Printer -Name "Tabeza POS Printer" -ErrorAction SilentlyContinue
+        $testPrinter = Get-Printer -Name "Tabeza Agent" -ErrorAction SilentlyContinue
         if ($testPrinter) {
-            Remove-Printer -Name "Tabeza POS Printer" -ErrorAction Stop
-            Write-Host "[OK] Removed test printer: Tabeza POS Printer" -ForegroundColor Green
+            Remove-Printer -Name "Tabeza Agent" -ErrorAction Stop
+            Write-Host "[OK] Removed test printer: Tabeza Agent" -ForegroundColor Green
         } else {
             Write-Host "[INFO] Test printer not found (already removed)" -ForegroundColor Gray
         }
@@ -102,7 +102,7 @@ $excludePatterns = @(
     'Fax',
     'OneNote',
     'Adobe PDF',
-    'Tabeza POS Printer'
+    'Tabeza Agent'
 )
 
 $physicalPrinters = $allPrinters | Where-Object {
@@ -140,7 +140,7 @@ Write-Host ""
 
 if ($DryRun) {
     Write-Host "DRY RUN MODE: Would create printer with:" -ForegroundColor Yellow
-    Write-Host "  Printer Name: Tabeza POS Printer" -ForegroundColor Gray
+    Write-Host "  Printer Name: Tabeza Agent" -ForegroundColor Gray
     Write-Host "  Driver: $($testPhysicalPrinter.DriverName)" -ForegroundColor Gray
     Write-Host "  Physical Port: $($testPhysicalPrinter.PortName)" -ForegroundColor Gray
     Write-Host "  Capture Port: TabezaCapturePort" -ForegroundColor Gray
@@ -207,25 +207,25 @@ try {
 
 Write-Host ""
 
-# Step 4: Create Tabeza POS Printer with pooling
-Write-Host "Step 4: Creating Tabeza POS Printer with pooling..." -ForegroundColor Cyan
+# Step 4: Create Tabeza Agent with pooling
+Write-Host "Step 4: Creating Tabeza Agent with pooling..." -ForegroundColor Cyan
 
 try {
     # Remove existing printer if it exists
-    $existingPrinter = Get-Printer -Name "Tabeza POS Printer" -ErrorAction SilentlyContinue
+    $existingPrinter = Get-Printer -Name "Tabeza Agent" -ErrorAction SilentlyContinue
     if ($existingPrinter) {
         Write-Host "[INFO] Printer already exists, removing..." -ForegroundColor Gray
-        Remove-Printer -Name "Tabeza POS Printer" -ErrorAction Stop
+        Remove-Printer -Name "Tabeza Agent" -ErrorAction Stop
     }
     
     # Create printer with physical port
     Write-Host "Creating printer with physical port: $($testPhysicalPrinter.PortName)" -ForegroundColor Gray
-    Add-Printer -Name "Tabeza POS Printer" -DriverName $testPhysicalPrinter.DriverName -PortName $testPhysicalPrinter.PortName -ErrorAction Stop
-    Write-Host "[OK] Created printer: Tabeza POS Printer" -ForegroundColor Green
+    Add-Printer -Name "Tabeza Agent" -DriverName $testPhysicalPrinter.DriverName -PortName $testPhysicalPrinter.PortName -ErrorAction Stop
+    Write-Host "[OK] Created printer: Tabeza Agent" -ForegroundColor Green
     
     # Configure pooling via WMI
     Write-Host "Configuring printer pooling via WMI..." -ForegroundColor Gray
-    $printerWMI = Get-WmiObject -Class Win32_Printer -Filter "Name='Tabeza POS Printer'" -ErrorAction Stop
+    $printerWMI = Get-WmiObject -Class Win32_Printer -Filter "Name='Tabeza Agent'" -ErrorAction Stop
     
     if (-not $printerWMI) {
         throw "Could not find printer via WMI"
@@ -250,7 +250,7 @@ try {
     Write-Host "[OK] Printer pooling configured" -ForegroundColor Green
     
     # Set as not shared
-    Set-Printer -Name "Tabeza POS Printer" -Shared $false -ErrorAction Stop
+    Set-Printer -Name "Tabeza Agent" -Shared $false -ErrorAction Stop
     Write-Host "[OK] Printer set as not shared" -ForegroundColor Green
     
 } catch {
@@ -258,7 +258,7 @@ try {
     Write-Host "Cleaning up..." -ForegroundColor Yellow
     
     try {
-        Remove-Printer -Name "Tabeza POS Printer" -ErrorAction SilentlyContinue
+        Remove-Printer -Name "Tabeza Agent" -ErrorAction SilentlyContinue
         Remove-PrinterPort -Name "TabezaCapturePort" -ErrorAction SilentlyContinue
     } catch {
         # Ignore cleanup errors
@@ -273,7 +273,7 @@ Write-Host ""
 Write-Host "Step 5: Verifying printer configuration..." -ForegroundColor Cyan
 
 try {
-    $verifyPrinter = Get-Printer -Name "Tabeza POS Printer" -ErrorAction Stop
+    $verifyPrinter = Get-Printer -Name "Tabeza Agent" -ErrorAction Stop
     $verifyPorts = $verifyPrinter.PortName -split ','
     
     Write-Host "Printer Details:" -ForegroundColor Gray
@@ -325,7 +325,7 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "TEST PASSED!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "The Tabeza POS Printer has been created successfully with pooling enabled." -ForegroundColor Green
+Write-Host "The Tabeza Agent has been created successfully with pooling enabled." -ForegroundColor Green
 Write-Host ""
 Write-Host "To clean up, run:" -ForegroundColor Yellow
 Write-Host "  .\test-new-tabeza-pos-printer.ps1 -Cleanup" -ForegroundColor Gray

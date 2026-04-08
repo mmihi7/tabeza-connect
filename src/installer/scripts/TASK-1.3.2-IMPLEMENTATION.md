@@ -45,7 +45,7 @@ HKCU\Software\clawSoft\clawPDF\Settings\ConversionProfiles\0\
 
 **Usage:**
 ```powershell
-.\set-clawpdf-registry.ps1 -SpoolFolder "C:\TabezaPrints\spool" -PrinterName "Tabeza POS Printer"
+.\set-clawpdf-registry.ps1 -SpoolFolder "C:\TabezaPrints\spool" -PrinterName "Tabeza Agent"
 ```
 
 ---
@@ -161,7 +161,7 @@ These keys **MUST** be set to `0` to prevent any UI prompts:
 | Key | Value | Purpose |
 |-----|-------|---------|
 | `Guid` | Generated UUID | Unique profile identifier |
-| `Name` | `Tabeza POS Printer Profile` | User-friendly name |
+| `Name` | `Tabeza Agent Profile` | User-friendly name |
 
 **GUID Generation:**
 - Script checks if GUID already exists
@@ -174,10 +174,10 @@ These keys **MUST** be set to `0` to prevent any UI prompts:
 Maps printer name to profile GUID:
 ```
 HKCU\Software\clawSoft\clawPDF\Settings\ApplicationSettings\PrinterMappings\
-  Tabeza POS Printer = [profile-guid]
+  Tabeza Agent = [profile-guid]
 ```
 
-This tells clawPDF which profile to use when printing to "Tabeza POS Printer".
+This tells clawPDF which profile to use when printing to "Tabeza Agent".
 
 ---
 
@@ -201,7 +201,7 @@ This tells clawPDF which profile to use when printing to "Tabeza POS Printer".
    "Test print job" | Out-File "C:\Temp\test.txt"
    
    # Print to clawPDF printer
-   Get-Content "C:\Temp\test.txt" | Out-Printer -Name "Tabeza POS Printer"
+   Get-Content "C:\Temp\test.txt" | Out-Printer -Name "Tabeza Agent"
    ```
 
 4. **Verify output:**
@@ -239,7 +239,7 @@ This tells clawPDF which profile to use when printing to "Tabeza POS Printer".
 [Run]
 ; Step 1: Configure clawPDF registry
 Filename: "powershell.exe"; \
-  Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\set-clawpdf-registry.ps1"" -SpoolFolder ""C:\TabezaPrints\spool"" -PrinterName ""Tabeza POS Printer"""; \
+  Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\set-clawpdf-registry.ps1"" -SpoolFolder ""C:\TabezaPrints\spool"" -PrinterName ""Tabeza Agent"""; \
   StatusMsg: "Configuring clawPDF for silent operation..."; \
   Flags: runhidden waituntilterminated
 

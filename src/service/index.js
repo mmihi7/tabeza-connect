@@ -3,7 +3,7 @@
  *
  * Architecture: RedMon Port Monitor Capture
  * ─────────────────────────────────────────────────
- * POS prints to "Tabeza POS Printer"
+ * POS prints to "Tabeza Agent"
  *   → RedMon port monitor intercepts print job
  *   → RedMon pipes raw ESC/POS bytes to capture.exe via stdin
  *   → Capture script processes and forwards to physical printer
@@ -32,7 +32,7 @@ const uuidv4 = randomUUID;
 // Import service components
 const RegistryReader = require('./config/registry-reader');
 const ESCPOSProcessor = require('./escposProcessor');
-const ReceiptParser = require('./receiptParser');
+const ReceiptParser = require('./pythonParser');
 const LocalQueue = require('./localQueue');
 const UploadWorker = require('./uploadWorker');
 const HeartbeatService = require('./heartbeat/heartbeat-service');
@@ -455,13 +455,13 @@ class SimpleHTTPServer {
     // Printer status endpoint
     this.app.get('/api/printer/status', async (req, res) => {
       try {
-        // Check if Tabeza POS Printer exists using PowerShell
+        // Check if Tabeza Agent exists using PowerShell
         const { exec } = require('child_process');
         const util = require('util');
         const execPromise = util.promisify(exec);
         
         try {
-          const { stdout } = await execPromise('powershell -Command "Get-Printer -Name \'Tabeza POS Printer\' -ErrorAction SilentlyContinue | Select-Object Name, DriverName, PortName | ConvertTo-Json"');
+          const { stdout } = await execPromise('powershell -Command "Get-Printer -Name \'Tabeza Agent\' -ErrorAction SilentlyContinue | Select-Object Name, DriverName, PortName | ConvertTo-Json"');
           
           if (stdout && stdout.trim()) {
             const printerInfo = JSON.parse(stdout);
@@ -478,7 +478,7 @@ class SimpleHTTPServer {
             res.json({
               success: true,
               status: 'not_configured',
-              message: 'Tabeza POS Printer not found'
+              message: 'Tabeza Agent not found'
             });
           }
         } catch (psError) {
@@ -1061,6 +1061,8 @@ const DATA_DIR      = 'C:\\TabezaPrints';
 const CONFIG_PATH   = path.join(DATA_DIR, 'config.json');
 const LOG_DIR       = path.join(DATA_DIR, 'logs');
 const LOG_FILE      = path.join(LOG_DIR, 'service.log');
+const LOG_MAX_SIZE  = 10 * 1024 * 1024; // 10MB max per log file
+const LOG_MAX_FILES = 3; // Keep 3 log files total (30MB max)
 const QUEUE_DIR     = path.join(DATA_DIR, 'queue');
 const TEMPLATES_DIR = path.join(DATA_DIR, 'templates');
 
@@ -1070,6 +1072,33 @@ function ensureLogDir() {
   try {
     if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
   } catch (_) {}
+}
+
+// ─── Log Rotation ─────────────────────────────────────────────────────────────
+function rotateLogIfNeeded() {
+  try {
+    if (!fs.existsSync(LOG_FILE)) return;
+    
+    const stats = fs.statSync(LOG_FILE);
+    if (stats.size < LOG_MAX_SIZE) return;
+    
+    // Rotate logs: service.log -> service.log.1 -> service.log.2 -> delete
+    for (let i = LOG_MAX_FILES - 1; i >= 1; i--) {
+      const oldFile = i === 1 ? LOG_FILE : `${LOG_FILE}.${i - 1}`;
+      const newFile = `${LOG_FILE}.${i}`;
+      
+      if (fs.existsSync(oldFile)) {
+        if (i === LOG_MAX_FILES - 1) {
+          // Delete the oldest log file
+          fs.unlinkSync(newFile);
+        }
+        fs.renameSync(oldFile, newFile);
+      }
+    }
+  } catch (err) {
+    // If rotation fails, continue without logging to avoid infinite loops
+    console.error('Log rotation failed:', err.message);
+  }
 }
 
 // ─── In-memory event ring buffer (tray log tab reads this) ───────────────────
@@ -1088,13 +1117,29 @@ function pushEvent(level, message) {
 function log(level, message) {
   const ts   = new Date().toISOString();
   const line = `[${ts}][${level}] ${message}`;
-  console.log(line);
   try {
-    ensureLogDir();
-    fs.appendFileSync(LOG_FILE, line + '\n', 'utf8');
+    console.log(line);
+  } catch (e) {
+    // Ignore EPIPE errors if the process is detached
+    if (e.code !== 'EPIPE') {
+      throw e;
+    }
+  }
+  
+  try {
+    // Only write essential logs to file - much more restrictive now
+    if (level === 'ERROR' || level === 'WARN' || 
+        (level === 'OK' && message.includes('uploaded')) ||
+        (level === 'OK' && message.includes('parsed')) ||
+        message.startsWith('✅ Receipt parsed') ||
+        message.startsWith('✅ Receipt uploaded')) {
+      ensureLogDir();
+      rotateLogIfNeeded(); // Check rotation before writing
+      fs.appendFileSync(LOG_FILE, line + '\n', 'utf8');
+    }
   } catch (_) {}
   // Push warn/error to the event ring buffer so the tray log tab sees them
-  if (level === 'WARN' || level === 'ERROR') {
+  if (level === 'WARN' || level === 'ERROR' || level === 'OK') {
     pushEvent(level, message);
   }
 }
@@ -1104,14 +1149,76 @@ log('INFO', '--- INDEX.JS WAS LOADED (INLINE HTTP SERVER VERSION) ---');
 const info  = (m) => { log('INFO',  m); svcLog.info(m); };
 const warn  = (m) => { log('WARN',  m); svcLog.warn(m); };
 const error = (m) => { log('ERROR', m); svcLog.error(m); };
+const ok    = (m) => { log('INFO', `✅ ${m}`); pushEvent('ok', m); svcLog.ok(m); };
 
-// ok() — key success events (receipt parsed, uploaded, template generated, etc.)
-// These go to the event ring buffer AND the log file so the tray log tab shows them.
-const ok = (m) => {
-  log('INFO', `✅ ${m}`);
-  pushEvent('ok', m);
-  svcLog.ok(m);
-};
+// ─── Single Instance Protection ─────────────────────────────────────────────
+const INSTANCE_LOCK_FILE = path.join(DATA_DIR, '.service-lock');
+
+function checkSingleInstance() {
+  try {
+    // Ensure data directory exists
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    
+    // Check if lock file exists
+    if (fs.existsSync(INSTANCE_LOCK_FILE)) {
+      const lockContent = fs.readFileSync(INSTANCE_LOCK_FILE, 'utf8');
+      const lockData = JSON.parse(lockContent);
+      
+      // Check if the process is still running
+      try {
+        process.kill(lockData.pid, 0); // Signal 0 just checks if process exists
+        error('Another Tabeza Connect service instance is already running (PID: ' + lockData.pid + ')');
+        error('Please stop the existing instance before starting a new one');
+        process.exit(1);
+      } catch (e) {
+        // Process doesn't exist, we can take the lock
+        warn('Stale lock file found, cleaning up...');
+      }
+    }
+    
+    // Create new lock file
+    const lockData = {
+      pid: process.pid,
+      startTime: new Date().toISOString(),
+      version: '1.7.0-inline-http'
+    };
+    fs.writeFileSync(INSTANCE_LOCK_FILE, JSON.stringify(lockData, null, 2));
+    
+    // Setup cleanup on exit
+    process.on('exit', () => {
+      try {
+        fs.unlinkSync(INSTANCE_LOCK_FILE);
+      } catch (_) {}
+    });
+    
+    process.on('SIGINT', () => {
+      try {
+        fs.unlinkSync(INSTANCE_LOCK_FILE);
+      } catch (_) {}
+      process.exit(0);
+    });
+    
+    process.on('SIGTERM', () => {
+      try {
+        fs.unlinkSync(INSTANCE_LOCK_FILE);
+      } catch (_) {}
+      process.exit(0);
+    });
+    
+    ok('Single instance lock acquired (PID: ' + process.pid + ')');
+    
+  } catch (err) {
+    error('Failed to setup single instance protection: ' + err.message);
+    // Continue anyway, but log the error
+  }
+}
+
+// Check for single instance immediately
+checkSingleInstance();
+
+
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -1153,6 +1260,12 @@ class IntegratedCaptureService {
   }
 
   async start() {
+    if (this.isRunning) {
+      warn('Service start called but it is already running. Aborting duplicate start.');
+      return;
+    }
+    this.isRunning = true; // Set running flag immediately
+
     info('========================================');
     info('Tabeza POS Connect - RedMon Capture Service v1.7.0');
     info('*** REDMON PORT MONITOR VERSION ***');
@@ -1328,7 +1441,13 @@ class IntegratedCaptureService {
                 const parseResult = await this.receiptParser.parse(plainText);
                 if (parseResult.success) {
                   parsedData = parseResult.data;
-                  ok(`Receipt parsed (confidence: ${parseResult.confidence}%) — queued for upload`);
+                  // If parsed data is empty, treat as parsing failure
+                  if (parsedData.items && parsedData.items.length === 0 && parsedData.total === 0) {
+                    parsedData = null;
+                    warn('Parsed data empty, falling back to raw text upload');
+                  } else {
+                    ok(`Receipt parsed (confidence: ${parseResult.confidence}%) — queued for upload`);
+                  }
                 } else {
                   warn(`Receipt parse failed: ${parseResult.errors.join(', ')} — uploading raw text`);
                 }

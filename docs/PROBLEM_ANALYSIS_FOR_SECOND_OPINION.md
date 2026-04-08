@@ -194,7 +194,7 @@ Filename: "sc.exe"; \
 [2026-03-02T12:52:28.172Z][INFO] Service signaled ready to Windows SCM
 [2026-03-02T12:52:28.173Z][INFO] Starting file watcher: C:\ProgramData\Tabeza\TabezaPrints\order.prn
 [2026-03-02T12:52:28.174Z][INFO] Watching: C:\ProgramData\Tabeza\TabezaPrints\order.prn
-[2026-03-02T12:52:28.175Z][INFO] Ready. Waiting for print jobs from Tabeza POS Printer...
+[2026-03-02T12:52:28.175Z][INFO] Ready. Waiting for print jobs from Tabeza Agent...
 [2026-03-02T12:52:28.175Z][INFO] All components started. Service ready.
 ```
 

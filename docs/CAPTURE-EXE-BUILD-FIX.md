@@ -1,7 +1,7 @@
 # Capture.exe Build Configuration - Fixed ✅
 
 **Date:** 2026-03-09  
-**Issue:** Tabeza POS Printer not created because capture.exe was missing  
+**Issue:** Tabeza Agent not created because capture.exe was missing  
 **Status:** Fixed
 
 ## Problem
@@ -11,7 +11,7 @@ The Redmon printer configuration script (`configure-redmon-printer.ps1`) was fai
 - Actual: File didn't exist
 
 The capture.exe is required by Redmon to process print jobs:
-1. POS prints to "Tabeza POS Printer"
+1. POS prints to "Tabeza Agent"
 2. Redmon intercepts the print job
 3. Redmon pipes the data to `capture.exe` via stdin
 4. capture.exe processes and uploads the receipt
@@ -123,7 +123,7 @@ Delay        : 300ms
 ```
 POS System
     ↓ (prints to)
-Tabeza POS Printer
+Tabeza Agent
     ↓ (Generic/Text Only driver)
 Redmon Port Monitor
     ↓ (pipes stdin to)
@@ -143,7 +143,7 @@ Tabeza Cloud
 - [ ] Build installer: `npm run build:installer`
 - [ ] Install Tabeza Connect
 - [ ] Verify capture.exe exists at `C:\Program Files\TabezaConnect\capture.exe`
-- [ ] Check "Tabeza POS Printer" exists in Windows Devices
+- [ ] Check "Tabeza Agent" exists in Windows Devices
 - [ ] Verify Redmon port configuration in registry
 - [ ] Test print job → Should create order.prn
 

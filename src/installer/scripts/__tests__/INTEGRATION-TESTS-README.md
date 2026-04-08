@@ -12,7 +12,7 @@ This directory contains comprehensive integration tests for the automatic Tabeza
 
 **What it tests**:
 - Configuration script execution
-- Tabeza POS Printer creation with dual-port pooling
+- Tabeza Agent creation with dual-port pooling
 - Capture port configuration and file writability
 - Default printer preservation
 - Print job capture functionality
@@ -37,7 +37,7 @@ This directory contains comprehensive integration tests for the automatic Tabeza
 
 **Expected Results**:
 - All tests pass (exit code 0)
-- Tabeza POS Printer created with 2 ports
+- Tabeza Agent created with 2 ports
 - Capture file updated after test print
 - No duplicate printers after re-run
 
@@ -48,7 +48,7 @@ This directory contains comprehensive integration tests for the automatic Tabeza
 **Purpose**: Tests upgrade from v1.6.x to v1.7.0 with automatic pooling configuration
 
 **What it tests**:
-- Simulates existing v1.6.x installation (single-port Tabeza POS Printer)
+- Simulates existing v1.6.x installation (single-port Tabeza Agent)
 - Upgrades to v1.7.0 with dual-port pooling
 - Verifies configuration is updated correctly
 - Ensures capture file data is preserved
@@ -176,7 +176,7 @@ Start-Process powershell -Verb RunAs -ArgumentList "-File .\test-script.ps1"
 Each test creates temporary resources:
 - Test thermal printers (e.g., "Test Thermal Printer", "EPSON TM-T20 Receipt Printer")
 - Test printer ports (e.g., TESTPORT001, TESTPORT002)
-- Tabeza POS Printer (the actual printer being tested)
+- Tabeza Agent (the actual printer being tested)
 - TabezaCapturePort (local port for file capture)
 - Capture directory: `C:\TabezaPrints\`
 - Capture file: `C:\TabezaPrints\order.prn` or `C:\TabezaPrints\test-order.prn`
@@ -185,7 +185,7 @@ Each test creates temporary resources:
 By default, all tests clean up after themselves:
 - Remove all test printers
 - Remove all test ports
-- Remove Tabeza POS Printer
+- Remove Tabeza Agent
 - Remove TabezaCapturePort
 - Remove capture directory and files
 
@@ -211,7 +211,7 @@ Use `-SkipCleanup` flag to preserve resources for manual inspection.
 ```
 [2025-03-01 14:30:15] [INFO] Running configuration script...
 [2025-03-01 14:30:18] [SUCCESS] ✓ Configuration script exit code
-[2025-03-01 14:30:18] [SUCCESS] ✓ Tabeza POS Printer exists
+[2025-03-01 14:30:18] [SUCCESS] ✓ Tabeza Agent exists
 [2025-03-01 14:30:18] [SUCCESS] ✓ Dual-port configuration
 ```
 

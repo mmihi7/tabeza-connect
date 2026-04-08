@@ -10,7 +10,7 @@ The migration ensures that the Electron app correctly identifies when clawPDF is
 
 - **Electron_App**: The main Tabeza Connect desktop application built with Electron framework
 - **clawPDF**: Open-source virtual printer software used to capture print jobs from POS systems
-- **Printer_Profile**: A clawPDF printer configuration named "Tabeza POS Printer"
+- **Printer_Profile**: A clawPDF printer configuration named "Tabeza Agent"
 - **Spool_Folder**: The directory where clawPDF writes captured print jobs (C:\TabezaPrints\spool\)
 - **Setup_State_Manager**: Component that tracks completion status of onboarding steps
 - **System_Tray_Icon**: Windows system tray icon showing Tabeza Connect status
@@ -36,13 +36,13 @@ The migration ensures that the Electron app correctly identifies when clawPDF is
 
 ### Requirement 2: Printer Profile Detection
 
-**User Story:** As a venue owner, I want the Electron app to detect if the "Tabeza POS Printer" profile exists in clawPDF, so that I know if the printer is configured correctly.
+**User Story:** As a venue owner, I want the Electron app to detect if the "Tabeza Agent" profile exists in clawPDF, so that I know if the printer is configured correctly.
 
 #### Acceptance Criteria
 
-1. WHEN clawPDF is installed, THE Electron_App SHALL check for the existence of the "Tabeza POS Printer" profile
+1. WHEN clawPDF is installed, THE Electron_App SHALL check for the existence of the "Tabeza Agent" profile
 2. THE Electron_App SHALL verify the profile by checking the clawPDF profiles directory at C:\ProgramData\clawSoft\clawPDF\Profiles\
-3. THE Electron_App SHALL read the profile configuration file Tabeza POS Printer.ini
+3. THE Electron_App SHALL read the profile configuration file Tabeza Agent.ini
 4. IF the profile exists and contains valid configuration, THEN THE Electron_App SHALL set printer status to "profile_exists"
 5. IF the profile does not exist, THEN THE Electron_App SHALL set printer status to "profile_missing"
 
@@ -52,7 +52,7 @@ The migration ensures that the Electron app correctly identifies when clawPDF is
 
 #### Acceptance Criteria
 
-1. WHEN the "Tabeza POS Printer" profile exists, THE Electron_App SHALL verify the spool folder configuration
+1. WHEN the "Tabeza Agent" profile exists, THE Electron_App SHALL verify the spool folder configuration
 2. THE Electron_App SHALL read the AutoSaveDirectory setting from the profile configuration
 3. THE Electron_App SHALL verify that AutoSaveDirectory is set to C:\TabezaPrints\spool\
 4. THE Electron_App SHALL verify that the spool folder exists on the file system
@@ -91,9 +91,9 @@ The migration ensures that the Electron app correctly identifies when clawPDF is
 
 1. WHEN the Printer_Setup_Wizard is opened, THE Electron_App SHALL display the current clawPDF installation status
 2. IF clawPDF is not installed, THEN THE Printer_Setup_Wizard SHALL display instructions for downloading and installing clawPDF
-3. IF clawPDF is installed but not configured, THEN THE Printer_Setup_Wizard SHALL display instructions for creating the "Tabeza POS Printer" profile
+3. IF clawPDF is installed but not configured, THEN THE Printer_Setup_Wizard SHALL display instructions for creating the "Tabeza Agent" profile
 4. THE Printer_Setup_Wizard SHALL provide a "Test Print" button to verify the printer configuration
-5. WHEN the user clicks "Test Print", THE Electron_App SHALL send a test print job to the "Tabeza POS Printer" profile
+5. WHEN the user clicks "Test Print", THE Electron_App SHALL send a test print job to the "Tabeza Agent" profile
 6. THE Printer_Setup_Wizard SHALL display success or error messages based on the test print result
 
 ### Requirement 7: Legacy Printer Pooling Code Removal
@@ -178,7 +178,7 @@ The migration ensures that the Electron app correctly identifies when clawPDF is
 
 1. THE Printer_Setup_Wizard SHALL provide a "Send Test Print" button
 2. WHEN the user clicks "Send Test Print", THE Electron_App SHALL generate a test receipt with sample data
-3. THE Electron_App SHALL send the test receipt to the "Tabeza POS Printer" profile
+3. THE Electron_App SHALL send the test receipt to the "Tabeza Agent" profile
 4. THE Electron_App SHALL monitor the Spool_Folder for the captured test print file
 5. IF the test print file appears within 5 seconds, THEN THE Electron_App SHALL display a success message
 6. IF the test print file does not appear within 5 seconds, THEN THE Electron_App SHALL display an error message with troubleshooting steps
@@ -190,7 +190,7 @@ The migration ensures that the Electron app correctly identifies when clawPDF is
 #### Acceptance Criteria
 
 1. THE Electron_App SHALL validate that the clawPDF version is 0.9.0 or higher
-2. THE Electron_App SHALL validate that the "Tabeza POS Printer" profile has AutoSave enabled
+2. THE Electron_App SHALL validate that the "Tabeza Agent" profile has AutoSave enabled
 3. THE Electron_App SHALL validate that the profile output format is set to PostScript
 4. THE Electron_App SHALL validate that the spool folder has write permissions
 5. IF any validation fails, THEN THE Electron_App SHALL display a warning message with the specific issue

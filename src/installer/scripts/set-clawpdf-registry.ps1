@@ -4,7 +4,7 @@
 
 param(
     [string]$SpoolFolder = "C:\TabezaPrints\spool",
-    [string]$PrinterName = "Tabeza POS Printer",
+    [string]$PrinterName = "Tabeza Agent",
     [int]$ProfileNumber = 0,
     [string]$LogPath = "$env:TEMP\TabezaConnect-clawPDF-registry.log"
 )
@@ -90,8 +90,8 @@ try {
     }
     
     # Set profile name
-    Set-ItemProperty -Path $profilePath -Name "Name" -Value "Tabeza POS Printer Profile" -Type String
-    Write-Host "  Name = Tabeza POS Printer Profile" -ForegroundColor Gray
+    Set-ItemProperty -Path $profilePath -Name "Name" -Value "Tabeza Agent Profile" -Type String
+    Write-Host "  Name = Tabeza Agent Profile" -ForegroundColor Gray
     
     # Set this as the default profile for the application
     Set-ItemProperty -Path $appSettingsPath -Name "LastUsedProfileGuid" -Value $profileGuid -Type String
@@ -230,7 +230,7 @@ try {
     Write-Host "Configuring printer mapping..." -ForegroundColor Yellow
     
     # Map printer name to profile GUID
-    # This tells clawPDF which profile to use when printing to "Tabeza POS Printer"
+    # This tells clawPDF which profile to use when printing to "Tabeza Agent"
     Set-ItemProperty -Path $printerMappingsPath -Name $PrinterName -Value $profileGuid -Type String
     Write-Host "  $PrinterName -> $profileGuid" -ForegroundColor Gray
     
@@ -249,7 +249,7 @@ try {
     
     $verificationChecks = @{
         "Profile\Guid" = @{ Path = $profilePath; Name = "Guid"; Expected = $profileGuid }
-        "Profile\Name" = @{ Path = $profilePath; Name = "Name"; Expected = "Tabeza POS Printer Profile" }
+        "Profile\Name" = @{ Path = $profilePath; Name = "Name"; Expected = "Tabeza Agent Profile" }
         "Profile\OutputFormat" = @{ Path = $profilePath; Name = "OutputFormat"; Expected = "Pdf" }
         "Profile\OpenViewer" = @{ Path = $profilePath; Name = "OpenViewer"; Expected = 0 }
         "Profile\ShowQuickActions" = @{ Path = $profilePath; Name = "ShowQuickActions"; Expected = 0 }
@@ -287,7 +287,7 @@ try {
     Write-Host ""
     Write-Host "Registry Configuration Summary:" -ForegroundColor Cyan
     Write-Host "  Profile GUID: $profileGuid" -ForegroundColor Cyan
-    Write-Host "  Profile Name: Tabeza POS Printer Profile" -ForegroundColor Cyan
+    Write-Host "  Profile Name: Tabeza Agent Profile" -ForegroundColor Cyan
     Write-Host "  Output Format: PDF" -ForegroundColor Cyan
     Write-Host "  Silent Operation: Enabled" -ForegroundColor Cyan
     Write-Host "  AutoSave: Enabled" -ForegroundColor Cyan

@@ -28,7 +28,7 @@ When a POS prints a receipt, the output is raw ESC/POS — a printer command for
 |                                                        |
 |   POS System                                           |
 |       |                                                |
-|       |  prints to "Tabeza POS Printer"                |
+|       |  prints to "Tabeza Agent"                |
 |       v                                                |
 |   Windows Printer Pooling                              |
 |       |                         |                      |
@@ -69,12 +69,12 @@ When a POS prints a receipt, the output is raw ESC/POS — a printer command for
 
 ## How Windows Printer Pooling Works
 
-Windows Printer Pooling is a standard Windows feature that sends one print job to multiple ports simultaneously. The installer creates a printer called **"Tabeza POS Printer"** with two ports:
+Windows Printer Pooling is a standard Windows feature that sends one print job to multiple ports simultaneously. The installer creates a printer called **"Tabeza Agent"** with two ports:
 
 - **Physical port** (e.g. `USB001`) — delivers the job to the thermal printer as normal
 - **TabezaCapturePort** (a **Local Port**) — writes the same job to `order.prn` on disk
 
-The venue staff point their POS to "Tabeza POS Printer". From that point on, every receipt simultaneously prints on paper and gets written to `order.prn`. Windows manages both ports — Tabeza Connect only reads the file.
+The venue staff point their POS to "Tabeza Agent". From that point on, every receipt simultaneously prints on paper and gets written to `order.prn`. Windows manages both ports — Tabeza Connect only reads the file.
 
 **About the Local Port type:** A Local Port is a standard Windows port type that silently writes raw print data to a configured file path on every job. It is different from a FILE port, which opens a Save As dialog requiring a user to choose a filename each time. The Local Port writes automatically with no user interaction, which is what makes the capture completely invisible to venue staff.
 
@@ -470,7 +470,7 @@ The Inno Setup installer runs these steps in sequence:
 1. Prompts the user for their Bar ID (from the Tabeza dashboard)
 2. Copies `TabezaConnect.exe` and supporting files to `C:\Program Files\TabezaConnect\`
 3. Creates `C:\ProgramData\Tabeza\TabezaPrints\` with subdirectories and an empty `order.prn`
-4. Runs `configure-pooling-printer.ps1` — creates "Tabeza POS Printer" with pooled ports
+4. Runs `configure-pooling-printer.ps1` — creates "Tabeza Agent" with pooled ports
 5. Writes Bar ID and settings to `HKLM\SOFTWARE\Tabeza\TabezaConnect`
 6. Runs `register-service-pkg.ps1` — registers and starts the Windows Service
 7. Adds a registry `Run` key so the tray icon launches at user login

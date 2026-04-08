@@ -35,7 +35,7 @@ $script:TestConfig = @{
     TestPrinterName = "Test Thermal Printer"
     TestDriverName = "Generic / Text Only"  # Available on all Windows systems
     TestPortName = "TESTPORT001"
-    TabezaPrinterName = "Tabeza POS Printer"
+    TabezaPrinterName = "Tabeza Agent"
     CaptureFilePath = "C:\TabezaPrints\test-order.prn"
     CaptureDirectory = "C:\TabezaPrints"
     ConfigScriptPath = Join-Path $PSScriptRoot "..\configure-pooling-printer.ps1"
@@ -217,12 +217,12 @@ function Test-ConfigurationScriptExecution {
 }
 
 function Test-TabezaPrinterCreation {
-    Write-TestLog "`n=== Test: Tabeza POS Printer Creation ===" -Level INFO
+    Write-TestLog "`n=== Test: Tabeza Agent Creation ===" -Level INFO
     
     try {
-        # Verify Tabeza POS Printer exists
+        # Verify Tabeza Agent exists
         $tabezaPrinter = Get-Printer -Name $script:TestConfig.TabezaPrinterName -ErrorAction SilentlyContinue
-        Assert-NotNull -Value $tabezaPrinter -TestName "Tabeza POS Printer exists"
+        Assert-NotNull -Value $tabezaPrinter -TestName "Tabeza Agent exists"
         
         if ($tabezaPrinter) {
             # Verify driver matches test printer
@@ -243,7 +243,7 @@ function Test-TabezaPrinterCreation {
             $hasCapturePort = $ports[1] -like '*Tabeza*'
             Assert-True -Condition $hasCapturePort -TestName "Capture port is second" -ErrorMessage "Capture port should be second in pool"
             
-            Write-TestLog "Tabeza POS Printer configuration verified" -Level SUCCESS
+            Write-TestLog "Tabeza Agent configuration verified" -Level SUCCESS
         }
         
         return $true
@@ -308,10 +308,10 @@ function Test-DefaultPrinterPreservation {
             Write-TestLog "No default printer is set" -Level INFO
         }
         
-        # Verify Tabeza POS Printer is NOT the default
+        # Verify Tabeza Agent is NOT the default
         if ($currentDefault) {
             $tabezaIsDefault = $currentDefault -eq $script:TestConfig.TabezaPrinterName
-            Assert-True -Condition (-not $tabezaIsDefault) -TestName "Tabeza POS Printer is not default" -ErrorMessage "Tabeza POS Printer should not be set as default"
+            Assert-True -Condition (-not $tabezaIsDefault) -TestName "Tabeza Agent is not default" -ErrorMessage "Tabeza Agent should not be set as default"
         }
         else {
             Write-TestLog "No default printer set - test skipped" -Level WARNING
@@ -338,7 +338,7 @@ function Test-PrintJobCapture {
         
         Write-TestLog "Initial capture file size: $initialSize bytes" -Level INFO
         
-        # Send test print job to Tabeza POS Printer
+        # Send test print job to Tabeza Agent
         $testContent = @"
 =================================
     TABEZA INTEGRATION TEST
@@ -417,11 +417,11 @@ function Remove-TestEnvironment {
     Write-TestLog "`nCleaning up test environment..." -Level INFO
     
     try {
-        # Remove Tabeza POS Printer
+        # Remove Tabeza Agent
         $tabezaPrinter = Get-Printer -Name $script:TestConfig.TabezaPrinterName -ErrorAction SilentlyContinue
         if ($tabezaPrinter) {
             Remove-Printer -Name $script:TestConfig.TabezaPrinterName -ErrorAction Stop
-            Write-TestLog "Removed Tabeza POS Printer" -Level INFO
+            Write-TestLog "Removed Tabeza Agent" -Level INFO
         }
         
         # Remove TabezaCapturePort

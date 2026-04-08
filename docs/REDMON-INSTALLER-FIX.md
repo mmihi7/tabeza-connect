@@ -15,7 +15,7 @@ Installation Steps:
 3. If yes:
    - Copy Redmon files from src/installer/redmon19/
    - Run install-redmon.ps1 to install Redmon port monitor
-   - Run configure-redmon-printer.ps1 to create Tabeza POS Printer
+   - Run configure-redmon-printer.ps1 to create Tabeza Agent
 4. Show completion message
 ```
 
@@ -48,7 +48,7 @@ Deleted `src/installer/printer-pooling-setup.ps1` - this was mixing printer pool
 
 ### During Installation:
 
-1. **Installer asks**: "Would you like to install Redmon and configure the Tabeza POS Printer?"
+1. **Installer asks**: "Would you like to install Redmon and configure the Tabeza Agent?"
 
 2. **If user clicks Yes**:
    - Copies Redmon files to `$INSTDIR\redmon19\`
@@ -58,7 +58,7 @@ Deleted `src/installer/printer-pooling-setup.ps1` - this was mixing printer pool
      - Registers with Windows Print Spooler
      - Creates registry entries
    - Runs `configure-redmon-printer.ps1`:
-     - Creates "Tabeza POS Printer" using Generic/Text Only driver
+     - Creates "Tabeza Agent" using Generic/Text Only driver
      - Creates "TabezaCapturePort" Redmon port
      - Configures port to pipe print jobs to capture script
      - Sets Bar ID to "UNCONFIGURED" (user configures later in dashboard)
@@ -71,7 +71,7 @@ Deleted `src/installer/printer-pooling-setup.ps1` - this was mixing printer pool
 
 User can verify installation by:
 1. Opening Windows Settings → Printers & Scanners
-2. Looking for "Tabeza POS Printer"
+2. Looking for "Tabeza Agent"
 3. Checking printer properties to see it uses "TabezaCapturePort"
 
 ## Files Involved
@@ -94,12 +94,12 @@ After rebuilding the installer:
 - [ ] Verify installer asks about Redmon installation
 - [ ] Click "Yes" to install Redmon
 - [ ] Check Windows Event Viewer for any errors
-- [ ] Verify "Tabeza POS Printer" appears in Printers & Scanners
+- [ ] Verify "Tabeza Agent" appears in Printers & Scanners
 - [ ] Check printer properties:
   - [ ] Driver: Generic / Text Only
   - [ ] Port: TabezaCapturePort
 - [ ] Open dashboard and configure Bar ID
-- [ ] Print test page to Tabeza POS Printer
+- [ ] Print test page to Tabeza Agent
 - [ ] Verify print job is captured (check C:\TabezaPrints\order.prn)
 
 ## Known Requirements

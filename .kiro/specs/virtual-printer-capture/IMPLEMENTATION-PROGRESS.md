@@ -85,7 +85,7 @@ This document tracks the implementation progress for the clawPDF-based virtual p
 ```
 POS System
     ↓
-"Tabeza POS Printer" (clawPDF Virtual Printer)
+"Tabeza Agent" (clawPDF Virtual Printer)
     ↓
 clawPDF Engine → Saves to C:\TabezaPrints\spool\{jobId}.ps
     ↓
@@ -184,7 +184,7 @@ Print Job Processor → Copies to order.prn + Archives
 
 ### From Pooling to clawPDF
 1. Install clawPDF alongside existing pooling printer
-2. Test with "Tabeza POS Printer (New)"
+2. Test with "Tabeza Agent (New)"
 3. Verify capture, forwarding, and upload
 4. Switch POS to new printer
 5. Remove old pooling printer

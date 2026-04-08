@@ -87,12 +87,12 @@ POST http://127.0.0.1:8765/api/folders/repair
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           POS SOFTWARE                                       │
-│                    (prints to "Tabeza POS Printer")                         │
+│                    (prints to "Tabeza Agent")                         │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                       Tabeza POS Printer                                     │
+│                       Tabeza Agent                                     │
 │                    (clawPDF Virtual Printer)                                 │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
@@ -245,7 +245,7 @@ After building, you'll find in `dist/`:
 3. **Prompts for Printer Setup**
    - Shows printer selection dialog
    - Creates `TabezaCapturePort` pointing to `C:\TabezaPrints\order.prn`
-   - Creates `Tabeza POS Printer` (pooled printer)
+   - Creates `Tabeza Agent` (pooled printer)
 
 ### Reinstall/Update Behavior
 
@@ -394,11 +394,11 @@ C:\TabezaPrints\logs\
    - Installer creates:
      - `C:\TabezaPrints\order.prn` (capture file)
      - `TabezaCapturePort` → capture file
-     - `Tabeza POS Printer` (pooled)
+     - `Tabeza Agent` (pooled)
    - Application starts automatically
 
 4. Customer configures POS:
-   - Selects "Tabeza POS Printer" in POS software
+   - Selects "Tabeza Agent" in POS software
    - Receipts print on paper AND are captured to `C:\TabezaPrints\order.prn`
    - Tabeza Connect processes automatically
 

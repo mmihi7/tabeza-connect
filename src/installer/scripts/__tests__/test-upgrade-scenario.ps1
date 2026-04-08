@@ -11,7 +11,7 @@
     
 .NOTES
     - Must be run as Administrator
-    - Simulates existing Tabeza POS Printer from v1.6.x
+    - Simulates existing Tabeza Agent from v1.6.x
     - Tests idempotent behavior during upgrade
     - Verifies configuration preservation
 #>
@@ -33,7 +33,7 @@ $script:TestConfig = @{
     TestPrinterName = "Test Thermal Printer"
     TestDriverName = "Generic / Text Only"
     TestPortName = "TESTPORT001"
-    TabezaPrinterName = "Tabeza POS Printer"
+    TabezaPrinterName = "Tabeza Agent"
     CaptureFilePath = "C:\TabezaPrints\order.prn"
     CaptureDirectory = "C:\TabezaPrints"
     ConfigScriptPath = Join-Path $PSScriptRoot "..\configure-pooling-printer.ps1"
@@ -120,8 +120,8 @@ function Simulate-V16Installation {
         
         Write-TestLog "Test thermal printer created" -Level SUCCESS
         
-        # Create v1.6.x style Tabeza POS Printer (manually configured)
-        Write-TestLog "Creating v1.6.x Tabeza POS Printer..." -Level INFO
+        # Create v1.6.x style Tabeza Agent (manually configured)
+        Write-TestLog "Creating v1.6.x Tabeza Agent..." -Level INFO
         
         # Create capture port
         $capturePort = Get-PrinterPort -Name 'TabezaCapturePort' -ErrorAction SilentlyContinue
@@ -129,11 +129,11 @@ function Simulate-V16Installation {
             Add-PrinterPort -Name 'TabezaCapturePort' -PrinterHostAddress $script:TestConfig.CaptureFilePath -ErrorAction Stop
         }
         
-        # Create Tabeza POS Printer with single port (v1.6.x style - not pooled)
+        # Create Tabeza Agent with single port (v1.6.x style - not pooled)
         $tabezaPrinter = Get-Printer -Name $script:TestConfig.TabezaPrinterName -ErrorAction SilentlyContinue
         if (-not $tabezaPrinter) {
             Add-Printer -Name $script:TestConfig.TabezaPrinterName -DriverName $script:TestConfig.TestDriverName -PortName $script:TestConfig.TestPortName -ErrorAction Stop
-            Write-TestLog "Created v1.6.x Tabeza POS Printer (single port)" -Level SUCCESS
+            Write-TestLog "Created v1.6.x Tabeza Agent (single port)" -Level SUCCESS
         }
         
         # Add some test data to capture file
@@ -322,11 +322,11 @@ function Remove-TestEnvironment {
     Write-TestLog "`nCleaning up test environment..." -Level INFO
     
     try {
-        # Remove Tabeza POS Printer
+        # Remove Tabeza Agent
         $tabezaPrinter = Get-Printer -Name $script:TestConfig.TabezaPrinterName -ErrorAction SilentlyContinue
         if ($tabezaPrinter) {
             Remove-Printer -Name $script:TestConfig.TabezaPrinterName -ErrorAction Stop
-            Write-TestLog "Removed Tabeza POS Printer" -Level INFO
+            Write-TestLog "Removed Tabeza Agent" -Level INFO
         }
         
         # Remove TabezaCapturePort

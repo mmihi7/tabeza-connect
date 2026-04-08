@@ -121,7 +121,7 @@
 - [ ] 5.1.1 Update installer-pkg.iss to include clawPDF MSI
 - [ ] 5.1.2 Add virtual printer installation step to [Run] section
 - [ ] 5.1.3 Add administrator privilege check
-- [ ] 5.1.4 Update uninstaller to remove "Tabeza POS Printer" profile
+- [ ] 5.1.4 Update uninstaller to remove "Tabeza Agent" profile
 - [ ] 5.1.5 Add spool folder creation to installer
 
 ### 5.2 Migration Logic

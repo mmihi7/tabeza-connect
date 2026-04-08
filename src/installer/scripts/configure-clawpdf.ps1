@@ -1,9 +1,9 @@
 # configure-clawpdf.ps1
 # Configures clawPDF printer profile for Tabeza Connect
-# Creates "Tabeza POS Printer" with automatic spool folder output
+# Creates "Tabeza Agent" with automatic spool folder output
 
 param(
-    [string]$PrinterName = "Tabeza POS Printer",
+    [string]$PrinterName = "Tabeza Agent",
     [string]$SpoolFolder = "C:\TabezaPrints\spool",
     [string]$LogPath = "$env:TEMP\TabezaConnect-clawPDF-config.log"
 )
@@ -89,7 +89,7 @@ OpenWithPdfArchitect=false
 DefaultProfile=TabezaProfile
 
 [TabezaProfile]
-Name=Tabeza POS Printer Profile
+Name=Tabeza Agent Profile
 OutputFormat=PostScript
 TargetDirectory=$SpoolFolder
 FileNameTemplate=<DateTime>_<JobID>

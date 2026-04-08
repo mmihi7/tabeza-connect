@@ -1,5 +1,5 @@
 # Uninstall Tabeza Pooling Printer Configuration
-# This script removes the Tabeza POS Printer and associated ports
+# This script removes the Tabeza Agent and associated ports
 # while preserving capture file data for potential reinstallation
 
 param(
@@ -9,7 +9,7 @@ param(
 
 # Configuration
 $LogFile = "C:\ProgramData\Tabeza\logs\uninstall-pooling.log"
-$PrinterName = "Tabeza POS Printer"
+$PrinterName = "Tabeza Agent"
 $CapturePortName = "TabezaCapturePort"
 
 # Ensure log directory exists

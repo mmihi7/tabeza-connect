@@ -225,7 +225,7 @@
       </div>
       <div class="prereq-item" id="prereqPrinter">
         <span class="icon">⏳</span>
-        <span>Tabeza POS Printer — checking...</span>
+        <span>Tabeza Agent — checking...</span>
       </div>
     </div>
     
@@ -344,10 +344,10 @@
       // Update printer row
       if (printerOk) {
         printerEl.className = 'prereq-item pass';
-        printerEl.innerHTML = '<span class="icon">✅</span><span>Tabeza POS Printer — installed</span>';
+        printerEl.innerHTML = '<span class="icon">✅</span><span>Tabeza Agent — installed</span>';
       } else {
         printerEl.className = 'prereq-item fail';
-        printerEl.innerHTML = '<span class="icon">❌</span><span>Tabeza POS Printer — not installed<a onclick="openPrinterSetup()">Set up →</a></span>';
+        printerEl.innerHTML = '<span class="icon">❌</span><span>Tabeza Agent — not installed<a onclick="openPrinterSetup()">Set up →</a></span>';
       }
 
       prerequisitesMet = barIdOk && printerOk;
@@ -375,7 +375,7 @@
         // IPC handler returns status: 'configured' | 'not-configured'
         if (result.status === 'configured' || result.exists === true) {
           console.log('[Template Generator] Printer is configured!');
-          status.textContent = `✅ ${result.printerName || 'Tabeza POS Printer'}`;
+          status.textContent = `✅ ${result.printerName || 'Tabeza Agent'}`;
           status.className = 'step-status complete';
         } else {
           console.log('[Template Generator] Printer not configured:', result.status);
@@ -474,7 +474,7 @@
     async function generateTemplate() {
       // Hard gate: prerequisites must be met before generating
       if (!prerequisitesMet) {
-        showAlert('Please configure Bar ID and install Tabeza POS Printer first.', 'error');
+        showAlert('Please configure Bar ID and install Tabeza Agent first.', 'error');
         return;
       }
 

@@ -177,7 +177,7 @@ Write-Host ""
 Write-Host "Redmon Port Monitor is ready for use." -ForegroundColor White
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Cyan
-Write-Host "  1. Create 'Tabeza POS Printer' with Generic/Text Only driver" -ForegroundColor White
+Write-Host "  1. Create 'Tabeza Agent' with Generic/Text Only driver" -ForegroundColor White
 Write-Host "  2. Configure Redmon port to pipe to capture script" -ForegroundColor White
 Write-Host "  3. Test print job capture" -ForegroundColor White
 Write-Host ""
@@ -191,7 +191,7 @@ if (Test-Path $writeStatusScript) {
         Write-Host "⚠️  Could not write status (non-fatal): $_" -ForegroundColor Yellow
     }
 } else {
-    Write-Host "ℹ️  write-status.ps1 not found (skipping status update)" -ForegroundColor Gray
+    Write-Host "INFO: write-status.ps1 not found (skipping status update)" -ForegroundColor Gray
 }
 
 exit 0

@@ -11,14 +11,14 @@ The new architecture leverages clawPDF (https://github.com/clawsoftware/clawPDF)
 - **Proven virtual printer infrastructure** - Battle-tested on Windows 7-11, including Server editions
 - **Open source (AGPL v3)** - Can be customized and bundled with Tabeza Connect
 - **Scripting interface** - Supports automation via command line and scripting
-- **Multiple printer profiles** - Can create "Tabeza POS Printer" with custom configuration
+- **Multiple printer profiles** - Can create "Tabeza Agent" with custom configuration
 - **Raw data access** - Can save print jobs as raw PostScript/PCL files before conversion
 - **No custom driver development** - Eliminates months of C++ driver work and code signing complexity
 
 ## Glossary
 
 - **ClawPDF**: An open-source virtual printer for Windows that intercepts print jobs and can save them in various formats
-- **Tabeza_POS_Printer**: A clawPDF printer instance configured with the name "Tabeza POS Printer" that captures print jobs to a monitored folder
+- **Tabeza_POS_Printer**: A clawPDF printer instance configured with the name "Tabeza Agent" that captures print jobs to a monitored folder
 - **Tabeza_Capture_Service**: A Windows Service that monitors the clawPDF output folder, processes captured print jobs, saves raw data to disk, and forwards jobs to the physical printer
 - **Receipt_Parser**: A component that reads captured ESC/POS data and normalizes it to structured JSON format
 - **Physical_Printer_Adapter**: A component that handles sending print jobs to USB or network printers using appropriate protocols
@@ -34,16 +34,16 @@ The new architecture leverages clawPDF (https://github.com/clawsoftware/clawPDF)
 
 ### Requirement 1: ClawPDF Installation and Configuration
 
-**User Story:** As a venue owner, I want clawPDF to be installed and configured automatically during Tabeza Connect setup, so that my POS system can print to "Tabeza POS Printer" without any manual configuration.
+**User Story:** As a venue owner, I want clawPDF to be installed and configured automatically during Tabeza Connect setup, so that my POS system can print to "Tabeza Agent" without any manual configuration.
 
 #### Acceptance Criteria
 
 1. WHEN the Tabeza Connect installer runs, THE Installer SHALL install clawPDF silently using the MSI installer
-2. THE Installer SHALL create a clawPDF printer profile named "Tabeza POS Printer"
+2. THE Installer SHALL create a clawPDF printer profile named "Tabeza Agent"
 3. THE clawPDF profile SHALL be configured to save print jobs as raw PostScript files to C:\TabezaPrints\spool\
 4. THE clawPDF profile SHALL be configured for automatic/silent printing (no user prompts)
-5. THE "Tabeza POS Printer" SHALL appear in Windows printer settings as a standard printer device
-6. WHEN a POS_System sends a print job to "Tabeza POS Printer", THE clawPDF printer SHALL intercept the job and save it to the spool folder
+5. THE "Tabeza Agent" SHALL appear in Windows printer settings as a standard printer device
+6. WHEN a POS_System sends a print job to "Tabeza Agent", THE clawPDF printer SHALL intercept the job and save it to the spool folder
 7. THE clawPDF printer SHALL work on Windows 10 and Windows 11 (both 32-bit and 64-bit)
 8. IF the installation fails, THEN THE Installer SHALL display a descriptive error message and roll back changes
 
@@ -53,7 +53,7 @@ The new architecture leverages clawPDF (https://github.com/clawsoftware/clawPDF)
 
 #### Acceptance Criteria
 
-1. WHEN a Print_Job is sent to "Tabeza POS Printer", THE clawPDF printer SHALL save the raw print data to C:\TabezaPrints\spool\{jobId}.ps
+1. WHEN a Print_Job is sent to "Tabeza Agent", THE clawPDF printer SHALL save the raw print data to C:\TabezaPrints\spool\{jobId}.ps
 2. THE Tabeza_Capture_Service SHALL monitor C:\TabezaPrints\spool\ using a file watcher
 3. WHEN a new file appears in the spool folder, THE Tabeza_Capture_Service SHALL read the file and copy it to C:\TabezaPrints\order_{timestamp}.prn
 4. THE Capture_File SHALL use a timestamp format of YYYYMMDD-HHMMSS-mmm (milliseconds) to ensure unique filenames
@@ -161,9 +161,9 @@ The new architecture leverages clawPDF (https://github.com/clawsoftware/clawPDF)
 #### Acceptance Criteria
 
 1. WHEN the installer detects an existing Tabeza Connect installation, THE Installer SHALL preserve config.json and template.json
-2. THE Installer SHALL remove the old "Tabeza POS Printer" pooling printer configuration
+2. THE Installer SHALL remove the old "Tabeza Agent" pooling printer configuration
 3. THE Installer SHALL install clawPDF silently using the bundled MSI installer
-4. THE Installer SHALL create a clawPDF printer profile named "Tabeza POS Printer" configured for raw PostScript output
+4. THE Installer SHALL create a clawPDF printer profile named "Tabeza Agent" configured for raw PostScript output
 5. THE Installer SHALL migrate the Bar ID from the old configuration to the new configuration
 6. THE Installer SHALL preserve all captured receipts in C:\TabezaPrints\processed
 7. WHEN migration completes, THE Installer SHALL display a summary of migrated settings
@@ -223,7 +223,7 @@ The new architecture leverages clawPDF (https://github.com/clawsoftware/clawPDF)
 #### Acceptance Criteria
 
 1. WHEN the uninstaller runs, THE Uninstaller SHALL stop and remove the Tabeza_Capture_Service
-2. THE Uninstaller SHALL remove the "Tabeza POS Printer" clawPDF printer profile
+2. THE Uninstaller SHALL remove the "Tabeza Agent" clawPDF printer profile
 3. THE Uninstaller SHALL optionally uninstall clawPDF if no other clawPDF printers exist
 4. THE Uninstaller SHALL prompt the user to keep or delete captured receipt data
 5. IF the user chooses to delete data, THEN THE Uninstaller SHALL remove C:\TabezaPrints and all subdirectories
@@ -348,7 +348,7 @@ The new architecture leverages clawPDF (https://github.com/clawsoftware/clawPDF)
 
 #### Acceptance Criteria
 
-1. THE clawPDF printer SHALL use the same printer name "Tabeza POS Printer" as the old pooling system
+1. THE clawPDF printer SHALL use the same printer name "Tabeza Agent" as the old pooling system
 2. THE clawPDF printer SHALL support the same ESC/POS command set as the old system
 3. THE clawPDF printer SHALL accept print jobs from all POS systems that worked with the old pooling printer
 4. THE Tabeza_Capture_Service SHALL read existing template.json files without requiring regeneration

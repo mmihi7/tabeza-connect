@@ -11,7 +11,7 @@ Before running the test, ensure:
 1. ✅ clawPDF 0.9.3 is installed (Task 1.1.2)
 2. ✅ Printer profile is configured (Tasks 1.2.2-1.2.7)
 3. ✅ Spool folder exists at `C:\TabezaPrints\spool\`
-4. ✅ "Tabeza POS Printer" appears in Windows Printers
+4. ✅ "Tabeza Agent" appears in Windows Printers
 
 ## Test Objectives
 
@@ -38,19 +38,19 @@ cd C:\path\to\tabeza-connect\src\installer\scripts
 .\test-clawpdf-printer.ps1
 
 # Or with custom parameters
-.\test-clawpdf-printer.ps1 -PrinterName "Tabeza POS Printer" -SpoolFolder "C:\TabezaPrints\spool" -TimeoutSeconds 30
+.\test-clawpdf-printer.ps1 -PrinterName "Tabeza Agent" -SpoolFolder "C:\TabezaPrints\spool" -TimeoutSeconds 30
 ```
 
 **Expected Output (Success):**
 
 ```
 === Tabeza Connect - clawPDF Printer Test ===
-Printer Name: Tabeza POS Printer
+Printer Name: Tabeza Agent
 Spool Folder: C:\TabezaPrints\spool
 Timeout: 30 seconds
 
 [1/6] Checking if printer exists...
-✓ Printer found: Tabeza POS Printer
+✓ Printer found: Tabeza Agent
   Driver: clawPDF
   Port: clawPDFPort
   Status: Normal
@@ -64,7 +64,7 @@ Timeout: 30 seconds
 [4/6] Creating test print job...
 ✓ Test content created: C:\Users\...\tabeza-test-print-20260306-143022.txt
 
-[5/6] Sending test print job to 'Tabeza POS Printer'...
+[5/6] Sending test print job to 'Tabeza Agent'...
 ✓ Print job sent successfully
 
 [6/6] Waiting for captured file in spool folder...
@@ -104,7 +104,7 @@ Troubleshooting steps:
   1. Check clawPDF settings at: %APPDATA%\clawSoft\clawPDF\Settings.ini
   2. Verify registry settings at: HKCU:\Software\clawSoft\clawPDF
   3. Check Windows Event Viewer for clawPDF errors
-  4. Try printing manually to 'Tabeza POS Printer' from Notepad
+  4. Try printing manually to 'Tabeza Agent' from Notepad
   5. Re-run configure-clawpdf.ps1 script
 ```
 
@@ -132,7 +132,7 @@ If the automated script fails or you want to test manually:
 
 3. **Print to clawPDF printer:**
    - File → Print (Ctrl+P)
-   - Select "Tabeza POS Printer"
+   - Select "Tabeza Agent"
    - Click "Print"
 
 4. **Check spool folder:**
@@ -169,7 +169,7 @@ After running the test, verify:
 
 **Symptoms:**
 ```
-ERROR: Printer 'Tabeza POS Printer' not found
+ERROR: Printer 'Tabeza Agent' not found
 ```
 
 **Solutions:**
@@ -258,7 +258,7 @@ No captured file detected after 30 seconds
 
 5. **Re-configure printer profile:**
    ```powershell
-   .\configure-clawpdf.ps1 -PrinterName "Tabeza POS Printer" -SpoolFolder "C:\TabezaPrints\spool"
+   .\configure-clawpdf.ps1 -PrinterName "Tabeza Agent" -SpoolFolder "C:\TabezaPrints\spool"
    ```
 
 ### Issue: File captured but wrong format

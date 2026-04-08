@@ -16,7 +16,7 @@ This specification defines the implementation of a robust receipt capture system
 
 ```
 POS System
-    ↓ (prints to "Tabeza POS Printer")
+    ↓ (prints to "Tabeza Agent")
 Generic/Text Only Printer Driver
     ↓ (raw ESC/POS bytes)
 Redmon Port Monitor
@@ -42,16 +42,16 @@ Tabeza Connect Capture Script
 
 ### Requirement 1: Redmon Installation and Configuration
 
-**User Story:** As a venue owner, I want Redmon to be installed and configured automatically during Tabeza Connect setup, so that my POS system can print to "Tabeza POS Printer" without manual configuration.
+**User Story:** As a venue owner, I want Redmon to be installed and configured automatically during Tabeza Connect setup, so that my POS system can print to "Tabeza Agent" without manual configuration.
 
 #### Acceptance Criteria
 
 1. THE Installer SHALL download and install Redmon silently
-2. THE Installer SHALL create a printer named "Tabeza POS Printer" using Generic/Text Only driver
+2. THE Installer SHALL create a printer named "Tabeza Agent" using Generic/Text Only driver
 3. THE Printer SHALL use a Redmon port configured to pipe to the Tabeza Connect capture script
 4. THE Redmon port SHALL pass raw print data via stdin to the capture script
 5. THE Capture script SHALL be a Node.js executable bundled with the app
-6. WHEN a POS prints to "Tabeza POS Printer", THE raw ESC/POS bytes SHALL be piped to the capture script
+6. WHEN a POS prints to "Tabeza Agent", THE raw ESC/POS bytes SHALL be piped to the capture script
 7. THE Installation SHALL work on Windows 10 and Windows 11 (64-bit)
 8. IF Redmon installation fails, THE Installer SHALL display an error and roll back changes
 
@@ -171,7 +171,7 @@ Tabeza Connect Capture Script
 2. THE Installer SHALL preserve `config.json` and `template.json`
 3. THE Installer SHALL remove old printer configurations (pooling, clawPDF)
 4. THE Installer SHALL install Redmon silently
-5. THE Installer SHALL create "Tabeza POS Printer" with Redmon port
+5. THE Installer SHALL create "Tabeza Agent" with Redmon port
 6. THE Installer SHALL migrate Bar ID from old configuration
 7. THE Installer SHALL preserve captured receipts in `processed\`
 8. THE Installer SHALL create a backup at `backup\config_backup_{timestamp}.json`
@@ -244,7 +244,7 @@ Tabeza Connect Capture Script
 #### Acceptance Criteria
 
 1. THE Uninstaller SHALL stop the Tabeza Connect service
-2. THE Uninstaller SHALL remove "Tabeza POS Printer"
+2. THE Uninstaller SHALL remove "Tabeza Agent"
 3. THE Uninstaller SHALL optionally uninstall Redmon if no other Redmon printers exist
 4. THE Uninstaller SHALL prompt to keep or delete captured receipt data
 5. IF user chooses delete, THE Uninstaller SHALL remove `C:\TabezaPrints\`
@@ -271,7 +271,7 @@ Tabeza Connect Capture Script
 
 The Redmon-based receipt capture system is considered successful when:
 
-1. POS prints to "Tabeza POS Printer" → receipt prints on physical printer (no workflow disruption)
+1. POS prints to "Tabeza Agent" → receipt prints on physical printer (no workflow disruption)
 2. Raw ESC/POS data is captured to disk
 3. Plain text is extracted from ESC/POS
 4. Structured JSON is parsed using local template

@@ -207,3 +207,6 @@ start
 
 # Cleanup script (generated)
 cleanup-workspace-files.bat
+
+# Dev tools directory (keep in local only)
+dev-tools/

@@ -24,10 +24,12 @@
  */
 
 const fs = require('fs').promises;
+const fsSync = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { spawn } = require('child_process');
+const { promisify } = require('util');
 const { textify } = require('../utils/textifier');
-const ReceiptParser = require('../service/receiptParser');
 const logger = require('./logger');
 const pipelineLog = require('../utils/logger');
 
@@ -157,6 +159,7 @@ async function main() {
 
     const rawLog = pipelineLog.forPrefix('[RAW]');
     rawLog.step(`Saving raw .prn → raw\\${filename}.prn`);
+    console.error('[CAPTURE] PATHS.raw:', PATHS.raw);
     await saveRawFile(rawBytes, filename);
     rawLog.ok(`Saved raw\\${filename}.prn (${rawBytes.length} bytes)`);
 
@@ -176,17 +179,15 @@ async function main() {
     if (templateExists) {
       const parserLog = pipelineLog.forPrefix('[PARSER]');
       parserLog.step('Template found — parsing receipt');
-      const parser = new ReceiptParser();
-      await parser.initialize();
-      const parseResult = await parser.parse(plainText);
+      const parseResult = await parseReceiptWithPython(plainText);
 
-      parserLog.info(`Parse complete — confidence: ${parseResult.confidence}%, items: ${parseResult.data?.items?.length ?? 0}, success: ${parseResult.success}`);
+      parserLog.info(`Parse complete — confidence: ${parseResult.confidence}%, items: ${parseResult.item_count || 0}, success: ${parseResult.success}`);
 
       logger.logParse({
         confidence: parseResult.confidence,
         success: parseResult.success,
-        itemCount: parseResult.data?.items?.length || 0,
-        duration: parseResult.parseTime || 0,
+        itemCount: parseResult.item_count || 0,
+        duration: 0, // Python parser doesn't return timing
       });
 
       await saveParsedFile(parseResult, plainText, filename);
@@ -303,14 +304,12 @@ async function triggerTemplateGeneration() {
 
     // Now parse and queue all existing raw receipts
     log.step('Parsing and queuing all existing raw receipts...');
-    const parser = new ReceiptParser();
-    await parser.initialize();
 
     for (const textFile of textFiles) {
       try {
         const plainText = await fs.readFile(path.join(PATHS.text, textFile), 'utf8');
         const baseName = textFile.replace('.txt', '');
-        const parseResult = await parser.parse(plainText);
+        const parseResult = await parseReceiptWithPython(plainText);
         await saveParsedFile(parseResult, plainText, baseName);
         const queueId = await queueForUpload(parseResult, plainText, baseName);
         log.info(`Queued existing receipt: ${baseName} → ${queueId}`);
@@ -467,11 +466,14 @@ function generateTimestamp() {
  */
 async function saveRawFile(rawBytes, filename) {
   try {
+    // DEBUG
+    console.error('[CAPTURE] saveRawFile: PATHS.raw =', PATHS.raw, 'CONFIG.basePath =', CONFIG.basePath);
     // Ensure directory exists
     await fs.mkdir(PATHS.raw, { recursive: true });
     
     // Write file
     const filePath = path.join(PATHS.raw, `${filename}.prn`);
+    console.error('[CAPTURE] Writing raw file to:', filePath);
     await fs.writeFile(filePath, rawBytes);
     
     logger.debug('Raw file saved', { path: filePath, size: rawBytes.length });
@@ -541,6 +543,75 @@ async function saveParsedFile(parseResult, plainText, filename) {
 }
 
 /**
+ * Parse receipt text using Python parser
+ * @param {string} plainText - Receipt plain text
+ * @returns {Promise<Object>} - Parse result
+ */
+async function parseReceiptWithPython(plainText) {
+  return new Promise((resolve, reject) => {
+    // Try multiple Python script locations
+    const possiblePaths = [
+      'C:/TabezaPrints/receipt_parser.py',      // Production (first priority)
+      path.join(CONFIG.basePath, 'receipt_parser.py'), // Base path
+      path.join(__dirname, 'receipt_parser.py'),  // Development (last resort)
+    ];
+    
+    const parserPath = possiblePaths.find(p => {
+      try {
+        return fsSync.existsSync(p);
+      } catch {
+        return false;
+      }
+    });
+    
+    if (!parserPath) {
+      console.log('Python parser paths checked:', possiblePaths);
+      reject(new Error('Python parser script not found'));
+      return;
+    }
+    
+    console.log('Using Python parser at:', parserPath);
+    
+    const python = spawn('python', [parserPath], {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    python.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    python.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    python.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(`Python parser exited with code ${code}: ${stderr}`));
+        return;
+      }
+
+      try {
+        const result = JSON.parse(stdout);
+        resolve(result);
+      } catch (parseError) {
+        reject(new Error(`Failed to parse Python output: ${parseError.message}\nOutput: ${stdout}`));
+      }
+    });
+
+    python.on('error', (error) => {
+      reject(new Error(`Failed to start Python parser: ${error.message}`));
+    });
+
+    // Send receipt text to Python
+    python.stdin.write(plainText);
+    python.stdin.end();
+  });
+}
+
+/**
  * Add parsed receipt to upload queue
  * 
  * @param {Object} parseResult - Parse result from parser
@@ -569,15 +640,15 @@ async function queueForUpload(parseResult, plainText, filename) {
       parsed: parseResult.success,
       confidence: parseResult.confidence,
       receipt: {
-        items: parseResult.data.items || [],
-        total: parseResult.data.total || 0,
-        receiptNumber: parseResult.data.receiptNumber || filename,
+        items: parseResult.items || [],
+        total: parseResult.total || 0,
+        receiptNumber: filename,
         rawText: plainText,
       },
       metadata: {
         source: 'redmon-capture',
-        templateVersion: parseResult.template?.version || 'unknown',
-        parseTimeMs: parseResult.parseTime,
+        templateVersion: 'python',
+        parseTimeMs: 0,
         captureFilename: filename,
       },
       enqueuedAt: new Date().toISOString(),

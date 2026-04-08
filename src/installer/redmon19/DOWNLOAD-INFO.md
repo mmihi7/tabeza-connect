@@ -48,7 +48,7 @@ For Tabeza Connect, we use the extracted DLL files and utilities directly rather
 ## Usage in Tabeza Connect
 Redmon is used to create a virtual printer port that redirects print jobs to the Tabeza Connect capture script. The workflow is:
 
-1. POS prints to "Tabeza POS Printer"
+1. POS prints to "Tabeza Agent"
 2. Windows Generic/Text Only driver processes the job
 3. Redmon port monitor intercepts the raw ESC/POS data
 4. Data is piped to `capture.exe` via stdin

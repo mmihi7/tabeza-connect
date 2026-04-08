@@ -75,7 +75,7 @@ Folder Structure:
 
 How It Works:
 -------------
-1. Your POS prints to "Tabeza POS Printer"
+1. Your POS prints to "Tabeza Agent"
 2. Receipt file (order.prn) appears in this folder
 3. Tabeza service detects and processes it
 4. Receipt is uploaded to Tabeza cloud

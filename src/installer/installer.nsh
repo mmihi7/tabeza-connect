@@ -50,7 +50,7 @@
   
   MessageBox MB_YESNO|MB_ICONQUESTION \
     "Would you like to configure printer pooling now?$\n$\n\
-    This will create a 'Tabeza POS Printer' that sends jobs to both$\n\
+    This will create a 'Tabeza Agent' that sends jobs to both$\n\
     your physical receipt printer and Tabeza Connect for digital capture.$\n$\n\
     Capture file: C:\TabezaPrints\order.prn$\n$\n\
     You can also configure this later from the system tray menu.$\n$\n\
@@ -84,7 +84,7 @@
   ; ═══════════════════════════════════════════════════════════════════════════
   
   MessageBox MB_YESNO|MB_ICONQUESTION \
-    "Remove Tabeza POS Printer configuration?$\n$\n\
+    "Remove Tabeza Agent configuration?$\n$\n\
     This will remove the virtual printer and capture port.$\n\
     Your original receipt printer will not be affected." \
     IDYES RemovePrinter IDNO SkipRemove

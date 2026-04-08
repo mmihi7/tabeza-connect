@@ -15,13 +15,13 @@ The dashboard was calling IPC methods that didn't have corresponding handlers in
 ### Added Missing IPC Handler
 
 Added `check-printer-status` handler in electron-main.js that:
-1. Uses PowerShell to check if "Tabeza POS Printer" exists
+1. Uses PowerShell to check if "Tabeza Agent" exists
 2. Returns printer information if found
 3. Returns not_configured status if not found
 
 ```javascript
 ipcMain.handle('check-printer-status', async () => {
-  // Uses PowerShell: Get-Printer -Name 'Tabeza POS Printer'
+  // Uses PowerShell: Get-Printer -Name 'Tabeza Agent'
   // Returns: { status: 'configured', printer: {...} }
   // Or: { status: 'not_configured' }
 });
@@ -42,7 +42,7 @@ The dashboard now has all required handlers:
    - Marks setup step as complete
 
 3. **check-printer-status** ✅ (NEWLY ADDED)
-   - Checks if "Tabeza POS Printer" exists in Windows
+   - Checks if "Tabeza Agent" exists in Windows
    - Returns printer details (name, driver, port)
    - Returns not_configured if printer not found
 

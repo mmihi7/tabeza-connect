@@ -211,7 +211,7 @@ This task list implements the Redmon-based receipt capture system that replaces 
 
 - [ ] 22. Implement Uninstaller
   - [ ] 22.1 Stop Tabeza Connect service
-  - [ ] 22.2 Remove "Tabeza POS Printer"
+  - [ ] 22.2 Remove "Tabeza Agent"
   - [ ] 22.3 Optionally uninstall Redmon
   - [ ] 22.4 Prompt to keep or delete captured data
   - [ ] 22.5 Remove registry entries

@@ -225,7 +225,7 @@ Filename: "powershell.exe"; \
 ; ============================================================================
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\configure-pooling-printer.ps1"" -CaptureFilePath ""C:\ProgramData\Tabeza\TabezaPrints\order.prn"""; \
-  StatusMsg: "Configuring Tabeza POS Printer (automatic pooling)..."; \
+  StatusMsg: "Configuring Tabeza Agent (automatic pooling)..."; \
   Flags: runhidden waituntilterminated; \
   Components: printer
 
@@ -301,7 +301,7 @@ Filename: "sc.exe"; \
   Flags: runhidden; \
   RunOnceId: "DeleteService"
 
-; Remove Tabeza POS Printer
+; Remove Tabeza Agent
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\uninstall-pooling-printer.ps1"""; \
   Flags: runhidden; \

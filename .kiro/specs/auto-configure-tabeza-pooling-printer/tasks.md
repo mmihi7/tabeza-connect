@@ -2,7 +2,7 @@
 
 ## Overview
 
-This implementation plan breaks down the automatic printer pooling configuration feature into discrete, actionable tasks. The feature will create a PowerShell-based configuration script that automatically detects thermal printers, creates the "Tabeza POS Printer" with dual-port configuration, and integrates with the Inno Setup installer.
+This implementation plan breaks down the automatic printer pooling configuration feature into discrete, actionable tasks. The feature will create a PowerShell-based configuration script that automatically detects thermal printers, creates the "Tabeza Agent" with dual-port configuration, and integrates with the Inno Setup installer.
 
 The implementation follows a bottom-up approach: build core utilities first, then detection logic, then configuration logic, then validation, and finally installer integration. Each task includes specific requirements references and property test annotations where applicable.
 
@@ -36,7 +36,7 @@ The implementation follows a bottom-up approach: build core utilities first, the
 - [x] 3. Implement thermal printer detection module
   - [x] 3.1 Create `Get-ThermalPrinters` function
     - Query all printers using `Get-Printer`
-    - Exclude patterns: Microsoft Print to PDF, Fax, OneNote, XPS, Adobe PDF, Tabeza POS Printer
+    - Exclude patterns: Microsoft Print to PDF, Fax, OneNote, XPS, Adobe PDF, Tabeza Agent
     - Score printers by thermal keywords: Receipt, Thermal, POS, TM-, RP-, Epson, Star, Citizen, Bixolon, Sam4s
     - Return highest scoring printer
     - Log all detected printers with scores
@@ -126,7 +126,7 @@ The implementation follows a bottom-up approach: build core utilities first, the
     - **Property 4: Driver Inheritance**
     - **Validates: Requirements 2.2**
     - Generate random printer/driver combinations
-    - Create Tabeza POS Printer and verify driver matches
+    - Create Tabeza Agent and verify driver matches
     - Run 100 iterations
   
   - [ ]* 5.3 Write property test for dual-port configuration
@@ -190,7 +190,7 @@ The implementation follows a bottom-up approach: build core utilities first, the
   - [ ]* 7.3 Write property test for capture file update on print
     - **Property 13: Capture File Update on Print**
     - **Validates: Requirements 5.3**
-    - Send test print job to Tabeza POS Printer
+    - Send test print job to Tabeza Agent
     - Verify capture file size or timestamp changed
     - Run 100 iterations
   
@@ -210,7 +210,7 @@ The implementation follows a bottom-up approach: build core utilities first, the
 
 - [x] 8. Implement idempotency and self-healing logic
   - [x] 8.1 Create `Test-TabezaPrinterExists` function
-    - Check if Tabeza POS Printer already exists
+    - Check if Tabeza Agent already exists
     - Return boolean result
     - _Requirements: 2.5, 7.1_
   
@@ -247,7 +247,7 @@ The implementation follows a bottom-up approach: build core utilities first, the
 
 - [x] 9. Implement rollback and error recovery module
   - [x] 9.1 Create `Remove-TabezaPOSPrinter` function
-    - Remove Tabeza POS Printer using `Remove-Printer`
+    - Remove Tabeza Agent using `Remove-Printer`
     - Remove TabezaCapturePort using `Remove-PrinterPort`
     - Log rollback actions
     - Handle errors gracefully (already removed is success)
@@ -281,7 +281,7 @@ The implementation follows a bottom-up approach: build core utilities first, the
     - Verify Print Spooler is running
     - Detect thermal printer
     - Record default printer
-    - Check if Tabeza POS Printer exists
+    - Check if Tabeza Agent exists
     - Create or validate configuration
     - Restore default printer
     - Validate final configuration
@@ -327,7 +327,7 @@ The implementation follows a bottom-up approach: build core utilities first, the
   
   - [x] 12.3 Add uninstaller support
     - Create `uninstall-pooling-printer.ps1` script
-    - Remove Tabeza POS Printer
+    - Remove Tabeza Agent
     - Remove TabezaCapturePort
     - Preserve capture file data
     - Add `[UninstallRun]` section entry in Inno Setup
@@ -364,7 +364,7 @@ The implementation follows a bottom-up approach: build core utilities first, the
     - _Requirements: 1.5_
   
   - [ ] 14.2 Test physical printer offline scenario
-    - Configure Tabeza POS Printer
+    - Configure Tabeza Agent
     - Disconnect physical printer (mock)
     - Verify capture file still updates
     - _Requirements: 5.5_
@@ -392,7 +392,7 @@ The implementation follows a bottom-up approach: build core utilities first, the
     - Set up clean test environment
     - Install test thermal printer driver
     - Run configuration script
-    - Verify Tabeza POS Printer is created
+    - Verify Tabeza Agent is created
     - Verify default printer is preserved
     - Send test print job
     - Verify capture file is updated

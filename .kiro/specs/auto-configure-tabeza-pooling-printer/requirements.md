@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This feature automates the creation and configuration of the Tabeza Pooling Printer for the TabezaConnect Windows service. Currently, printer pooling configuration must be done manually by users, which is error-prone and requires technical knowledge. This feature will automatically create a "Tabeza POS Printer" that mirrors an existing physical printer, configure the necessary ports for print job capture, and ensure the original printer workflow remains unchanged.
+This feature automates the creation and configuration of the Tabeza Pooling Printer for the TabezaConnect Windows service. Currently, printer pooling configuration must be done manually by users, which is error-prone and requires technical knowledge. This feature will automatically create a "Tabeza Agent" that mirrors an existing physical printer, configure the necessary ports for print job capture, and ensure the original printer workflow remains unchanged.
 
 Pooling mode works by creating a printer with two ports: one physical port (USB, LPT, etc.) that prints to the actual printer, and one local port to a file (e.g., C:\TabezaPrints\order.prn) that captures print data. The TabezaConnect service monitors the capture file to intercept print jobs.
 
@@ -41,13 +41,13 @@ This printer configuration feature enables the capture mechanism that feeds into
 4. THE System SHALL store the detected Physical_Printer name and Physical_Port information
 5. IF no thermal printers are detected, THEN THE System SHALL display an error message with troubleshooting steps
 
-### Requirement 2: Tabeza POS Printer Creation
+### Requirement 2: Tabeza Agent Creation
 
-**User Story:** As a venue owner, I want the system to automatically create a Tabeza POS Printer, so that print jobs can be captured without manual configuration.
+**User Story:** As a venue owner, I want the system to automatically create a Tabeza Agent, so that print jobs can be captured without manual configuration.
 
 #### Acceptance Criteria
 
-1. WHEN a Physical_Printer is detected, THE System SHALL create a new printer named "Tabeza POS Printer"
+1. WHEN a Physical_Printer is detected, THE System SHALL create a new printer named "Tabeza Agent"
 2. THE Tabeza_POS_Printer SHALL use the same printer driver as the Physical_Printer
 3. THE System SHALL configure the Tabeza_POS_Printer with two ports: the Physical_Port and a Local_Port
 4. THE Local_Port SHALL point to the Capture_File path (C:\TabezaPrints\order.prn)

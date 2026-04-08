@@ -26,7 +26,7 @@ and eliminating driver/permission issues.
 ## System Architecture
 
 ```
-POS Printer ("Tabeza POS Printer")
+POS Printer ("Tabeza Agent")
          ↓
    REDMON Port Monitor
          ↓
@@ -87,9 +87,15 @@ POS Printer ("Tabeza POS Printer")
 C:\TabezaPrints\
 ├── raw\           # Incoming print jobs (read-only for capture.exe)
 ├── processed\     # Archived jobs (read-only after processing)
-├── failed_prints\ # Failed jobs (requires manual review)
+├── failed_prints\ # Failed print jobs (requires manual review)
 ├── temp\          # Temporary print files (auto-cleaned)
 ├── logs\          # Service logs (rotated automatically)
+├── queue\         # Cloud upload queue
+│   ├── pending\   # Receipts pending upload (FIFO)
+│   └── uploaded\  # Successfully uploaded receipts (audit trail)
+├── templates\     # Receipt parsing templates (template.json)
+├── text\          # Sample receipts for template generation
+├── failed\        # Failed receipts (upload failures)
 └── config.json    # Protected configuration
 ```
 

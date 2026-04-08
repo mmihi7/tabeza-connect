@@ -4,7 +4,7 @@ The Redmon-based receipt capture script that processes print jobs from the Redmo
 
 ## Overview
 
-This script is invoked by Redmon for each print job sent to the "Tabeza POS Printer". It:
+This script is invoked by Redmon for each print job sent to the "Tabeza Agent". It:
 
 1. Reads raw ESC/POS bytes from stdin
 2. Saves raw bytes to disk (archival)

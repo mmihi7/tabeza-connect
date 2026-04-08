@@ -147,7 +147,7 @@ Multiple installers are still being created (legacy issue):
 - [ ] "Configure Printer Pooling" opens wizard
 - [ ] Can select physical printer
 - [ ] Setup completes successfully
-- [ ] "Tabeza POS Printer" created in Windows
+- [ ] "Tabeza Agent" created in Windows
 
 ## Known Issues
 

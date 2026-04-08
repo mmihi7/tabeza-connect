@@ -103,7 +103,7 @@ The clawPDF MSI will:
 1. Install clawPDF to `C:\Program Files\clawPDF\`
 2. Register the virtual printer driver
 3. Create default printer profiles
-4. Our configuration script will then customize the "Tabeza POS Printer" profile
+4. Our configuration script will then customize the "Tabeza Agent" profile
 
 ## Troubleshooting
 

@@ -26,7 +26,7 @@ const RETRY_DELAYS = [5000, 10000, 20000, 40000]; // 5s, 10s, 20s, 40s
 const MAX_RETRIES = RETRY_DELAYS.length;
 
 // Worker configuration
-const POLL_INTERVAL_MS = 2000; // Check queue every 2 seconds
+const POLL_INTERVAL_MS = 12000; // Check queue every 12 seconds (matches rate limit)
 const UPLOAD_TIMEOUT_MS = 30000; // 30 second timeout for uploads
 
 class UploadWorker extends EventEmitter {
@@ -270,18 +270,21 @@ class UploadWorker extends EventEmitter {
     this.stats.uploadsAttempted++;
     
     // Prepare request payload
+    const parsedData = receipt.parsedData || null;
+    log.ok(`Uploading receipt: items=${parsedData?.items?.length || 0}, total=${parsedData?.total || 0}`);
+    
     const payload = {
       driverId: this.deviceId,
       barId: this.barId,
       timestamp: receipt.timestamp,
       rawData: receipt.escposBytes || null,
-      parsedData: receipt.parsedData || null,  // structured data from AI template
-      rawText: receipt.text || null,
+      parsedData: parsedData,  // Use receipt.parsedData (our Python parser data)
+      rawText: receipt.text || parsedData?.rawText || null,
       printerName: receipt.metadata?.printerName || 'Tabeza POS Connect',
       documentName: receipt.metadata?.documentName || receipt.metadata?.fileName || 'Receipt',
       metadata: {
         ...receipt.metadata,
-        source: 'pooling-capture',
+        source: 'redmon-capture',
         enqueuedAt: receipt.enqueuedAt,
         uploadAttempts: receipt.uploadAttempts || 0,
       },

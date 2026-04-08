@@ -3,10 +3,10 @@
 
 <#
 .SYNOPSIS
-    Automatically configures Tabeza POS Printer with pooling mode for print job capture.
+    Automatically configures Tabeza Agent with pooling mode for print job capture.
 
 .DESCRIPTION
-    This script automates the creation and configuration of a "Tabeza POS Printer" that enables
+    This script automates the creation and configuration of a "Tabeza Agent" that enables
     print job capture through Windows printer pooling. It detects an existing physical thermal
     printer, creates a virtual printer that mirrors it, configures dual ports (physical + file
     capture), and validates the setup.
@@ -19,7 +19,7 @@
     Suppresses console output. Logging to file continues regardless.
 
 .PARAMETER Force
-    Forces reconfiguration even if the Tabeza POS Printer already exists.
+    Forces reconfiguration even if the Tabeza Agent already exists.
 
 .EXAMPLE
     .\configure-pooling-printer.ps1 -CaptureFilePath "C:\TabezaPrints\order.prn"
@@ -58,7 +58,7 @@ param(
 # Script-level variables
 $script:LogFilePath = "C:\ProgramData\Tabeza\logs\configure-pooling.log"
 $script:LogMaxSizeBytes = 10MB
-$script:TabezaPrinterName = "Tabeza POS Printer"
+$script:TabezaPrinterName = "Tabeza Agent"
 $script:TabezaCapturePortName = "TabezaCapturePort"
 
 #region Logging Infrastructure
@@ -147,7 +147,7 @@ function Write-Log {
 
 # Script entry point
 Write-Log "========================================" -Level INFO
-Write-Log "Tabeza POS Printer Configuration Script" -Level INFO
+Write-Log "Tabeza Agent Configuration Script" -Level INFO
 Write-Log "Version: 1.0.0" -Level INFO
 Write-Log "========================================" -Level INFO
 Write-Log "Parameters:" -Level INFO
@@ -291,24 +291,24 @@ function Test-PrintSpoolerRunning {
 
 <#
 .SYNOPSIS
-    Tests if the Tabeza POS Printer already exists.
+    Tests if the Tabeza Agent already exists.
 
 .DESCRIPTION
-    Checks if a printer named "Tabeza POS Printer" already exists in the system.
+    Checks if a printer named "Tabeza Agent" already exists in the system.
     This is used for idempotent configuration - if the printer already exists,
     the script can skip creation and verify the existing configuration instead.
 
 .PARAMETER PrinterName
-    The name of the printer to check (default: "Tabeza POS Printer").
+    The name of the printer to check (default: "Tabeza Agent").
 
 .OUTPUTS
     System.Boolean - Returns $true if the printer exists, $false otherwise.
 
 .EXAMPLE
     if (Test-TabezaPrinterExists) {
-        Write-Host "Tabeza POS Printer already exists"
+        Write-Host "Tabeza Agent already exists"
     } else {
-        Write-Host "Tabeza POS Printer needs to be created"
+        Write-Host "Tabeza Agent needs to be created"
     }
 
 .NOTES
@@ -320,7 +320,7 @@ function Test-TabezaPrinterExists {
     param(
         [Parameter(Mandatory = $false)]
         [ValidateNotNullOrEmpty()]
-        [string]$PrinterName = 'Tabeza POS Printer'
+        [string]$PrinterName = 'Tabeza Agent'
     )
     
     try {
@@ -349,10 +349,10 @@ function Test-TabezaPrinterExists {
 
 <#
 .SYNOPSIS
-    Tests if the Tabeza POS Printer has the correct configuration.
+    Tests if the Tabeza Agent has the correct configuration.
 
 .DESCRIPTION
-    Verifies that an existing Tabeza POS Printer has the correct configuration:
+    Verifies that an existing Tabeza Agent has the correct configuration:
     - Correct driver (matches the physical printer's driver)
     - Correct ports (physical port + capture port)
     - Not shared on the network
@@ -361,7 +361,7 @@ function Test-TabezaPrinterExists {
     or needs to be reconfigured.
 
 .PARAMETER PrinterName
-    The name of the printer to validate (default: "Tabeza POS Printer").
+    The name of the printer to validate (default: "Tabeza Agent").
 
 .PARAMETER ExpectedDriverName
     The expected driver name (should match the physical printer's driver).
@@ -383,7 +383,7 @@ function Test-TabezaPrinterExists {
         - CurrentPorts (string): Current port configuration
 
 .EXAMPLE
-    $config = Test-TabezaPrinterConfiguration -PrinterName "Tabeza POS Printer" -ExpectedDriverName "EPSON TM-T20 Receipt" -ExpectedPhysicalPort "USB001"
+    $config = Test-TabezaPrinterConfiguration -PrinterName "Tabeza Agent" -ExpectedDriverName "EPSON TM-T20 Receipt" -ExpectedPhysicalPort "USB001"
     if ($config.IsValid) {
         Write-Host "Configuration is correct"
     } else {
@@ -399,7 +399,7 @@ function Test-TabezaPrinterConfiguration {
     param(
         [Parameter(Mandatory = $false)]
         [ValidateNotNullOrEmpty()]
-        [string]$PrinterName = 'Tabeza POS Printer',
+        [string]$PrinterName = 'Tabeza Agent',
         
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
@@ -682,7 +682,7 @@ function Get-ThermalPrinters {
             'Fax',
             'OneNote',
             'Adobe PDF',
-            'Tabeza POS Printer'  # Don't detect our own virtual printer
+            'Tabeza Agent'  # Don't detect our own virtual printer
         )
         
         # Step 3: Filter out excluded printers
@@ -985,7 +985,7 @@ ERROR: Printer driver not available
 ========================================
 
 The printer driver '$script:PhysicalPrinterDriver' is not available in the system.
-This driver is required to create the Tabeza POS Printer.
+This driver is required to create the Tabeza Agent.
 
 Troubleshooting steps:
 1. Reinstall the printer driver from the manufacturer's website
@@ -1278,7 +1278,7 @@ function New-LocalCapturePort {
 
 <#
 .SYNOPSIS
-    Creates the Tabeza POS Printer with dual-port pooling configuration.
+    Creates the Tabeza Agent with dual-port pooling configuration.
 
 .DESCRIPTION
     Creates a virtual printer that mirrors the physical thermal printer with
@@ -1290,7 +1290,7 @@ function New-LocalCapturePort {
     pooling configuration directly.
 
 .PARAMETER PrinterName
-    The name of the printer to create (default: "Tabeza POS Printer").
+    The name of the printer to create (default: "Tabeza Agent").
 
 .PARAMETER DriverName
     The driver name to use (must match the physical printer's driver).
@@ -1305,7 +1305,7 @@ function New-LocalCapturePort {
     System.Boolean - Returns $true if printer was created/configured successfully.
 
 .EXAMPLE
-    New-TabezaPOSPrinter -PrinterName "Tabeza POS Printer" -DriverName "EPSON TM-T20 Receipt" -PhysicalPort "USB001" -CapturePort "TabezaCapturePort"
+    New-TabezaPOSPrinter -PrinterName "Tabeza Agent" -DriverName "EPSON TM-T20 Receipt" -PhysicalPort "USB001" -CapturePort "TabezaCapturePort"
 
 .NOTES
     Requirements: 2.1, 2.2, 2.3, 2.6
@@ -1319,7 +1319,7 @@ function New-TabezaPOSPrinter {
     param(
         [Parameter(Mandatory = $false)]
         [ValidateNotNullOrEmpty()]
-        [string]$PrinterName = 'Tabeza POS Printer',
+        [string]$PrinterName = 'Tabeza Agent',
         
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
@@ -1336,7 +1336,7 @@ function New-TabezaPOSPrinter {
     
     try {
         Write-Log "========================================" -Level INFO
-        Write-Log "Creating Tabeza POS Printer with pooling" -Level INFO
+        Write-Log "Creating Tabeza Agent with pooling" -Level INFO
         Write-Log "========================================" -Level INFO
         
         # Step 1: Verify driver exists
@@ -1409,7 +1409,7 @@ Resolution options:
    - Re-run the TabezaConnect installer
 
 2. Rename the existing printer to something else
-   - This will allow the installer to create the Tabeza POS Printer
+   - This will allow the installer to create the Tabeza Agent
 
 For support, visit: https://tabeza.co.ke/support
 Log file: $($script:LogFilePath)
@@ -1433,7 +1433,7 @@ ERROR: Printer Driver Not Found
 ========================================
 
 The printer driver '$DriverName' is not available on this system.
-This driver is required to create the Tabeza POS Printer.
+This driver is required to create the Tabeza Agent.
 
 Troubleshooting steps:
 1. Verify the physical printer '$script:PhysicalPrinterName' is installed correctly
@@ -1474,7 +1474,7 @@ ERROR: Printer Port Not Accessible
 ========================================
 
 The printer port '$PhysicalPort' is not accessible or does not exist.
-This port is required to create the Tabeza POS Printer.
+This port is required to create the Tabeza Agent.
 
 Troubleshooting steps:
 1. Verify the physical printer is connected:
@@ -1518,7 +1518,7 @@ Log file: $($script:LogFilePath)
 ERROR: Failed to Create Printer
 ========================================
 
-An unexpected error occurred while creating the Tabeza POS Printer.
+An unexpected error occurred while creating the Tabeza Agent.
 
 Printer configuration:
   Name: $PrinterName
@@ -1663,7 +1663,7 @@ Log file: $($script:LogFilePath)
         return $true
         
     } catch {
-        Write-Log "Failed to create Tabeza POS Printer: $_" -Level ERROR
+        Write-Log "Failed to create Tabeza Agent: $_" -Level ERROR
         throw
     }
 }
@@ -1774,7 +1774,7 @@ function Get-DefaultPrinter {
     
     This function logs errors as warnings rather than throwing exceptions,
     as default printer restoration is not critical to the core functionality.
-    The Tabeza POS Printer should never be set as default, so if restoration
+    The Tabeza Agent should never be set as default, so if restoration
     fails, the worst case is that the user's default printer changes.
 #>
 function Restore-DefaultPrinter {
@@ -1867,7 +1867,7 @@ function Restore-DefaultPrinter {
 
 <#
 .SYNOPSIS
-    Validates the Tabeza POS Printer pooling configuration.
+    Validates the Tabeza Agent pooling configuration.
 
 .DESCRIPTION
     Performs comprehensive validation of the printer configuration:
@@ -1880,7 +1880,7 @@ function Restore-DefaultPrinter {
     Returns a hashtable with validation results and any errors encountered.
 
 .PARAMETER PrinterName
-    The name of the printer to validate (default: "Tabeza POS Printer").
+    The name of the printer to validate (default: "Tabeza Agent").
 
 .OUTPUTS
     System.Collections.Hashtable - Returns a hashtable with:
@@ -1894,7 +1894,7 @@ function Restore-DefaultPrinter {
         - Warnings (array): List of warning messages
 
 .EXAMPLE
-    $validation = Test-PoolingConfiguration -PrinterName "Tabeza POS Printer"
+    $validation = Test-PoolingConfiguration -PrinterName "Tabeza Agent"
     if ($validation.Errors.Count -eq 0) {
         Write-Host "Configuration is valid"
     } else {
@@ -1910,7 +1910,7 @@ function Test-PoolingConfiguration {
     param(
         [Parameter(Mandatory = $false)]
         [ValidateNotNullOrEmpty()]
-        [string]$PrinterName = 'Tabeza POS Printer'
+        [string]$PrinterName = 'Tabeza Agent'
     )
     
     Write-Log "========================================" -Level INFO
@@ -2171,7 +2171,7 @@ function Test-PoolingConfiguration {
     Tests if the capture file is updated when a print job is sent.
 
 .DESCRIPTION
-    Sends a test print job to the Tabeza POS Printer using Out-Printer and
+    Sends a test print job to the Tabeza Agent using Out-Printer and
     monitors the capture file for changes (size or timestamp). This validates
     that the printer pooling configuration is working correctly and print jobs
     are being captured to the file.
@@ -2180,7 +2180,7 @@ function Test-PoolingConfiguration {
     a warning rather than an error.
 
 .PARAMETER PrinterName
-    The name of the printer to test (default: "Tabeza POS Printer").
+    The name of the printer to test (default: "Tabeza Agent").
 
 .PARAMETER CaptureFilePath
     The path to the capture file to monitor.
@@ -2196,7 +2196,7 @@ function Test-PoolingConfiguration {
         - LastModifiedAfter (datetime): Last modified time after test
 
 .EXAMPLE
-    $result = Test-CaptureFileUpdate -PrinterName "Tabeza POS Printer" -CaptureFilePath "C:\TabezaPrints\order.prn"
+    $result = Test-CaptureFileUpdate -PrinterName "Tabeza Agent" -CaptureFilePath "C:\TabezaPrints\order.prn"
     if ($result.Success) {
         Write-Host "Capture file is being updated correctly"
     } elseif (-not $result.IsFatal) {
@@ -2219,7 +2219,7 @@ function Test-CaptureFileUpdate {
     param(
         [Parameter(Mandatory = $false)]
         [ValidateNotNullOrEmpty()]
-        [string]$PrinterName = 'Tabeza POS Printer',
+        [string]$PrinterName = 'Tabeza Agent',
         
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
@@ -2280,14 +2280,14 @@ function Test-CaptureFileUpdate {
         # Create test print content
         $testContent = @"
 ========================================
-TABEZA POS PRINTER TEST RECEIPT
+Tabeza Agent TEST RECEIPT
 ========================================
 
 Test ID: $([guid]::NewGuid())
 Timestamp: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
 
 This is a test receipt to verify that the
-Tabeza POS Printer pooling configuration
+Tabeza Agent pooling configuration
 is working correctly.
 
 If you can see this receipt, the printer
@@ -2385,11 +2385,11 @@ END OF TEST RECEIPT
 
 <#
 .SYNOPSIS
-    Removes the Tabeza POS Printer and associated capture port.
+    Removes the Tabeza Agent and associated capture port.
 
 .DESCRIPTION
     Performs a clean rollback of the printer configuration by:
-    - Removing the Tabeza POS Printer using Remove-Printer
+    - Removing the Tabeza Agent using Remove-Printer
     - Removing the TabezaCapturePort using Remove-PrinterPort
     - Logging all rollback actions
     - Handling errors gracefully (already removed is considered success)
@@ -2398,7 +2398,7 @@ END OF TEST RECEIPT
     when the printer needs to be reconfigured from scratch.
 
 .PARAMETER PrinterName
-    The name of the printer to remove (default: "Tabeza POS Printer").
+    The name of the printer to remove (default: "Tabeza Agent").
 
 .PARAMETER CapturePortName
     The name of the capture port to remove (default: "TabezaCapturePort").
@@ -2415,7 +2415,7 @@ END OF TEST RECEIPT
     Remove-TabezaPOSPrinter
     
 .EXAMPLE
-    Remove-TabezaPOSPrinter -PrinterName "Tabeza POS Printer" -CapturePortName "TabezaCapturePort"
+    Remove-TabezaPOSPrinter -PrinterName "Tabeza Agent" -CapturePortName "TabezaCapturePort"
 
 .NOTES
     Requirements: 8.4
@@ -2431,7 +2431,7 @@ function Remove-TabezaPOSPrinter {
     param(
         [Parameter(Mandatory = $false)]
         [ValidateNotNullOrEmpty()]
-        [string]$PrinterName = 'Tabeza POS Printer',
+        [string]$PrinterName = 'Tabeza Agent',
         
         [Parameter(Mandatory = $false)]
         [ValidateNotNullOrEmpty()]
@@ -2447,7 +2447,7 @@ function Remove-TabezaPOSPrinter {
     
     $rollbackSuccess = $true
     
-    # Step 1: Remove Tabeza POS Printer
+    # Step 1: Remove Tabeza Agent
     Write-Log "Step 1: Removing printer '$PrinterName'..." -Level INFO
     
     try {
@@ -2819,7 +2819,7 @@ For additional support:
     configuration is correct before considering the setup complete.
 
 .PARAMETER PrinterName
-    The name of the printer to validate (default: "Tabeza POS Printer").
+    The name of the printer to validate (default: "Tabeza Agent").
 
 .PARAMETER OriginalDefaultPrinter
     The name of the original default printer to restore on failure.
@@ -2829,7 +2829,7 @@ For additional support:
     System.Boolean - Returns $true if validation passed, exits script if validation failed.
 
 .EXAMPLE
-    $validation = Invoke-ValidationWithRollback -PrinterName "Tabeza POS Printer" -OriginalDefaultPrinter "EPSON TM-T20"
+    $validation = Invoke-ValidationWithRollback -PrinterName "Tabeza Agent" -OriginalDefaultPrinter "EPSON TM-T20"
 
 .NOTES
     Requirements: 8.4
@@ -2843,7 +2843,7 @@ function Invoke-ValidationWithRollback {
     param(
         [Parameter(Mandatory = $false)]
         [ValidateNotNullOrEmpty()]
-        [string]$PrinterName = 'Tabeza POS Printer',
+        [string]$PrinterName = 'Tabeza Agent',
         
         [Parameter(Mandatory = $false)]
         [AllowNull()]
@@ -2934,7 +2934,7 @@ function Invoke-ValidationWithRollback {
 ERROR: Printer Configuration Validation Failed
 ========================================
 
-The Tabeza POS Printer was created but failed validation checks.
+The Tabeza Agent was created but failed validation checks.
 All changes have been rolled back to prevent an invalid configuration.
 
 Validation Errors:
@@ -3111,7 +3111,7 @@ function Restore-DefaultPrinter {
 # Tabeza adapts to the venue — never the reverse.
 
 Write-Log "========================================" -Level INFO
-Write-Log "Tabeza POS Printer Configuration Script" -Level INFO
+Write-Log "Tabeza Agent Configuration Script" -Level INFO
 Write-Log "Version: 1.7.0" -Level INFO
 Write-Log "========================================" -Level INFO
 Write-Log "Start Time: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -Level INFO
@@ -3232,7 +3232,7 @@ ERROR: No Thermal Printer Detected
 ========================================
 
 No thermal receipt printer was found on this system.
-The Tabeza POS Printer requires an existing thermal printer to mirror.
+The Tabeza Agent requires an existing thermal printer to mirror.
 
 Troubleshooting steps:
 1. Ensure your thermal printer is connected:
@@ -3350,11 +3350,11 @@ Write-Log "========================================" -Level INFO
 Write-Log "Phase 3: Idempotency Check" -Level INFO
 Write-Log "========================================" -Level INFO
 
-# Check if Tabeza POS Printer already exists (Requirements: 2.5, 7.1)
+# Check if Tabeza Agent already exists (Requirements: 2.5, 7.1)
 $printerExists = Test-TabezaPrinterExists -PrinterName $script:TabezaPrinterName
 
 if ($printerExists -and -not $Force) {
-    Write-Log "Tabeza POS Printer already exists" -Level INFO
+    Write-Log "Tabeza Agent already exists" -Level INFO
     Write-Log "Validating existing configuration..." -Level INFO
     
     # Validate existing configuration (Requirements: 7.2)
@@ -3368,17 +3368,17 @@ if ($printerExists -and -not $Force) {
         Write-Log "========================================" -Level INFO
         Write-Log "✓ Configuration Already Valid (Idempotent)" -Level INFO
         Write-Log "========================================" -Level INFO
-        Write-Log "The Tabeza POS Printer is already configured correctly." -Level INFO
+        Write-Log "The Tabeza Agent is already configured correctly." -Level INFO
         Write-Log "No changes are needed. Exiting with success code." -Level INFO
         Write-Log "========================================" -Level INFO
         
         if (-not $Silent) {
             Write-Host ""
             Write-Host "========================================" -ForegroundColor Green
-            Write-Host "✓ Tabeza POS Printer Already Configured" -ForegroundColor Green
+            Write-Host "✓ Tabeza Agent Already Configured" -ForegroundColor Green
             Write-Host "========================================" -ForegroundColor Green
             Write-Host ""
-            Write-Host "The Tabeza POS Printer is already set up correctly." -ForegroundColor Green
+            Write-Host "The Tabeza Agent is already set up correctly." -ForegroundColor Green
             Write-Host "No changes were made to your system." -ForegroundColor Green
             Write-Host ""
             Write-Host "Configuration Details:" -ForegroundColor Gray
@@ -3440,7 +3440,7 @@ if ($printerExists -and -not $Force) {
     }
     
 } elseif ($printerExists -and $Force) {
-    Write-Log "Tabeza POS Printer exists and Force flag is set" -Level INFO
+    Write-Log "Tabeza Agent exists and Force flag is set" -Level INFO
     Write-Log "Removing existing printer for fresh configuration..." -Level INFO
     
     try {
@@ -3468,7 +3468,7 @@ if ($printerExists -and -not $Force) {
     }
     
 } else {
-    Write-Log "Tabeza POS Printer does not exist. Proceeding with creation..." -Level INFO
+    Write-Log "Tabeza Agent does not exist. Proceeding with creation..." -Level INFO
 }
 
 Write-Log "========================================" -Level INFO
@@ -3548,9 +3548,9 @@ Write-Log "========================================" -Level INFO
 Write-Log "Phase 5: Printer Creation and Pooling Configuration" -Level INFO
 Write-Log "========================================" -Level INFO
 
-# Create Tabeza POS Printer with pooling (Requirements: 2.1, 2.2, 2.3, 2.6)
+# Create Tabeza Agent with pooling (Requirements: 2.1, 2.2, 2.3, 2.6)
 try {
-    Write-Log "Creating Tabeza POS Printer with pooling configuration..." -Level INFO
+    Write-Log "Creating Tabeza Agent with pooling configuration..." -Level INFO
     
     $printerSuccess = New-TabezaPOSPrinter `
         -PrinterName $script:TabezaPrinterName `
@@ -3559,13 +3559,13 @@ try {
         -CapturePort $script:TabezaCapturePortName
     
     if ($printerSuccess) {
-        Write-Log "✓ Tabeza POS Printer created successfully" -Level INFO
+        Write-Log "✓ Tabeza Agent created successfully" -Level INFO
     } else {
         throw "Printer creation returned false"
     }
     
 } catch {
-    $errorMsg = "Failed to create Tabeza POS Printer: $_"
+    $errorMsg = "Failed to create Tabeza Agent: $_"
     Write-Log $errorMsg -Level ERROR
     
     # Attempt rollback
@@ -3580,7 +3580,7 @@ try {
     
     if (-not $Silent) {
         Write-Host ""
-        Write-Host "ERROR: Failed to create Tabeza POS Printer" -ForegroundColor Red
+        Write-Host "ERROR: Failed to create Tabeza Agent" -ForegroundColor Red
         Write-Host $errorMsg -ForegroundColor Red
         Write-Host ""
         Write-Host "The system has been rolled back to its original state." -ForegroundColor Yellow
@@ -3622,12 +3622,12 @@ if ($originalDefaultPrinter) {
     Write-Log "No original default printer to restore (none was set)" -Level INFO
 }
 
-# Verify default printer was not changed to Tabeza POS Printer (Requirements: 4.3, 4.4)
+# Verify default printer was not changed to Tabeza Agent (Requirements: 4.3, 4.4)
 try {
     $currentDefault = Get-DefaultPrinter
     
     if ($currentDefault -eq $script:TabezaPrinterName) {
-        Write-Log "⚠ WARNING: Tabeza POS Printer is now the default printer" -Level WARN
+        Write-Log "⚠ WARNING: Tabeza Agent is now the default printer" -Level WARN
         Write-Log "This should not happen. Attempting to restore original default..." -Level WARN
         
         if ($originalDefaultPrinter) {
@@ -3636,7 +3636,7 @@ try {
     } elseif ($currentDefault -eq $originalDefaultPrinter) {
         Write-Log "✓ Default printer preserved: $currentDefault" -Level INFO
     } elseif ($currentDefault) {
-        Write-Log "ℹ Default printer changed to: $currentDefault (not Tabeza POS Printer)" -Level INFO
+        Write-Log "ℹ Default printer changed to: $currentDefault (not Tabeza Agent)" -Level INFO
     } else {
         Write-Log "ℹ No default printer is currently set" -Level INFO
     }
@@ -3673,7 +3673,7 @@ Write-Log "========================================" -Level INFO
 
 # Log success summary
 Write-Log "Configuration Summary:" -Level INFO
-Write-Log "  Tabeza POS Printer: $script:TabezaPrinterName" -Level INFO
+Write-Log "  Tabeza Agent: $script:TabezaPrinterName" -Level INFO
 Write-Log "  Physical Printer: $script:PhysicalPrinterName" -Level INFO
 Write-Log "  Driver: $script:PhysicalPrinterDriver" -Level INFO
 Write-Log "  Physical Port: $script:PhysicalPrinterPort" -Level INFO
@@ -3687,7 +3687,7 @@ Write-Log "========================================" -Level INFO
 if (-not $Silent) {
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Green
-    Write-Host "✓ Tabeza POS Printer Configured Successfully" -ForegroundColor Green
+    Write-Host "✓ Tabeza Agent Configured Successfully" -ForegroundColor Green
     Write-Host "========================================" -ForegroundColor Green
     Write-Host ""
     Write-Host "Configuration Details:" -ForegroundColor Gray

@@ -142,7 +142,7 @@ This implementation satisfies the following requirements from the spec:
 After this task is complete:
 
 1. **Task 2.4**: Create printer configuration PowerShell script
-   - Configure "Tabeza POS Printer" with Generic/Text Only driver
+   - Configure "Tabeza Agent" with Generic/Text Only driver
    - Add Redmon port pointing to capture script
 
 2. **Task 9**: Update Installer for Redmon

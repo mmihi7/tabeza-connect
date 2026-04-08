@@ -63,7 +63,7 @@
 1. ✅ SpoolWatcher captures .ps files from clawPDF
 2. ✅ Jobs queued for forwarding
 3. ⚠️ Installer installs clawPDF silently
-4. ⚠️ Installer configures "Tabeza POS Printer" profile
+4. ⚠️ Installer configures "Tabeza Agent" profile
 5. ⚠️ Spool folder created during installation
 
 ### Can Add Post-Launch
@@ -94,7 +94,7 @@ Filename: "powershell.exe"; \
 1. Build installer with updated script
 2. Test on clean Windows 10/11 VM
 3. Verify clawPDF installs
-4. Verify "Tabeza POS Printer" appears
+4. Verify "Tabeza Agent" appears
 5. Test print job → spool folder → capture
 
 ### Priority 3: Verify Service Startup

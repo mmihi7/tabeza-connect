@@ -86,7 +86,7 @@ Startup Flow:
 3. Check registry: HKLM\SOFTWARE\clawSoft\clawPDF
 4. If installed:
    a. Read version from registry
-   b. Check profile: C:\ProgramData\clawSoft\clawPDF\Profiles\Tabeza POS Printer.ini
+   b. Check profile: C:\ProgramData\clawSoft\clawPDF\Profiles\Tabeza Agent.ini
    c. If profile exists:
       - Read AutoSaveDirectory setting
       - Verify spool folder exists
@@ -112,7 +112,7 @@ Test Print Flow:
 ────────────────
 1. User clicks "Send Test Print" in wizard
 2. Generate test receipt data
-3. Send print job to "Tabeza POS Printer"
+3. Send print job to "Tabeza Agent"
 4. Start monitoring spool folder
 5. Wait up to 5 seconds for file to appear
 6. If file appears: display success message
@@ -149,11 +149,11 @@ class ClawPDFDetector {
     }
     
     /**
-     * Check if "Tabeza POS Printer" profile exists and is valid
+     * Check if "Tabeza Agent" profile exists and is valid
      * @returns {Promise<{exists: boolean, configPath: string|null, valid: boolean}>}
      */
     async checkPrinterProfile() {
-        // Check file: C:\ProgramData\clawSoft\clawPDF\Profiles\Tabeza POS Printer.ini
+        // Check file: C:\ProgramData\clawSoft\clawPDF\Profiles\Tabeza Agent.ini
         // Validate profile configuration
         // Return profile status
     }
@@ -199,7 +199,7 @@ class ClawPDFDetector {
  * @typedef {Object} PrinterStatus
  * @property {boolean} installed - clawPDF is installed
  * @property {string|null} version - clawPDF version
- * @property {boolean} profileExists - "Tabeza POS Printer" profile exists
+ * @property {boolean} profileExists - "Tabeza Agent" profile exists
  * @property {boolean} spoolConfigured - Spool folder correctly configured
  * @property {string} status - Overall status: not_installed | profile_missing | misconfigured | fully_configured
  * @property {string} statusMessage - Human-readable status description
@@ -244,7 +244,7 @@ FUNCTION checkClawPDFInstallation():
 2. **Profile Detection Algorithm**
 ```
 FUNCTION checkPrinterProfile():
-    1. Define profile path: C:\ProgramData\clawSoft\clawPDF\Profiles\Tabeza POS Printer.ini
+    1. Define profile path: C:\ProgramData\clawSoft\clawPDF\Profiles\Tabeza Agent.ini
     2. Check if file exists
     3. IF file exists:
         a. Try to read file contents
@@ -295,7 +295,7 @@ FUNCTION getFullPrinterStatus(bypassCache):
         c. profileStatus = checkPrinterProfile()
         d. IF NOT profileStatus.exists:
             - status = "profile_missing"
-            - statusMessage = "Tabeza POS Printer profile not found"
+            - statusMessage = "Tabeza Agent profile not found"
             - GOTO step 3
         
         e. spoolStatus = verifySpoolFolder()
@@ -640,9 +640,9 @@ FUNCTION sendTestPrint():
     
     2. Format as ESC/POS commands
     
-    3. Send to "Tabeza POS Printer":
+    3. Send to "Tabeza Agent":
         a. Use Windows printing API
-        b. Target printer: "Tabeza POS Printer"
+        b. Target printer: "Tabeza Agent"
     
     4. Start monitoring spool folder:
         a. Watch: C:\TabezaPrints\spool\
@@ -674,7 +674,7 @@ interface PrinterStatus {
     version: string | null;          // clawPDF version (e.g., "0.9.3")
     
     // Configuration state
-    profileExists: boolean;          // "Tabeza POS Printer" profile exists
+    profileExists: boolean;          // "Tabeza Agent" profile exists
     spoolConfigured: boolean;        // Spool folder correctly configured
     
     // Overall status
@@ -815,7 +815,7 @@ interface TestPrintResult {
 
 ### Property 9: Test Print Round-Trip
 
-*For any* test print sent to "Tabeza POS Printer", if the printer is fully configured, a corresponding file SHALL appear in the spool folder within 5 seconds.
+*For any* test print sent to "Tabeza Agent", if the printer is fully configured, a corresponding file SHALL appear in the spool folder within 5 seconds.
 
 **Validates: Requirements 13.2, 13.3, 13.4, 13.5, 13.6**
 
@@ -1403,7 +1403,7 @@ HKEY_LOCAL_MACHINE\SOFTWARE\clawSoft\clawPDF
 ```
 C:\ProgramData\clawSoft\clawPDF\
 ├── Profiles\
-│   └── Tabeza POS Printer.ini   # Profile configuration
+│   └── Tabeza Agent.ini   # Profile configuration
 └── Logs\
     └── clawPDF.log              # clawPDF logs
 
@@ -1417,7 +1417,7 @@ C:\TabezaPrints\
 **Profile INI Format:**
 ```ini
 [General]
-ProfileName=Tabeza POS Printer
+ProfileName=Tabeza Agent
 AutoSave=true
 OutputFormat=PostScript
 
@@ -1526,7 +1526,7 @@ AutoSaveFilename=<DateTime>_<JobID>.ps
 ```
 [2026-03-04T14:30:22.001Z][INFO][clawPDF] Detection started
 [2026-03-04T14:30:22.123Z][INFO][clawPDF] Installation detected: version 0.9.3
-[2026-03-04T14:30:22.234Z][INFO][clawPDF] Profile found: Tabeza POS Printer
+[2026-03-04T14:30:22.234Z][INFO][clawPDF] Profile found: Tabeza Agent
 [2026-03-04T14:30:22.345Z][INFO][clawPDF] Spool folder configured: C:\TabezaPrints\spool\
 [2026-03-04T14:30:22.456Z][INFO][clawPDF] Status: fully_configured
 [2026-03-04T14:30:22.567Z][INFO][SetupState] Printer step auto-completed

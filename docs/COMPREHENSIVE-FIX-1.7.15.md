@@ -60,7 +60,7 @@ window.switchSection = function(sectionName) {
 ## Issue 2: Printer Pooling Not Visible in Windows
 
 ### Problem
-After running printer pooling setup, the "Tabeza POS Printer" is not visible in Windows Settings > Printers & Devices.
+After running printer pooling setup, the "Tabeza Agent" is not visible in Windows Settings > Printers & Devices.
 
 ### Root Cause Analysis
 
@@ -252,7 +252,7 @@ When the background service reads config:
 2. Select a physical printer
 3. Wait for completion
 4. Open Windows Settings > Printers & Devices
-5. "Tabeza POS Printer" should be visible
+5. "Tabeza Agent" should be visible
 6. Right-click → Printer Properties → Ports tab
 7. Should show TWO ports checked:
    - Physical port (e.g., USB001)

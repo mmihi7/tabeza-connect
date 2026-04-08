@@ -151,7 +151,7 @@ The redesign prioritizes a customer-friendly first-run onboarding experience tha
 2. THE Printer_Setup section SHALL provide a button to launch the printer pooling configuration wizard
 3. WHEN the User clicks the configuration button, THE Management_UI SHALL open the Printer_Setup wizard window
 4. THE Printer_Setup section SHALL display which physical printer is currently configured
-5. THE Printer_Setup section SHALL display whether the Tabeza POS Printer is properly configured
+5. THE Printer_Setup section SHALL display whether the Tabeza Agent is properly configured
 6. WHEN printer setup is successfully completed, THE Setup_Progress SHALL mark the Printer Setup step as Complete
 7. THE Printer_Setup section SHALL use customer-friendly language explaining what printer pooling does and why it's needed
 

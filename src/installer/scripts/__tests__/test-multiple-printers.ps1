@@ -51,7 +51,7 @@ $script:TestConfig = @{
             ExpectedScore = 3  # Keywords: Star, Thermal, POS
         }
     )
-    TabezaPrinterName = "Tabeza POS Printer"
+    TabezaPrinterName = "Tabeza Agent"
     CaptureFilePath = "C:\TabezaPrints\order.prn"
     CaptureDirectory = "C:\TabezaPrints"
     ConfigScriptPath = Join-Path $PSScriptRoot "..\configure-pooling-printer.ps1"
@@ -203,9 +203,9 @@ function Test-PrioritizationLogic {
         $exitCode = $LASTEXITCODE
         Assert-Equal -Expected 0 -Actual $exitCode -TestName "Configuration script exit code"
         
-        # Verify Tabeza POS Printer was created
+        # Verify Tabeza Agent was created
         $tabezaPrinter = Get-Printer -Name $script:TestConfig.TabezaPrinterName -ErrorAction SilentlyContinue
-        Assert-True -Condition ($null -ne $tabezaPrinter) -TestName "Tabeza POS Printer created" -ErrorMessage "Tabeza POS Printer not found"
+        Assert-True -Condition ($null -ne $tabezaPrinter) -TestName "Tabeza Agent created" -ErrorMessage "Tabeza Agent not found"
         
         if ($tabezaPrinter) {
             # Get the physical port (first port in the pool)
@@ -277,7 +277,7 @@ function Test-ExclusionPatterns {
             }
         }
         
-        # Verify Tabeza POS Printer still uses the thermal printer, not excluded ones
+        # Verify Tabeza Agent still uses the thermal printer, not excluded ones
         $tabezaPrinter = Get-Printer -Name $script:TestConfig.TabezaPrinterName -ErrorAction Stop
         $ports = $tabezaPrinter.PortName -split ','
         $physicalPort = $ports[0]
@@ -306,7 +306,7 @@ function Test-ConfigurationWithMultiplePrinters {
     Write-TestLog "`n=== Test: Configuration with Multiple Printers ===" -Level INFO
     
     try {
-        # Verify Tabeza POS Printer configuration
+        # Verify Tabeza Agent configuration
         $tabezaPrinter = Get-Printer -Name $script:TestConfig.TabezaPrinterName -ErrorAction Stop
         
         # Verify dual-port configuration
@@ -342,11 +342,11 @@ function Remove-TestEnvironment {
     Write-TestLog "`nCleaning up test environment..." -Level INFO
     
     try {
-        # Remove Tabeza POS Printer
+        # Remove Tabeza Agent
         $tabezaPrinter = Get-Printer -Name $script:TestConfig.TabezaPrinterName -ErrorAction SilentlyContinue
         if ($tabezaPrinter) {
             Remove-Printer -Name $script:TestConfig.TabezaPrinterName -ErrorAction Stop
-            Write-TestLog "Removed Tabeza POS Printer" -Level INFO
+            Write-TestLog "Removed Tabeza Agent" -Level INFO
         }
         
         # Remove TabezaCapturePort

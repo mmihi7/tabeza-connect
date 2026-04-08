@@ -16,7 +16,7 @@ The venue's POS and physical printer are never touched. The system observes a co
 ## How It Works (Current Architecture)
 
 ```
-POS prints to "Tabeza POS Printer" (virtual Windows printer)
+POS prints to "Tabeza Agent" (virtual Windows printer)
     ↓
 Redmon port monitor intercepts the raw ESC/POS bytes
     ↓

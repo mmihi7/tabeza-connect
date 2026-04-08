@@ -41,32 +41,40 @@ class SpoolWatcher extends EventEmitter {
 
     async start() {
         if (this.isRunning) {
-            log.warn('Already running');
+            log.warn('Start called but already running.');
             return;
         }
+        // Set running flag immediately to prevent race conditions
+        this.isRunning = true; 
+        log.step(`Initializing watcher for ${this.spoolFolder}`);
 
-        await fs.mkdir(this.spoolFolder, { recursive: true });
-        log.step(`Watching ${this.spoolFolder} for .prn files`);
+        try {
+            await fs.mkdir(this.spoolFolder, { recursive: true });
+            log.step(`Watching ${this.spoolFolder} for .prn files`);
 
-        this.watcher = chokidar.watch(this.spoolFolder, {
-            ignored: /(^|[\/\\])\../,
-            persistent: true,
-            ignoreInitial: false,
-            awaitWriteFinish: {
-                stabilityThreshold: this.stabilizationDelay,
-                pollInterval: 100,
-            },
-            depth: 0,
-        });
-
-        this.watcher
-            .on('add',   (filePath) => this.handleFileAdded(filePath))
-            .on('error', (error)    => this.handleError(error))
-            .on('ready', () => {
-                this.isRunning = true;
-                log.ok('Ready — waiting for print jobs');
-                this.emit('ready');
+            this.watcher = chokidar.watch(this.spoolFolder, {
+                ignored: /(^|[\/\\])\../,
+                persistent: true,
+                ignoreInitial: false,
+                awaitWriteFinish: {
+                    stabilityThreshold: this.stabilizationDelay,
+                    pollInterval: 100,
+                },
+                depth: 0,
             });
+
+            this.watcher
+                .on('add',   (filePath) => this.handleFileAdded(filePath))
+                .on('error', (error)    => this.handleError(error))
+                .on('ready', () => {
+                    log.ok('Ready — waiting for print jobs');
+                    this.emit('ready');
+                });
+        } catch (error) {
+            log.error(`Failed to start watcher: ${error.message}`);
+            this.isRunning = false; // Reset flag on failure
+            throw error;
+        }
     }
 
     async stop() {
@@ -127,6 +135,14 @@ class SpoolWatcher extends EventEmitter {
             const fileStats = await fs.stat(filePath);
             if (fileStats.size === 0) {
                 log.warn(`Skipping empty file: ${fileName}`);
+                this.processingFiles.delete(filePath);
+                return;
+            }
+
+            // Skip files that are too small to contain meaningful receipt data
+            const MIN_CONTENT_SIZE = 50; // Minimum 50 characters for a valid receipt
+            if (fileStats.size < MIN_CONTENT_SIZE) {
+                log.warn(`Skipping undersized file: ${fileName} (${fileStats.size} bytes < ${MIN_CONTENT_SIZE} bytes minimum)`);
                 this.processingFiles.delete(filePath);
                 return;
             }

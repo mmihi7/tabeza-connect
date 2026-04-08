@@ -43,7 +43,7 @@ describe('Bug Condition Exploration: Template Generator Printer Status & Receipt
      * Bug Condition: IPC handler checks for printer pooling but printer uses Redmon
      * 
      * Expected Behavior (will fail on unfixed code):
-     * - Printer "Tabeza POS Printer" exists in Windows (verified by Get-Printer)
+     * - Printer "Tabeza Agent" exists in Windows (verified by Get-Printer)
      * - IPC handler should return consistent status based on actual printer existence
      * - Should NOT check for pooling configuration when printer uses Redmon
      * 
@@ -56,15 +56,15 @@ describe('Bug Condition Exploration: Template Generator Printer Status & Receipt
     test('EXPECTED TO FAIL: Printer status should be consistent - check actual printer existence', async () => {
       console.log('\n--- Bug 1: Printer Status Inconsistency ---');
       
-      // Step 1: Verify "Tabeza POS Printer" exists in Windows using Get-Printer
-      console.log('Step 1: Checking if "Tabeza POS Printer" exists in Windows...');
+      // Step 1: Verify "Tabeza Agent" exists in Windows using Get-Printer
+      console.log('Step 1: Checking if "Tabeza Agent" exists in Windows...');
       
       let printerExists = false;
       let printerInfo = null;
       
       try {
         const { stdout } = await execAsync(
-          `powershell.exe -Command "Get-Printer -Name 'Tabeza POS Printer' -ErrorAction SilentlyContinue | ConvertTo-Json"`
+          `powershell.exe -Command "Get-Printer -Name 'Tabeza Agent' -ErrorAction SilentlyContinue | ConvertTo-Json"`
         );
         
         if (stdout && stdout.trim()) {
@@ -104,7 +104,7 @@ describe('Bug Condition Exploration: Template Generator Printer Status & Receipt
         
         // Document the bug: handler should check printer existence, not pooling
         console.log('\n  ❌ BUG CONFIRMED: IPC handler checks for pooling instead of printer existence');
-        console.log('  ❌ Expected: Check "Tabeza POS Printer" with Get-Printer cmdlet');
+        console.log('  ❌ Expected: Check "Tabeza Agent" with Get-Printer cmdlet');
         console.log('  ❌ Actual: Calls printer-pooling-setup.ps1 which checks for pooling');
       }
       

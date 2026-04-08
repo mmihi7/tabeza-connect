@@ -1,4 +1,4 @@
-# Configure Tabeza POS Printer with Redmon Port
+# Configure Tabeza Agent with Redmon Port
 # Creates a printer using Generic/Text Only driver with Redmon port
 # that pipes print jobs to the Tabeza Connect capture script
 # v1.7.14 - Redmon-based receipt capture implementation (No emoji version)
@@ -8,13 +8,13 @@ param(
     [string]$BarId = "UNCONFIGURED",
     
     [string]$CaptureScriptPath = "C:\Program Files\TabezaConnect\resources\capture.exe",
-    [string]$PrinterName = "Tabeza POS Printer",
+    [string]$PrinterName = "Tabeza Agent",
     [string]$DriverName = "Generic / Text Only",
     [string]$PortName = "TabezaCapturePort",
     [switch]$Detailed
 )
 
-Write-Host "Configuring Tabeza POS Printer with Redmon..." -ForegroundColor Cyan
+Write-Host "Configuring Tabeza Agent with Redmon..." -ForegroundColor Cyan
 Write-Host ""
 
 # ===============================================================================

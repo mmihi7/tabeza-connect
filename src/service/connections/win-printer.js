@@ -79,7 +79,7 @@ if ($ok) { Write-Host "OK:$($bytes.Length)" } else { Write-Host "FAIL"; exit 1 }
 `;
 
 class WindowsPrinterConnection {
-    constructor(printerName, config = {}) {
+    constructor({ printerName }, config = {}) {
         this.printerName = printerName;
         this.config = config;
         this.tempDir = path.join('C:\\TabezaPrints', 'temp');
@@ -87,12 +87,58 @@ class WindowsPrinterConnection {
         
         // Deduplication cache to prevent multiple sends of same data
         this._recentSends = new Map();
-        this._dedupeWindow = 5000; // 5 seconds
+        this._dedupeWindow = config.dedupeWindow ?? 30000; // default 30 seconds
+        log.debug(`Duplicate detection window set to ${this._dedupeWindow}ms`);
+        
+        // Print quality configuration (ESC/POS density, heating, speed)
+        this._printQuality = config.printQuality || { density: 8, heating: 80, speed: 2 };
+        log.debug(`Print quality settings: density=${this._printQuality.density}, heating=${this._printQuality.heating}, speed=${this._printQuality.speed}`);
         
         // Ensure temp directory exists
         if (!fs.existsSync(this.tempDir)) {
             fs.mkdirSync(this.tempDir, { recursive: true });
         }
+    }
+
+    /**
+     * Generate ESC/POS commands for print quality settings (density, heating, speed).
+     * Returns a Buffer that can be prepended to receipt data.
+     * @private
+     */
+    _applyPrintQuality() {
+        const { density, heating, speed } = this._printQuality;
+        // Clamp values to valid ranges
+        const d1 = Math.max(0, Math.min(8, density));
+        const h1 = Math.max(0, Math.min(255, heating));
+        const s1 = Math.max(0, Math.min(2, speed));
+
+        // GS ( L pL pH m fn d1 d2 - Print density
+        const densityCmd = Buffer.from([
+            0x1d, 0x28, 0x4c, // GS ( L
+            0x04, 0x00,       // pL=4, pH=0 (4 bytes follow)
+            0x00,             // m=0
+            0x01,             // fn=1 (print density)
+            d1, 0x00          // d1, d2 (d2 reserved, set to 0)
+        ]);
+        // GS ( H pL pH m fn d1 d2 - Heating time
+        const heatingCmd = Buffer.from([
+            0x1d, 0x28, 0x48, // GS ( H
+            0x04, 0x00,
+            0x00,
+            0x01,             // fn=1 (heating?)
+            h1, 0x00
+        ]);
+        // GS ( S pL pH m fn d1 d2 - Print speed
+        const speedCmd = Buffer.from([
+            0x1d, 0x28, 0x53, // GS ( S
+            0x04, 0x00,
+            0x00,
+            0x01,             // fn=1 (speed?)
+            s1, 0x00
+        ]);
+
+        log.debug(`Applying print quality: density=${d1}, heating=${h1}, speed=${s1}`);
+        return Buffer.concat([densityCmd, heatingCmd, speedCmd]);
     }
 
     async connect() {
@@ -119,8 +165,20 @@ class WindowsPrinterConnection {
     }
 
     async send(data) {
+        // --- FIX: Append paper cut and feed command ---
+        // This ensures the printer properly cuts the receipt and ejects the page.
+        const fiveLineFeeds = Buffer.from('\n\n\n\n\n');
+        const partialCutCommand = Buffer.from([0x1d, 0x56, 0x42, 0x30]); // GS V 1 (partial cut)
+        const fullCutCommand = Buffer.from([0x1d, 0x56, 0x41, 0x00]); // GS V A (full cut)
+
+        // Apply print quality commands (density, heating, speed)
+        const qualityPrefix = this._applyPrintQuality();
+        // Combine quality prefix, original receipt data, line feeds, and cut command
+        const dataWithCut = Buffer.concat([qualityPrefix, data, fiveLineFeeds, partialCutCommand]);
+        // --- END FIX ---
+
         // Create hash of data for deduplication
-        const dataHash = require('crypto').createHash('md5').update(data).digest('hex');
+        const dataHash = require('crypto').createHash('md5').update(dataWithCut).digest('hex');
         const now = Date.now();
         
         // Check if we recently sent this exact same data
@@ -141,9 +199,9 @@ class WindowsPrinterConnection {
         }
         
         const tempFile = path.join(this.tempDir, `print_${Date.now()}.prn`);
-        log.step(`Sending ${data.length} bytes to "${this.printerName}" via WritePrinter (raw)`);
+        log.step(`Sending ${dataWithCut.length} bytes to "${this.printerName}" via WritePrinter (raw)`);
         try {
-            await fs.promises.writeFile(tempFile, data);
+            await fs.promises.writeFile(tempFile, dataWithCut);
 
             const escaped = this.printerName.replace(/'/g, "''");
             const { stdout, stderr } = await execFilePromise('powershell.exe', [
@@ -161,7 +219,7 @@ class WindowsPrinterConnection {
                 throw new Error(`WritePrinter failed: ${errMsg}`);
             }
 
-            log.ok(`Sent ${data.length} bytes → "${this.printerName}" (raw)`);
+            log.ok(`Sent ${dataWithCut.length} bytes → "${this.printerName}" (raw)`);
             return data.length;
         } catch (err) {
             log.error(`Send failed: ${err.message}`);

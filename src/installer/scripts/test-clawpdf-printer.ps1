@@ -3,7 +3,7 @@
 # Verifies that the printer captures the job to the spool folder
 
 param(
-    [string]$PrinterName = "Tabeza POS Printer",
+    [string]$PrinterName = "Tabeza Agent",
     [string]$SpoolFolder = "C:\TabezaPrints\spool",
     [string]$LogPath = "$env:TEMP\TabezaConnect-clawPDF-test.log",
     [int]$TimeoutSeconds = 30

@@ -12,14 +12,14 @@ The existing Windows printer pooling approach has a fundamental flaw: Windows po
 
 A clawPDF-based virtual printer that:
 - Leverages clawPDF (https://github.com/clawsoftware/clawPDF), an open-source virtual printer for Windows
-- Appears as "Tabeza POS Printer" to POS systems
+- Appears as "Tabeza Agent" to POS systems
 - Captures print jobs as raw PostScript files to a monitored spool folder
 - Integrates with Tabeza Connect service to process, parse, and forward jobs
 - Eliminates months of C++ driver development and code signing complexity
 
 ### Design Goals
 
-1. **Zero POS Reconfiguration** - POS systems continue printing to "Tabeza POS Printer" without changes
+1. **Zero POS Reconfiguration** - POS systems continue printing to "Tabeza Agent" without changes
 2. **Transparent Operation** - Physical receipts print exactly as before
 3. **Reliable Capture** - 100% capture rate with no data loss
 4. **Fault Isolation** - clawPDF failures do not affect physical printing
@@ -113,7 +113,7 @@ A clawPDF-based virtual printer that:
 ┌─────────────────────────────────────────────────────────────────────┐
 │                      Windows Print Spooler                           │
 │  - Receives jobs from POS systems                                   │
-│  - Routes to "Tabeza POS Printer"                                   │
+│  - Routes to "Tabeza Agent"                                   │
 │  - Manages print queue                                              │
 └─────────────────────────────────────────────────────────────────────┘
                                 │
@@ -121,7 +121,7 @@ A clawPDF-based virtual printer that:
                                 │
 ┌─────────────────────────────────────────────────────────────────────┐
 │                          POS System                                  │
-│  - Prints to "Tabeza POS Printer"                                   │
+│  - Prints to "Tabeza Agent"                                   │
 │  - No configuration changes required                                │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -138,7 +138,7 @@ A clawPDF-based virtual printer that:
 ┌─────────────────────────────────────┐
 │   Windows Print Spooler             │
 │   - Queues job                      │
-│   - Routes to "Tabeza POS Printer"  │
+│   - Routes to "Tabeza Agent"  │
 └──────┬──────────────────────────────┘
        │
        │ Spooled Job
@@ -743,7 +743,7 @@ interface DriverStatus {
 
 ### Property 1: Print Job Interception Completeness
 
-*For any* print job sent to "Tabeza POS Printer", the Virtual_Printer_Driver SHALL intercept the job and deliver it to the Tabeza_Capture_Service via named pipe.
+*For any* print job sent to "Tabeza Agent", the Virtual_Printer_Driver SHALL intercept the job and deliver it to the Tabeza_Capture_Service via named pipe.
 
 **Validates: Requirements 1.4, 2.1**
 
@@ -1210,8 +1210,8 @@ HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Print\Monitors\Tabeza Monito
 **Goal:** Install virtual printer alongside existing pooling printer without disruption.
 
 **Steps:**
-1. Install virtual printer driver as "Tabeza POS Printer (New)"
-2. Keep existing "Tabeza POS Printer" (pooling) active
+1. Install virtual printer driver as "Tabeza Agent (New)"
+2. Keep existing "Tabeza Agent" (pooling) active
 3. Test virtual printer with test receipts
 4. Verify capture, forwarding, and upload work correctly
 5. Monitor for issues
@@ -1225,8 +1225,8 @@ HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Print\Monitors\Tabeza Monito
 **Steps:**
 1. During off-peak hours:
    a. Backup existing configuration
-   b. Remove pooling printer "Tabeza POS Printer"
-   c. Rename virtual printer to "Tabeza POS Printer"
+   b. Remove pooling printer "Tabeza Agent"
+   c. Rename virtual printer to "Tabeza Agent"
    d. Verify POS can print to renamed printer
 2. Test with real transactions
 3. Monitor for 24 hours
@@ -1266,7 +1266,7 @@ HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Print\Monitors\Tabeza Monito
 - Heartbeat format unchanged
 
 **User Experience:**
-- Printer name remains "Tabeza POS Printer"
+- Printer name remains "Tabeza Agent"
 - System tray icon behavior unchanged
 - Management UI URLs unchanged (localhost:8765)
 

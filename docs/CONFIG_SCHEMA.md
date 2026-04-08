@@ -127,8 +127,9 @@ Monitors Windows print spooler for new print jobs (legacy mode).
 - **`description`** (string): Service description
 - **`port`** (number): HTTP API port for status endpoint
   - Default: `8765`
-
 ## Printer Configuration
+
+### Virtual Printer
 
 ```json
 "printer": {
@@ -142,6 +143,39 @@ Monitors Windows print spooler for new print jobs (legacy mode).
 - **`name`** (string): Virtual printer name
 - **`port`** (string): Printer port type
 - **`outputPath`** (string): Output directory for print jobs
+
+### Physical Printers
+
+The `printers` array defines physical printers that receive forwarded receipt data.
+
+```json
+"printers": [
+  {
+    "name": "EPSON L3210 Series",
+    "type": "windows",
+    "enabled": true,
+    "isDefault": true,
+    "dedupeWindow": 30000,
+    "printQuality": {
+      "density": 8,
+      "heating": 80,
+      "speed": 2
+    }
+  }
+]
+```
+
+**Fields per printer object:**
+- **`name`** (string): Printer name as shown in Windows Devices and Printers.
+- **`type`** (string): Printer connection type. Must be `"windows"` for Windows raw printing, `"usb"`, `"network"`, or `"serial"`.
+- **`enabled`** (boolean): Whether the printer is active. Default `true`.
+- **`isDefault`** (boolean): If multiple printers, this printer receives jobs when no specific printer is selected. Default `false`.
+- **`dedupeWindow`** (number, optional): Time window in milliseconds during which duplicate print jobs are suppressed. Default `30000` (30 seconds).
+- **`printQuality`** (object, optional): ESC/POS print quality settings.
+  - **`density`** (number): Print density (0–8). Higher values produce darker print. Default `8`.
+  - **`heating`** (number): Heating duration (0–255). Higher values increase heating time for darker print but may reduce print head life. Default `80`.
+  - **`speed`** (number): Print speed (0–2). 0 = slow, 1 = normal, 2 = fast. Default `2`.
+
 
 ## Sync Configuration
 

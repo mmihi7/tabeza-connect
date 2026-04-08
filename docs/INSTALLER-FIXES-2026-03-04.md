@@ -104,7 +104,7 @@
 1. From system tray, select "Configure Printer Pooling..."
 2. Wizard should open
 3. Follow prompts to configure printer
-4. Verify "Tabeza POS Printer" is created in Windows
+4. Verify "Tabeza Agent" is created in Windows
 
 ## Known Issues
 

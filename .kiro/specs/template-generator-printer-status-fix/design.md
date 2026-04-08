@@ -25,7 +25,7 @@ The fix ensures consistent printer status reporting across all UI components, im
 
 ### Fault Condition 1: Printer Status Inconsistency
 
-The bug manifests when the template generator page requests printer status via the IPC handler `check-printer-setup`. The handler executes a PowerShell script `printer-pooling-setup.ps1` that checks for printer pooling configuration, but the actual "Tabeza POS Printer" uses Redmon (not pooling). This causes the handler to return "Not configured" even though the printer exists and is working correctly.
+The bug manifests when the template generator page requests printer status via the IPC handler `check-printer-setup`. The handler executes a PowerShell script `printer-pooling-setup.ps1` that checks for printer pooling configuration, but the actual "Tabeza Agent" uses Redmon (not pooling). This causes the handler to return "Not configured" even though the printer exists and is working correctly.
 
 **Formal Specification:**
 ```
@@ -35,8 +35,8 @@ FUNCTION isBugCondition1(input)
   
   RETURN input.handler = "check-printer-setup" AND
          input.caller = "template-generator" AND
-         printerExists("Tabeza POS Printer") AND
-         printerUsesRedmon("Tabeza POS Printer") AND
+         printerExists("Tabeza Agent") AND
+         printerUsesRedmon("Tabeza Agent") AND
          handlerChecksForPooling()
 END FUNCTION
 ```
@@ -44,7 +44,7 @@ END FUNCTION
 ### Examples
 
 - Template generator calls `check-printer-setup` → handler checks for pooling → returns "Not configured" even though printer exists
-- Dashboard shows "✅ Tabeza POS Printer" (likely using cached status or different check) while template generator shows "Not configured"
+- Dashboard shows "✅ Tabeza Agent" (likely using cached status or different check) while template generator shows "Not configured"
 - User prints test receipt → receipt is captured successfully → but UI still shows printer as "Not configured"
 
 ### Fault Condition 2: Template Generator UI Flow
@@ -81,7 +81,7 @@ FUNCTION isBugCondition3(input)
   INPUT: input of type ReceiptCaptureEvent
   OUTPUT: boolean
   
-  RETURN input.printerName = "Tabeza POS Printer" AND
+  RETURN input.printerName = "Tabeza Agent" AND
          receiptFileExists(input.receiptId, "queue/pending/") AND
          NOT uiDetectsReceipt(input.receiptId) AND
          uiReceiptCount = 0
@@ -117,7 +117,7 @@ All inputs that do NOT involve the template generator checking printer status, d
 
 Based on the bug description and code analysis, the most likely issues are:
 
-1. **Incorrect Printer Check Method**: The IPC handler `check-printer-setup` calls a PowerShell script that checks for printer pooling configuration. However, the actual printer "Tabeza POS Printer" uses Redmon (virtual printer port redirector), not pooling. The script is checking for the wrong configuration type.
+1. **Incorrect Printer Check Method**: The IPC handler `check-printer-setup` calls a PowerShell script that checks for printer pooling configuration. However, the actual printer "Tabeza Agent" uses Redmon (virtual printer port redirector), not pooling. The script is checking for the wrong configuration type.
 
 2. **Missing Polling Logic**: The template generator HTML (`template-generator.html`) has a `setInterval` that calls `countCapturedReceipts()` every 5 seconds, but this function checks the `PROCESSED_DIR` (`C:\TabezaPrints\processed`) instead of the `QUEUE_DIR` (`C:\TabezaPrints\queue\pending\`). Receipts are queued in `pending\` before being uploaded, so the UI is looking in the wrong location.
 
@@ -129,7 +129,7 @@ Based on the bug description and code analysis, the most likely issues are:
 
 Property 1: Fault Condition - Consistent Printer Status Reporting
 
-_For any_ IPC request to check printer status from any UI component (dashboard or template generator), the fixed handler SHALL return consistent status based on actual "Tabeza POS Printer" existence using `Get-Printer` cmdlet, regardless of whether the printer uses pooling or Redmon.
+_For any_ IPC request to check printer status from any UI component (dashboard or template generator), the fixed handler SHALL return consistent status based on actual "Tabeza Agent" existence using `Get-Printer` cmdlet, regardless of whether the printer uses pooling or Redmon.
 
 **Validates: Requirements 2.1, 2.3, 2.5**
 
@@ -164,9 +164,9 @@ Assuming our root cause analysis is correct:
 **Specific Changes**:
 1. **Remove PowerShell Script Call**: Remove the call to `printer-pooling-setup.ps1` which doesn't exist and checks for wrong configuration
    
-2. **Add Direct Printer Check**: Replace with PowerShell command that directly checks for "Tabeza POS Printer" existence:
+2. **Add Direct Printer Check**: Replace with PowerShell command that directly checks for "Tabeza Agent" existence:
    ```javascript
-   exec(`powershell.exe -Command "Get-Printer -Name 'Tabeza POS Printer' -ErrorAction SilentlyContinue | ConvertTo-Json"`, ...)
+   exec(`powershell.exe -Command "Get-Printer -Name 'Tabeza Agent' -ErrorAction SilentlyContinue | ConvertTo-Json"`, ...)
    ```
 
 3. **Parse Printer Object**: Parse the returned JSON to determine if printer exists and extract port information
@@ -175,7 +175,7 @@ Assuming our root cause analysis is correct:
    ```javascript
    {
      status: printerExists ? 'configured' : 'not-configured',
-     printerName: 'Tabeza POS Printer',
+     printerName: 'Tabeza Agent',
      portName: printer?.PortName || null,
      exists: printerExists
    }
@@ -229,7 +229,7 @@ The testing strategy follows a two-phase approach: first, surface counterexample
 **Test Plan**: 
 1. Open template generator and observe printer status display
 2. Check what PowerShell script is being called by the IPC handler
-3. Verify that "Tabeza POS Printer" exists using `Get-Printer` cmdlet
+3. Verify that "Tabeza Agent" exists using `Get-Printer` cmdlet
 4. Print a test receipt and verify it's captured to `queue/pending/`
 5. Observe that template generator UI doesn't detect the receipt
 6. Check if `printer-pooling-setup.ps1` script exists in the codebase

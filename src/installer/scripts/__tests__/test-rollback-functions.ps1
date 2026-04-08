@@ -81,7 +81,7 @@ try {
     $hasRequiredParams = $true
     
     # Check for PrinterName parameter
-    if ($scriptContent -notmatch '\$PrinterName.*=.*[''"]Tabeza POS Printer[''"]') {
+    if ($scriptContent -notmatch '\$PrinterName.*=.*[''"]Tabeza Agent[''"]') {
         Write-Host "✗ Missing or incorrect PrinterName parameter" -ForegroundColor Red
         $hasRequiredParams = $false
     }

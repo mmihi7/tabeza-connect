@@ -47,11 +47,14 @@ function fmt(level, prefix, msg) {
 }
 
 function log(level, prefix, msg, extra) {
-  const line = fmt(level, prefix, msg);
-  if (level === 'ERROR') {
-    console.error(line, extra !== undefined ? extra : '');
-  } else {
-    console.log(line, extra !== undefined ? extra : '');
+  // Only show ERROR, WARN, and OK messages - filter out INFO and DEBUG
+  if (level === 'ERROR' || level === 'WARN' || level === 'OK') {
+    const line = fmt(level, prefix, msg);
+    if (level === 'ERROR') {
+      console.error(line, extra !== undefined ? extra : '');
+    } else {
+      console.log(line, extra !== undefined ? extra : '');
+    }
   }
 }
 

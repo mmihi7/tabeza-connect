@@ -904,7 +904,7 @@
         <div class="progress-container">
           <div class="progress-header">
             <h4>Print 3 Different Receipts</h4>
-            <p class="progress-instructions">Print receipts from your POS to "Tabeza POS Printer". Each receipt must be different.</p>
+            <p class="progress-instructions">Print receipts from your POS to "Tabeza Agent". Each receipt must be different.</p>
           </div>
           
           <!-- Progress Bar -->
@@ -947,7 +947,7 @@
       <!-- Fallback manual button (hidden by default) -->
       <div id="manual-template-section" class="hidden">
         <p class="template-instructions">
-          <strong>Step 1:</strong> Print 3 different receipts from your POS to "Tabeza POS Printer"<br>
+          <strong>Step 1:</strong> Print 3 different receipts from your POS to "Tabeza Agent"<br>
           <strong>Step 2:</strong> Wait for samples to appear below<br>
           <strong>Step 3:</strong> Click "Generate Template" when you have 3+ samples
         </p>
@@ -1301,12 +1301,12 @@ function testTemplate() {
 
 function setupPrinter() {
   console.log('[setupPrinter] Button clicked');
-  showNotification('Printer Setup', 'Starting Tabeza POS Printer setup...');
+  showNotification('Printer Setup', 'Starting Tabeza Agent setup...');
   
   ipc.invoke('setup-printer').then(result => {
     console.log('[setupPrinter] Result:', result);
     if (result && result.success) {
-      showNotification('Success', 'Tabeza POS Printer configured successfully');
+      showNotification('Success', 'Tabeza Agent configured successfully');
       updatePrinterStatus('online');
     } else {
       showNotification('Error', result?.error || 'Failed to setup printer');
@@ -1899,7 +1899,7 @@ function updateSetupPanel(captured, templateReady) {
     if (stepDot)   { stepDot.style.background = 'var(--ok)'; stepDot.style.boxShadow = '0 0 8px var(--ok)'; }
   } else {
     const remaining = 3 - captured;
-    if (stepLabel) stepLabel.textContent = `Print ${remaining} more receipt${remaining > 1 ? 's' : ''} from your POS to "Tabeza POS Printer"`;
+    if (stepLabel) stepLabel.textContent = `Print ${remaining} more receipt${remaining > 1 ? 's' : ''} from your POS to "Tabeza Agent"`;
     if (stepDot)   { stepDot.style.background = '#fbbf24'; stepDot.style.boxShadow = '0 0 8px #fbbf24'; }
   }
 }
@@ -1952,9 +1952,9 @@ const ipc = window.electronAPI || {
 // ─────────────────────────────────────────────
 const NODES = [
   { id:'pos',        icon:'🖥️',  label:'POS System',             sub:'Print source',
-    tip:'Any POS printing to Tabeza POS Printer virtual driver.',
+    tip:'Any POS printing to Tabeza Agent virtual driver.',
     fix: null },
-  { id:'printer',    icon:'🖨️',  label:'Tabeza POS Printer',     sub:'Virtual printer',
+  { id:'printer',    icon:'🖨️',  label:'Tabeza Agent',     sub:'Virtual printer',
     tip:'Windows virtual printer — intercepts print jobs and redirects to RedMon.',
     fix: null },
   { id:'redmon',     icon:'🔀',  label:'RedMon',                 sub:'Port monitor',

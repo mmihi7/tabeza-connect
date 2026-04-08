@@ -101,7 +101,7 @@ cd C:\Projects\tabeza-connect\src\installer\scripts
 - Print Spooler service
 - Thermal printer detection
 - Configuration script execution
-- Tabeza POS Printer creation
+- Tabeza Agent creation
 - Dual-port configuration
 - Print job capture
 
@@ -123,7 +123,7 @@ Running Configuration Script
 
 Validation Checks
 ========================================
-✓ Tabeza POS Printer exists
+✓ Tabeza Agent exists
 ✓ Dual-port configuration (2 ports)
 ✓ Printer not shared
 ✓ TabezaCapturePort exists
@@ -238,29 +238,29 @@ When configuration succeeds, you should see:
 
 1. **Console Output**:
    ```
-   [2025-03-01T14:30:15.123+03:00][INFO] Tabeza POS Printer Configuration Script
+   [2025-03-01T14:30:15.123+03:00][INFO] Tabeza Agent Configuration Script
    [2025-03-01T14:30:15.456+03:00][INFO] Detecting thermal printers...
    [2025-03-01T14:30:16.789+03:00][INFO] Found thermal printer: EPSON TM-T20 Receipt
-   [2025-03-01T14:30:17.012+03:00][INFO] Creating Tabeza POS Printer...
+   [2025-03-01T14:30:17.012+03:00][INFO] Creating Tabeza Agent...
    [2025-03-01T14:30:18.345+03:00][INFO] Configuration successful
    ```
 
 2. **Created Resources**:
-   - Tabeza POS Printer (visible in Windows Settings → Printers)
+   - Tabeza Agent (visible in Windows Settings → Printers)
    - TabezaCapturePort (local port to file)
    - Capture directory: `C:\TabezaPrints\`
    - Capture file: `C:\TabezaPrints\order.prn`
    - Log file: `C:\ProgramData\Tabeza\logs\configure-pooling.log`
 
 3. **Printer Configuration**:
-   - Name: "Tabeza POS Printer"
+   - Name: "Tabeza Agent"
    - Driver: Same as physical thermal printer
    - Ports: 2 (physical port + TabezaCapturePort)
    - Shared: False
    - Status: Normal
 
 4. **Print Behavior**:
-   - Printing to "Tabeza POS Printer" → Receipt prints on thermal printer
+   - Printing to "Tabeza Agent" → Receipt prints on thermal printer
    - Capture file updates with print data
    - Physical printer still works independently
 
@@ -366,7 +366,7 @@ cd C:\Projects\tabeza-connect\src\installer\scripts
 
 ### Check Configuration
 ```powershell
-Get-Printer -Name "Tabeza POS Printer" | Format-List *
+Get-Printer -Name "Tabeza Agent" | Format-List *
 Get-PrinterPort -Name "TabezaCapturePort" | Format-List *
 Get-Content "C:\ProgramData\Tabeza\logs\configure-pooling.log" | Select-Object -Last 50
 ```

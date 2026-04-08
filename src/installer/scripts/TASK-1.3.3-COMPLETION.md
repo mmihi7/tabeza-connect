@@ -86,10 +86,10 @@ Set-ItemProperty -Path $autoSavePath -Name "FileExtension" -Value "pdf" -Type St
 
 ### 3. Printer Mapping Configuration
 
-**Location:** `HKCU:\Software\clawSoft\clawPDF\Settings\ApplicationSettings\PrinterMappings\Tabeza POS Printer`
+**Location:** `HKCU:\Software\clawSoft\clawPDF\Settings\ApplicationSettings\PrinterMappings\Tabeza Agent`
 
 **Implementation:**
-- Maps "Tabeza POS Printer" to the profile GUID
+- Maps "Tabeza Agent" to the profile GUID
 - Sets as primary printer
 - Ensures all print jobs use the configured profile
 
@@ -119,7 +119,7 @@ Added comprehensive verification checks for:
 ```powershell
 $verificationChecks = @{
     "Profile\Guid" = @{ Path = $profilePath; Name = "Guid"; Expected = $profileGuid }
-    "Profile\Name" = @{ Path = $profilePath; Name = "Name"; Expected = "Tabeza POS Printer Profile" }
+    "Profile\Name" = @{ Path = $profilePath; Name = "Name"; Expected = "Tabeza Agent Profile" }
     "AutoSave\Filename" = @{ Path = $autoSavePath; Name = "Filename"; Expected = $filenamePattern }
     "AutoSave\FileExtension" = @{ Path = $autoSavePath; Name = "FileExtension"; Expected = "pdf" }
     "PrinterMapping" = @{ Path = $printerMappingsPath; Name = $PrinterName; Expected = $profileGuid }
@@ -173,7 +173,7 @@ Test 1: Profile GUID Configuration
 
 Test 2: Profile Name Configuration
   ✓ PASS: Profile name is correct
-    Name: Tabeza POS Printer Profile
+    Name: Tabeza Agent Profile
 
 Test 3: File Naming Pattern Configuration
   ✓ PASS: Filename pattern is correct
@@ -191,11 +191,11 @@ All critical tests passed!
 
 Configuration Details:
   Profile GUID: f81ea998-3a76-4104-a574-9a66d6f3039b
-  Profile Name: Tabeza POS Printer Profile
+  Profile Name: Tabeza Agent Profile
   Filename Pattern: <DateTime>_<JobID>
   Target Directory: C:\TabezaPrints\spool\
   Unique Filenames: Enabled
-  Printer Mapping: Tabeza POS Printer -> f81ea998-3a76-4104-a574-9a66d6f3039b
+  Printer Mapping: Tabeza Agent -> f81ea998-3a76-4104-a574-9a66d6f3039b
 
 Expected Output File Format:
   20260307-143022_abc123.pdf
@@ -213,7 +213,7 @@ Task 1.3.3 Requirements: ✓ VALIDATED
 ```
 HKCU\Software\clawSoft\clawPDF\Settings\ConversionProfiles\0\
   Guid = [Generated UUID]                                    (REG_SZ)
-  Name = "Tabeza POS Printer Profile"                        (REG_SZ)
+  Name = "Tabeza Agent Profile"                        (REG_SZ)
 ```
 
 ### File Naming Pattern
@@ -231,10 +231,10 @@ HKCU\Software\clawSoft\clawPDF\Settings\ConversionProfiles\0\AutoSave\
 ```
 HKCU\Software\clawSoft\clawPDF\Settings\ApplicationSettings\
   LastUsedProfileGuid = [Profile GUID]                       (REG_SZ)
-  PrimaryPrinter = "Tabeza POS Printer"                      (REG_SZ)
+  PrimaryPrinter = "Tabeza Agent"                      (REG_SZ)
 
 HKCU\Software\clawSoft\clawPDF\Settings\ApplicationSettings\PrinterMappings\
-  Tabeza POS Printer = [Profile GUID]                        (REG_SZ)
+  Tabeza Agent = [Profile GUID]                        (REG_SZ)
 ```
 
 ---
@@ -333,7 +333,7 @@ No changes needed to `configure-clawpdf.ps1` - it already integrates correctly.
 - Target directory is configured
 
 ✅ **Printer mapping is correct**
-- "Tabeza POS Printer" maps to profile GUID
+- "Tabeza Agent" maps to profile GUID
 - Primary printer is set
 - Default profile GUID is configured
 

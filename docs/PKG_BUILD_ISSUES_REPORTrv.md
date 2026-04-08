@@ -105,7 +105,7 @@
  *
  * Architecture: Windows Printer Pooling (NO BRIDGE)
  * ─────────────────────────────────────────────────
- * POS prints to "Tabeza POS Printer"
+ * POS prints to "Tabeza Agent"
  *   → Windows Printer Pooling sends job to TWO ports simultaneously:
  *       1. Physical printer port (USB001, etc.) → Receipt prints on paper  ✅
  *       2. TabezaCapturePort (file port → order.prn) → File written here   ✅
@@ -335,7 +335,7 @@ class IntegratedCaptureService {
     this.watcher.on('error', (err) => error(`Watcher error: ${err.message}`));
 
     info(`Watching: ${orderPrnPath}`);
-    info('Ready. Waiting for print jobs from Tabeza POS Printer...');
+    info('Ready. Waiting for print jobs from Tabeza Agent...');
   }
 
   async processOrderPrn() {

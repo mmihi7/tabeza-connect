@@ -152,6 +152,7 @@ class LocalQueue {
         timestamp: receipt.timestamp,
         escposBytes: receipt.escposBytes || null,
         text: receipt.text,
+        parsedData: receipt.parsedData || null,
         metadata: receipt.metadata || {},
         enqueuedAt: new Date().toISOString(),
         uploadAttempts: 0,

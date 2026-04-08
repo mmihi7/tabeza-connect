@@ -144,7 +144,7 @@ Maps physical printer names to conversion profiles.
 **Example:**
 ```
 PrinterMappings\
-  └── Tabeza POS Printer = f81ea998-3a76-4104-a574-9a66d6f3039b
+  └── Tabeza Agent = f81ea998-3a76-4104-a574-9a66d6f3039b
 ```
 
 ---
@@ -171,7 +171,7 @@ HKCU\Software\clawSoft\clawPDF\Settings\ConversionProfiles\0\
 
 ```
 HKCU\Software\clawSoft\clawPDF\Settings\ApplicationSettings\PrinterMappings\
-  Tabeza POS Printer = [Profile 0 GUID]                  (REG_SZ)
+  Tabeza Agent = [Profile 0 GUID]                  (REG_SZ)
 ```
 
 ---

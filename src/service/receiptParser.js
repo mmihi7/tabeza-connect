@@ -211,6 +211,7 @@ class ReceiptParser {
 
         try {
           const fieldValue = this.parseField(cleanText, field);
+          log.ok(`Field '${field.name}' parsed: ${JSON.stringify(fieldValue)}`);
           if (fieldValue !== null && fieldValue !== undefined) {
             result.data[field.name] = fieldValue;
             fieldMatches++;
@@ -222,6 +223,7 @@ class ReceiptParser {
             result.errors.push(`Required field '${field.name}' not found`);
           }
         } catch (fieldError) {
+          log.error(`Error parsing field '${field.name}': ${fieldError.message}`);
           result.errors.push(`Error parsing field '${field.name}': ${fieldError.message}`);
         }
       }
@@ -269,8 +271,11 @@ class ReceiptParser {
    */
   parseField(text, field) {
     const regexPattern = field.pattern || field.regex;
+    log.ok(`Parsing field '${field.name}' with pattern: ${regexPattern}`);
     const regex = new RegExp(regexPattern, 'gim'); // Global, case-insensitive, multiline
     const matches = [...text.matchAll(regex)];
+    
+    log.ok(`Found ${matches.length} matches for field '${field.name}'`);
     
     if (matches.length === 0) {
       return null;
@@ -289,7 +294,8 @@ class ReceiptParser {
         return new Date(dateStr).toISOString();
         
       case 'array':
-        return matches.map(match => {
+        log.ok(`Array processing: found ${matches.length} matches for field '${field.name}'`);
+        return matches.map((match, index) => {
           const item = {};
           
           // Try to extract named groups from regex
@@ -298,12 +304,13 @@ class ReceiptParser {
               item[key] = this.convertValue(match.groups[key], field.itemType || 'text');
             });
           } else {
-            // Use capture groups
-            for (let i = 1; i < match.length; i++) {
-              if (match[i] !== undefined) {
-                item[`value${i}`] = this.convertValue(match[i], field.itemType || 'text');
-              }
-            }
+            // Use capture groups with meaningful names for receipt items
+            if (match[1] !== undefined) item.qty = this.convertValue(match[1], 'number');
+            if (match[2] !== undefined) item.name = this.convertValue(match[2], 'text');
+            if (match[3] !== undefined) item.unit_price = this.convertValue(match[3], 'number');
+            if (match[4] !== undefined) item.subtotal = this.convertValue(match[4], 'number');
+            
+            log.ok(`Item ${index + 1}: qty=${item.qty}, name=${item.name}, unit_price=${item.unit_price}, subtotal=${item.subtotal}`);
           }
           
           return item;
@@ -342,13 +349,13 @@ class ReceiptParser {
    */
   cleanText(text) {
     return text
-      // Remove excessive whitespace
-      .replace(/\s+/g, ' ')
-      // Remove printer control characters
-      .replace(/[\x00-\x1F\x7F]/g, '')
+      // Remove printer control characters (keep newline \x0A and carriage return \x0D)
+      .replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/g, '')
       // Normalize line endings
       .replace(/\r\n/g, '\n')
       .replace(/\r/g, '\n')
+      // Collapse multiple spaces/tabs within lines (but keep newlines)
+      .replace(/[ \t]+/g, ' ')
       // Remove empty lines
       .replace(/\n\s*\n/g, '\n')
       // Trim

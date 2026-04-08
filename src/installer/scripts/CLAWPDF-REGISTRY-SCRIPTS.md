@@ -35,7 +35,7 @@ This directory contains PowerShell scripts for configuring clawPDF registry sett
 
 **Parameters:**
 - `SpoolFolder` (string) - Output directory for captured files (default: `C:\TabezaPrints\spool`)
-- `PrinterName` (string) - Name of the clawPDF printer (default: `Tabeza POS Printer`)
+- `PrinterName` (string) - Name of the clawPDF printer (default: `Tabeza Agent`)
 - `ProfileNumber` (int) - Profile number to configure (default: `0`)
 - `LogPath` (string) - Path to log file (default: `$env:TEMP\TabezaConnect-clawPDF-registry.log`)
 
@@ -78,7 +78,7 @@ Write-Host "Profile GUID: $profileGuid"
 
 **Parameters:**
 - `SpoolFolder` (string) - Expected spool folder path (default: `C:\TabezaPrints\spool`)
-- `PrinterName` (string) - Expected printer name (default: `Tabeza POS Printer`)
+- `PrinterName` (string) - Expected printer name (default: `Tabeza Agent`)
 - `ProfileNumber` (int) - Profile number to verify (default: `0`)
 - `Verbose` (switch) - Show detailed registry paths and values
 
@@ -119,7 +119,7 @@ if ($LASTEXITCODE -eq 0) {
 ```
 
 **Parameters:**
-- `PrinterName` (string) - Name of the clawPDF printer (default: `Tabeza POS Printer`)
+- `PrinterName` (string) - Name of the clawPDF printer (default: `Tabeza Agent`)
 - `SpoolFolder` (string) - Output directory (default: `C:\TabezaPrints\spool`)
 - `LogPath` (string) - Path to log file (default: `$env:TEMP\TabezaConnect-clawPDF-config.log`)
 
@@ -154,7 +154,7 @@ HKCU\Software\clawSoft\clawPDF\Settings\ConversionProfiles\0\AutoSave\
 ```
 HKCU\Software\clawSoft\clawPDF\Settings\ConversionProfiles\0\
   Guid = "[generated-guid]"                      (REG_SZ)
-  Name = "Tabeza POS Printer Profile"           (REG_SZ)
+  Name = "Tabeza Agent Profile"           (REG_SZ)
   OutputFormat = "Pdf"                           (REG_SZ)
 ```
 
@@ -162,7 +162,7 @@ HKCU\Software\clawSoft\clawPDF\Settings\ConversionProfiles\0\
 
 ```
 HKCU\Software\clawSoft\clawPDF\Settings\ApplicationSettings\PrinterMappings\
-  Tabeza POS Printer = "[profile-guid]"         (REG_SZ)
+  Tabeza Agent = "[profile-guid]"         (REG_SZ)
 ```
 
 ---
@@ -229,7 +229,7 @@ If silent operation is not working (PDF viewer opens):
 [Run]
 ; Configure clawPDF registry for silent operation
 Filename: "powershell.exe"; \
-  Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\set-clawpdf-registry.ps1"" -SpoolFolder ""C:\TabezaPrints\spool"" -PrinterName ""Tabeza POS Printer"""; \
+  Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\set-clawpdf-registry.ps1"" -SpoolFolder ""C:\TabezaPrints\spool"" -PrinterName ""Tabeza Agent"""; \
   StatusMsg: "Configuring clawPDF for silent operation..."; \
   Flags: runhidden waituntilterminated
 
@@ -286,7 +286,7 @@ For Terminal Server, RDS, or services running under different accounts:
    "Test print job" | Out-File "C:\Temp\test.txt"
    
    # Print to clawPDF printer
-   Get-Content "C:\Temp\test.txt" | Out-Printer -Name "Tabeza POS Printer"
+   Get-Content "C:\Temp\test.txt" | Out-Printer -Name "Tabeza Agent"
    ```
 
 3. Verify output:

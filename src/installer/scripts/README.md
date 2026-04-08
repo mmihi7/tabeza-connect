@@ -2,13 +2,13 @@
 
 ## Overview
 
-This directory contains PowerShell scripts for automatically configuring the Tabeza POS Printer with pooling mode for print job capture.
+This directory contains PowerShell scripts for automatically configuring the Tabeza Agent with pooling mode for print job capture.
 
 ## Main Scripts
 
 ### `configure-pooling-printer.ps1`
 
-**Purpose**: Main configuration script that automatically detects thermal printers and configures the Tabeza POS Printer with dual-port pooling.
+**Purpose**: Main configuration script that automatically detects thermal printers and configures the Tabeza Agent with dual-port pooling.
 
 **Usage**:
 ```powershell
@@ -41,11 +41,11 @@ This directory contains PowerShell scripts for automatically configuring the Tab
 
 ### `uninstall-pooling-printer.ps1`
 
-**Purpose**: Removes the Tabeza POS Printer and associated configuration.
+**Purpose**: Removes the Tabeza Agent and associated configuration.
 
 **Usage**:
 ```powershell
-# Remove Tabeza POS Printer
+# Remove Tabeza Agent
 .\uninstall-pooling-printer.ps1
 
 # Preserve capture file data
@@ -53,7 +53,7 @@ This directory contains PowerShell scripts for automatically configuring the Tab
 ```
 
 **What it removes**:
-- Tabeza POS Printer
+- Tabeza Agent
 - TabezaCapturePort
 - Optionally: Capture directory and files
 
@@ -162,7 +162,7 @@ Tests for individual functions and modules:
    [Run]
    Filename: "powershell.exe"; \
      Parameters: "-ExecutionPolicy Bypass -File ""{app}\scripts\configure-pooling-printer.ps1"" -CaptureFilePath ""C:\TabezaPrints\order.prn"""; \
-     StatusMsg: "Configuring Tabeza POS Printer..."; \
+     StatusMsg: "Configuring Tabeza Agent..."; \
      Flags: runhidden waituntilterminated; \
      Check: IsAdminInstallMode
    ```
@@ -181,8 +181,8 @@ Tests for individual functions and modules:
 
 ### What Gets Created
 
-1. **Tabeza POS Printer**:
-   - Name: "Tabeza POS Printer"
+1. **Tabeza Agent**:
+   - Name: "Tabeza Agent"
    - Driver: Same as physical thermal printer
    - Ports: Physical port (USB/LPT) + TabezaCapturePort
    - Shared: False
@@ -204,7 +204,7 @@ Tests for individual functions and modules:
 
 1. **Detection**: Script scans for thermal printers using keyword scoring
 2. **Prioritization**: Highest-scoring printer selected (Receipt, Thermal, POS, TM-, etc.)
-3. **Configuration**: Creates Tabeza POS Printer with dual ports:
+3. **Configuration**: Creates Tabeza Agent with dual ports:
    - **Physical port** (first): Prints to actual thermal printer
    - **Capture port** (second): Writes to file for monitoring
 4. **Validation**: Verifies configuration is correct
@@ -241,14 +241,14 @@ Windows printer pooling allows a single printer to have multiple ports. Print jo
 
 ```powershell
 # Check configuration
-Get-Printer -Name "Tabeza POS Printer" | Format-List *
+Get-Printer -Name "Tabeza Agent" | Format-List *
 Get-PrinterPort -Name "TabezaCapturePort" | Format-List *
 
 # View log file
 Get-Content "C:\ProgramData\Tabeza\logs\configure-pooling.log" | Select-Object -Last 50
 
 # Test print
-"Test Receipt`n$(Get-Date)" | Out-Printer -Name "Tabeza POS Printer"
+"Test Receipt`n$(Get-Date)" | Out-Printer -Name "Tabeza Agent"
 
 # Check capture file
 Get-Item "C:\TabezaPrints\order.prn" | Format-List *

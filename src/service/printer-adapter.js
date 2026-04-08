@@ -6,6 +6,7 @@ const EventEmitter = require('events');
 const fs = require('fs');
 const fsp = require('fs').promises;
 const path = require('path');
+const crypto = require('crypto');
 const USBPrinterConnection = require('./connections/usb-printer');
 const NetworkPrinterConnection = require('./connections/network-printer');
 const SerialPrinterConnection = require('./connections/serial-printer');
@@ -329,6 +330,11 @@ class PhysicalPrinterAdapter extends EventEmitter {
         if (this.forwardQueue.length === 0) return;
 
         const job = this.forwardQueue[0];
+        // --- DIAGNOSTIC LOG ---
+        const traceId = job.traceId || 'N/A';
+        fwdLog.info(`[Trace: ${traceId}] Processing job ${job.jobId} from queue head. Queue depth: ${this.forwardQueue.length}`);
+        // --- END DIAGNOSTIC ---
+
         debugLog('PROCESS QUEUE - Processing job: ' + job.jobId + ', queue depth: ' + this.forwardQueue.length);
         fwdLog.step(`Processing jobId=${job.jobId} (queue depth: ${this.forwardQueue.length})`);
 
@@ -453,6 +459,12 @@ class PhysicalPrinterAdapter extends EventEmitter {
     }
     
     enqueueJob(job) {
+        // --- DIAGNOSTIC LOG ---
+        const traceId = crypto.randomBytes(4).toString('hex');
+        job.traceId = traceId;
+        fwdLog.info(`[Trace: ${traceId}] Enqueueing job ${job.jobId}. Queue depth: ${this.forwardQueue.length}`);
+        // --- END DIAGNOSTIC ---
+
         debugLog('ENQUEUE - Job: ' + job.jobId + ', current queue depth: ' + this.forwardQueue.length);
 
         // Deduplicate: if this jobId is already queued, skip it

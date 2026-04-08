@@ -8,7 +8,7 @@ The `install-redmon.ps1` script automates the installation of Redmon (Redirected
 
 Redmon is an open-source Windows port monitor that intercepts print jobs and pipes them to custom programs. In Tabeza Connect, it:
 
-1. Intercepts print jobs sent to "Tabeza POS Printer"
+1. Intercepts print jobs sent to "Tabeza Agent"
 2. Pipes raw ESC/POS bytes to the capture script via stdin
 3. Allows the capture script to process receipts while maintaining normal printer operation
 

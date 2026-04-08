@@ -29,7 +29,7 @@ This design focuses on the capture, parse, and upload pipeline while maintaining
 
 ```
 POS System
-    ↓ prints to "Tabeza POS Printer"
+    ↓ prints to "Tabeza Agent"
 Generic/Text Only Printer Driver
     ↓ raw ESC/POS bytes
 Redmon Port Monitor
@@ -56,7 +56,7 @@ Customer receives digital receipt
 Redmon is an open-source Windows port monitor that redirects print jobs to custom programs via stdin.
 
 **Responsibilities:**
-- Intercept print jobs sent to "Tabeza POS Printer"
+- Intercept print jobs sent to "Tabeza Agent"
 - Pipe raw ESC/POS bytes to the capture script via stdin
 - Signal EOF when print job completes
 
@@ -256,7 +256,7 @@ PowerShell scripts that configure Redmon and create the virtual printer during i
 **Installation Steps:**
 1. Download Redmon installer from official source
 2. Run Redmon installer silently: `redmon-setup.exe /S`
-3. Create "Tabeza POS Printer" with Generic/Text Only driver
+3. Create "Tabeza Agent" with Generic/Text Only driver
 4. Add Redmon port pointing to capture script
 5. Configure port to run as LocalService
 6. Test print to verify configuration
@@ -619,7 +619,7 @@ C:\TabezaPrints\
 
 ### Property 1: Complete Data Capture
 
-*For any* print job sent to "Tabeza POS Printer", the capture script SHALL receive all bytes via stdin and save them to disk without loss.
+*For any* print job sent to "Tabeza Agent", the capture script SHALL receive all bytes via stdin and save them to disk without loss.
 
 **Validates: Requirements 1.6, 2.1, 2.4**
 
@@ -1314,7 +1314,7 @@ Simulate:
 **Problem: Receipts not being captured**
 
 Diagnostics:
-1. Check if "Tabeza POS Printer" exists
+1. Check if "Tabeza Agent" exists
 2. Verify printer is using Redmon port
 3. Check if capture.exe exists and is executable
 4. Review service logs for errors

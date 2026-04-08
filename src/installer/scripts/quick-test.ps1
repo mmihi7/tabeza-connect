@@ -47,11 +47,11 @@ try {
     if ($Cleanup) {
         Write-Host "Cleaning up test configuration..." -ForegroundColor Yellow
         
-        # Remove Tabeza POS Printer
-        $printer = Get-Printer -Name "Tabeza POS Printer" -ErrorAction SilentlyContinue
+        # Remove Tabeza Agent
+        $printer = Get-Printer -Name "Tabeza Agent" -ErrorAction SilentlyContinue
         if ($printer) {
-            Remove-Printer -Name "Tabeza POS Printer" -ErrorAction Stop
-            Write-Host "Removed Tabeza POS Printer" -ForegroundColor Yellow
+            Remove-Printer -Name "Tabeza Agent" -ErrorAction Stop
+            Write-Host "Removed Tabeza Agent" -ForegroundColor Yellow
         }
         
         # Remove capture port
@@ -135,9 +135,9 @@ try {
     # Validation checks
     Write-TestHeader "Validation Checks"
     
-    # Check Tabeza POS Printer exists
-    $tabezaPrinter = Get-Printer -Name "Tabeza POS Printer" -ErrorAction SilentlyContinue
-    Write-TestResult -Success ($null -ne $tabezaPrinter) -Message "Tabeza POS Printer exists"
+    # Check Tabeza Agent exists
+    $tabezaPrinter = Get-Printer -Name "Tabeza Agent" -ErrorAction SilentlyContinue
+    Write-TestResult -Success ($null -ne $tabezaPrinter) -Message "Tabeza Agent exists"
     
     if ($tabezaPrinter) {
         # Check dual-port configuration
@@ -193,7 +193,7 @@ Test ID: $([Guid]::NewGuid().ToString().Substring(0,8))
 =================================
 "@
         
-        $testReceipt | Out-Printer -Name "Tabeza POS Printer"
+        $testReceipt | Out-Printer -Name "Tabeza Agent"
         
         Write-Host "Waiting for print job to process..." -ForegroundColor Gray
         Start-Sleep -Seconds 3

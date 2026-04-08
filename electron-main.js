@@ -1875,7 +1875,7 @@ ipcMain.handle('check-template-exists', async (event) => {
 ipcMain.handle('get-printers', async () => {
   // List available Windows printers directly via PowerShell (no pooling script needed)
   return new Promise((resolve) => {
-    const command = `powershell.exe -Command "Get-Printer | Where-Object {$_.Name -ne 'Tabeza POS Printer'} | Select-Object Name,DriverName,PortName | ConvertTo-Json -AsArray"`;
+    const command = `powershell.exe -Command "Get-Printer | Where-Object {$_.Name -ne 'Tabeza Agent'} | Select-Object Name,DriverName,PortName | ConvertTo-Json -AsArray"`;
     
     exec(command, { maxBuffer: 1024 * 1024, timeout: 15000 }, (error, stdout, stderr) => {
       if (error) {
@@ -1977,7 +1977,7 @@ ipcMain.handle('setup-printer', async (event, printerName) => {
           try {
             updateStateAndBroadcast(stateManager, broadcastManager, 'printer', {
               status: 'FullyConfigured',
-              printerName: 'Tabeza POS Printer',
+              printerName: 'Tabeza Agent',
               lastChecked: new Date().toISOString()
             }, 'setup-printer-handler');
 
@@ -2008,14 +2008,14 @@ ipcMain.handle('setup-printer', async (event, printerName) => {
 });
 
 ipcMain.handle('check-printer-setup', async () => {
-  // BUGFIX: Check for actual "Tabeza POS Printer" existence using Get-Printer
+  // BUGFIX: Check for actual "Tabeza Agent" existence using Get-Printer
   // instead of checking for printer pooling configuration.
   // Root cause: The printer uses Redmon (not pooling), so checking for pooling
   // configuration returns "Not configured" even though the printer exists.
   // Requirements: 2.1, 2.3, 2.5
   
   return new Promise((resolve) => {
-    const command = `powershell.exe -Command "Get-Printer -Name 'Tabeza POS Printer' -ErrorAction SilentlyContinue | ConvertTo-Json"`;
+    const command = `powershell.exe -Command "Get-Printer -Name 'Tabeza Agent' -ErrorAction SilentlyContinue | ConvertTo-Json"`;
     
     exec(command, (error, stdout, stderr) => {
       if (error) {
@@ -2023,7 +2023,7 @@ ipcMain.handle('check-printer-setup', async () => {
         log('INFO', 'Printer check failed - printer likely not configured');
         resolve({ 
           status: 'not-configured', 
-          printerName: 'Tabeza POS Printer',
+          printerName: 'Tabeza Agent',
           portName: null,
           exists: false
         });
@@ -2038,7 +2038,7 @@ ipcMain.handle('check-printer-setup', async () => {
           log('INFO', 'Printer not found - no output from Get-Printer');
           resolve({ 
             status: 'not-configured', 
-            printerName: 'Tabeza POS Printer',
+            printerName: 'Tabeza Agent',
             portName: null,
             exists: false
           });
@@ -2052,7 +2052,7 @@ ipcMain.handle('check-printer-setup', async () => {
         log('INFO', `Printer found: ${printer.Name} on port ${printer.PortName}`);
         resolve({ 
           status: 'configured', 
-          printerName: printer.Name || 'Tabeza POS Printer',
+          printerName: printer.Name || 'Tabeza Agent',
           portName: printer.PortName || null,
           exists: true
         });
@@ -2062,7 +2062,7 @@ ipcMain.handle('check-printer-setup', async () => {
         log('WARN', `Failed to parse printer info: ${parseError.message}`);
         resolve({ 
           status: 'not-configured', 
-          printerName: 'Tabeza POS Printer',
+          printerName: 'Tabeza Agent',
           portName: null,
           exists: false
         });
@@ -2077,14 +2077,14 @@ ipcMain.handle('check-printer-setup', async () => {
 // Requirements: 2.1, 2.3, 3.1, 3.4
 ipcMain.handle('check-printer-status', async () => {
   return new Promise((resolve) => {
-    const command = `powershell.exe -Command "Get-Printer -Name 'Tabeza POS Printer' -ErrorAction SilentlyContinue | ConvertTo-Json"`;
+    const command = `powershell.exe -Command "Get-Printer -Name 'Tabeza Agent' -ErrorAction SilentlyContinue | ConvertTo-Json"`;
     
     exec(command, (error, stdout, stderr) => {
       if (error) {
         log('INFO', 'check-printer-status: Printer check failed - printer likely not configured');
         resolve({ 
           status: 'not-configured', 
-          printerName: 'Tabeza POS Printer',
+          printerName: 'Tabeza Agent',
           portName: null,
           exists: false
         });
@@ -2098,7 +2098,7 @@ ipcMain.handle('check-printer-status', async () => {
           log('INFO', 'check-printer-status: Printer not found - no output from Get-Printer');
           resolve({ 
             status: 'not-configured', 
-            printerName: 'Tabeza POS Printer',
+            printerName: 'Tabeza Agent',
             portName: null,
             exists: false
           });
@@ -2110,7 +2110,7 @@ ipcMain.handle('check-printer-status', async () => {
         log('INFO', `check-printer-status: Printer found - ${printer.Name} on port ${printer.PortName}`);
         resolve({ 
           status: 'configured', 
-          printerName: printer.Name || 'Tabeza POS Printer',
+          printerName: printer.Name || 'Tabeza Agent',
           portName: printer.PortName || null,
           exists: true
         });
@@ -2119,7 +2119,7 @@ ipcMain.handle('check-printer-status', async () => {
         log('WARN', `check-printer-status: Failed to parse printer info - ${parseError.message}`);
         resolve({ 
           status: 'not-configured', 
-          printerName: 'Tabeza POS Printer',
+          printerName: 'Tabeza Agent',
           portName: null,
           exists: false
         });
@@ -2405,10 +2405,10 @@ ipcMain.handle('generate-template', async () => {
       };
     }
 
-    // ── Prerequisite 2: Tabeza POS Printer (Redmon) must be installed ──────
+    // ── Prerequisite 2: Tabeza Agent (Redmon) must be installed ──────
     const printerCheck = await new Promise((resolve) => {
       exec(
-        `powershell.exe -Command "Get-Printer -Name 'Tabeza POS Printer' -ErrorAction SilentlyContinue | ConvertTo-Json"`,
+        `powershell.exe -Command "Get-Printer -Name 'Tabeza Agent' -ErrorAction SilentlyContinue | ConvertTo-Json"`,
         (error, stdout) => {
           if (error || !stdout.trim()) {
             resolve({ exists: false });
@@ -2425,10 +2425,10 @@ ipcMain.handle('generate-template', async () => {
     });
 
     if (!printerCheck.exists) {
-      log('ERROR', 'generate-template: Blocked — Tabeza POS Printer not installed');
+      log('ERROR', 'generate-template: Blocked — Tabeza Agent not installed');
       return {
         success: false,
-        error: 'Tabeza POS Printer is not installed. Please complete printer setup before generating a template.',
+        error: 'Tabeza Agent is not installed. Please complete printer setup before generating a template.',
         prerequisiteFailed: 'printer'
       };
     }

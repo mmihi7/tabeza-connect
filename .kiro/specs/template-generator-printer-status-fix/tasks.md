@@ -8,7 +8,7 @@ ate # Implementation Plan
   - **GOAL**: Surface counterexamples that demonstrate the bugs exist
   - **Scoped PBT Approach**: Test concrete failing cases - template generator shows "Not configured" when printer exists, UI shows 0 receipts when files exist in queue
   - Test implementation details from Fault Conditions in design:
-    - Bug 1: Template generator calls `check-printer-setup` IPC handler → returns "Not configured" even though "Tabeza POS Printer" exists in Windows
+    - Bug 1: Template generator calls `check-printer-setup` IPC handler → returns "Not configured" even though "Tabeza Agent" exists in Windows
     - Bug 2: Template generator UI shows static "Generate Template" button instead of guided 3-step workflow
     - Bug 3: Receipt files exist in `C:\TabezaPrints\queue\pending\` but UI shows "Receipts captured: 0 / 3"
   - The test assertions should match the Expected Behavior Properties from design:
@@ -51,9 +51,9 @@ ate # Implementation Plan
     - Open `src/electron-main.js`
     - Locate `ipcMain.handle('check-printer-setup', ...)` handler
     - Remove call to non-existent `printer-pooling-setup.ps1` script
-    - Replace with direct PowerShell command: `Get-Printer -Name 'Tabeza POS Printer' -ErrorAction SilentlyContinue | ConvertTo-Json`
+    - Replace with direct PowerShell command: `Get-Printer -Name 'Tabeza Agent' -ErrorAction SilentlyContinue | ConvertTo-Json`
     - Parse returned JSON to determine if printer exists
-    - Return consistent status object: `{ status: printerExists ? 'configured' : 'not-configured', printerName: 'Tabeza POS Printer', portName: printer?.PortName || null, exists: printerExists }`
+    - Return consistent status object: `{ status: printerExists ? 'configured' : 'not-configured', printerName: 'Tabeza Agent', portName: printer?.PortName || null, exists: printerExists }`
     - _Bug_Condition: isBugCondition1(input) where input.handler = "check-printer-setup" AND printerUsesRedmon() AND handlerChecksForPooling()_
     - _Expected_Behavior: Consistent printer status across all UI components based on actual printer existence_
     - _Preservation: Dashboard status display, configuration management, other IPC handlers remain unchanged_

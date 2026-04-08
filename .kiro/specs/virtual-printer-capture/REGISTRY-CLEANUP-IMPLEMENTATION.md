@@ -102,7 +102,7 @@ Do you want to remove clawPDF printer software completely?
 Choose "Yes" to remove clawPDF and all its settings.
 Choose "No" to keep clawPDF installed (you may be using it for other purposes).
 
-Note: The "Tabeza POS Printer" profile will be removed regardless of your choice.
+Note: The "Tabeza Agent" profile will be removed regardless of your choice.
 ```
 
 ### Data Deletion Prompt
