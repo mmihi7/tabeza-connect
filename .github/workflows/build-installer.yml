@@ -1,39 +1,87 @@
-name: Build Installer
+name: Build Tabeza Connect Installer
 
 on:
   push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main ]
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.7.15)'
+        required: true
+        default: '1.7.15'
 
 jobs:
-  build:
+  build-installer:
     runs-on: windows-latest
     
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-    
-    - name: Install dependencies
-      run: |
-        npm install
-        cd src/service
-        npm install
-    
-    - name: Download Node.js runtime
-      run: npm run download:nodejs
-    
-    - name: Build installer
-      run: npm run build:installer
-    
-    - name: Upload artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: tabeza-connect-installer
-        path: dist/*.zip
-        retention-days: 30
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Inno Setup
+        run: |
+          choco install innosetup -y
+          echo "C:\Program Files (x86)\Inno Setup 6" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      
+      - name: Verify TabezaConnect.exe exists
+        run: |
+          if (-not (Test-Path "dist\win-ia32-unpacked\TabezaConnect.exe")) {
+            Write-Host "ERROR: TabezaConnect.exe not found!" -ForegroundColor Red
+            Write-Host "Please ensure the PKG binary is committed to the repository." -ForegroundColor Red
+            exit 1
+          }
+          Write-Host "✓ TabezaConnect.exe found" -ForegroundColor Green
+      
+      - name: Build installer
+        run: |
+          .\build-installer.ps1 -SkipVerification
+      
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: tabeza-connect-installer
+          path: installer-output/TabezaConnect-Setup-v*.exe
+          retention-days: 90
+      
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: installer-output/TabezaConnect-Setup-v*.exe
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            ## Tabeza Connect Installer
+            
+            **One-click setup for venue owners**
+            
+            ### Installation
+            1. Download `TabezaConnect-Setup-v${{ github.ref_name }}.exe`
+            2. Run as Administrator
+            3. Enter your Bar ID from the Tabeza Staff dashboard
+            4. Follow the setup wizard
+            
+            ### What's New
+            See the full changelog below.
+            
+            ### System Requirements
+            - Windows 10 or Windows 11 (64-bit)
+            - 100 MB free disk space
+            - Administrator access (for installation only)
+            - Internet connection (for cloud sync)
+            
+            ### Support
+            - Email: support@tabeza.co.ke
+            - Documentation: https://github.com/mmihi7/tabeza-connect
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

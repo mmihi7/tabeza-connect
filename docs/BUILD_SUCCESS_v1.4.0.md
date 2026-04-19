@@ -28,7 +28,7 @@
 - Format: `[timestamp] Bar ID: xxx | Terms v1.0 | Installer v1.4.0 | Accepted`
 
 ### ✅ All Previous Fixes Included
-- Branding: "Tabeza POS Connect" (user-facing)
+- Branding: "TabezaConnect" (user-facing)
 - Admin rights handling with UAC elevation
 - Antivirus compatibility with retry logic
 - Bar ID validation (min 6 chars, alphanumeric + hyphens)

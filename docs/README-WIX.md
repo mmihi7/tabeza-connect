@@ -1,8 +1,8 @@
-# Tabeza POS Connect - WiX Installer
+# TabezaConnect - WiX Installer
 
 ## Overview
 
-This is a **single WiX installer** that downloads and installs Tabeza POS Connect in one seamless process.
+This is a **single WiX installer** that downloads and installs TabezaConnect in one seamless process.
 
 ## Architecture
 
@@ -169,4 +169,4 @@ Creates shortcuts + auto-start
 
 ---
 
-**This WiX installer provides enterprise-grade installation for Tabeza POS Connect with professional features and reliability.**
+**This WiX installer provides enterprise-grade installation for TabezaConnect with professional features and reliability.**

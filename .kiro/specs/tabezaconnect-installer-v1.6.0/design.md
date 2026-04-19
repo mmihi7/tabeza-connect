@@ -127,7 +127,7 @@
   },
   "service": {
     "name": "TabezaConnect",
-    "displayName": "Tabeza POS Connect",
+    "displayName": "TabezaConnect",
     "description": "Captures receipt data from POS and syncs with Tabeza staff app",
     "port": 8765
   },
@@ -438,7 +438,7 @@ Source: "LICENSE.txt"; DestDir: "{app}"
 ```
 POS System
    ↓ (prints to)
-Virtual Printer: "Tabeza POS Connect"
+Virtual Printer: "TabezaConnect"
    ↓ (routes to)
 Folder Port: C:\ProgramData\Tabeza\TabezaPrints
    ↓ (creates file)

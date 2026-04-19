@@ -17,8 +17,14 @@
 const { app } = require('electron');
 const path = require('path');
 
-// Prevent multiple instances
-if (!app.requestSingleInstanceLock()) {
+// CRITICAL: Set a fixed app user model ID for single-instance lock to work correctly
+// Without this, each build/path is treated as a different app
+app.setAppUserModelId('com.tabeza.tabezaconnect');
+
+// Prevent multiple instances - MUST be called BEFORE app.whenReady()
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  console.log('Another instance is already running. Exiting...');
   app.quit();
   process.exit(0);
 }

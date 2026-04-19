@@ -71,11 +71,11 @@ end;
 
 ### 4. ✅ Branding Consistency
 **User-Facing Names** (with space):
-- Application Name: "Tabeza POS Connect"
-- Service Display Name: "Tabeza POS Connect Service"  
-- Windows Programs List: "Tabeza POS Connect"
-- Start Menu: "Tabeza POS Connect"
-- Installer Title: "Tabeza POS Connect Setup"
+- Application Name: "TabezaConnect"
+- Service Display Name: "TabezaConnect Service"  
+- Windows Programs List: "TabezaConnect"
+- Start Menu: "TabezaConnect"
+- Installer Title: "TabezaConnect Setup"
 
 **Technical Names** (no space):
 - Executable: `TabezaConnect-Setup-v1.4.0.exe`
@@ -172,15 +172,15 @@ build-installer-v1.4.0.bat
 - [ ] Files extracted to `C:\Program Files\TabezaConnect`
 - [ ] Folders created in `C:\ProgramData\Tabeza`
 - [ ] Service registered as "TabezaConnect"
-- [ ] Service display name is "Tabeza POS Connect Service"
+- [ ] Service display name is "TabezaConnect Service"
 - [ ] Service starts automatically
 - [ ] Terms acceptance logged to `C:\ProgramData\Tabeza\logs\terms-acceptance.log`
 
 ### Branding
-- [ ] Installer title shows "Tabeza POS Connect Setup"
-- [ ] Windows Programs list shows "Tabeza POS Connect"
-- [ ] Start menu shows "Tabeza POS Connect"
-- [ ] Service display name is "Tabeza POS Connect Service"
+- [ ] Installer title shows "TabezaConnect Setup"
+- [ ] Windows Programs list shows "TabezaConnect"
+- [ ] Start menu shows "TabezaConnect"
+- [ ] Service display name is "TabezaConnect Service"
 - [ ] Install directory is `C:\Program Files\TabezaConnect` (no space)
 
 ### Uninstallation

@@ -62,8 +62,18 @@ if (-not $redmonInstalled) {
     Write-Host "Installing Redmon..." -ForegroundColor Cyan
     
     try {
+        # Stop Print Spooler before installing — required for DLL registration
+        Write-Host "Stopping Print Spooler for clean installation..." -ForegroundColor Cyan
+        Stop-Service -Name "Spooler" -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+
         # Run Redmon installer with silent flag (/S)
         $process = Start-Process -FilePath $installerPath -ArgumentList "/S" -Wait -PassThru -NoNewWindow
+
+        # Restart Print Spooler after installation so the new port monitor is picked up
+        Write-Host "Restarting Print Spooler..." -ForegroundColor Cyan
+        Start-Service -Name "Spooler" -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 3
         
         if ($process.ExitCode -eq 0) {
             Write-Host "✅ Redmon installed successfully" -ForegroundColor Green
@@ -83,7 +93,10 @@ if (-not $redmonInstalled) {
         exit 1
     }
 } else {
+    # Already installed — still restart spooler to ensure port monitor is active
     Write-Host "Skipping installation (already installed)" -ForegroundColor Gray
+    Restart-Service -Name "Spooler" -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 3
 }
 
 # Verify Redmon port monitor is registered
@@ -177,7 +190,7 @@ Write-Host ""
 Write-Host "Redmon Port Monitor is ready for use." -ForegroundColor White
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Cyan
-Write-Host "  1. Create 'Tabeza Agent' with Generic/Text Only driver" -ForegroundColor White
+Write-Host "  1. Create 'Send2Me' with Generic/Text Only driver" -ForegroundColor White
 Write-Host "  2. Configure Redmon port to pipe to capture script" -ForegroundColor White
 Write-Host "  3. Test print job capture" -ForegroundColor White
 Write-Host ""

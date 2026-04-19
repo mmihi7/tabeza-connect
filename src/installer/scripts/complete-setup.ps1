@@ -5,7 +5,7 @@ param(
 )
 
 Write-Host "========================================" -ForegroundColor Green
-Write-Host "Tabeza POS Connect - One-Step Setup" -ForegroundColor Green
+Write-Host "TabezaConnect - One-Step Setup" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 
 # Step 1: Create all required directories
@@ -57,7 +57,7 @@ try {
     & sc.exe delete "TabezaConnect" 2>$null
     
     # Create new service
-    & sc.exe create "TabezaConnect" binPath= "`"$InstallPath\TabezaConnect.exe`"" start= auto DisplayName= "Tabeza POS Connect" type= own
+    & sc.exe create "TabezaConnect" binPath= "`"$InstallPath\TabezaConnect.exe`"" start= auto DisplayName= "TabezaConnect" type= own
     
     # Configure service
     & sc.exe config "TabezaConnect" start= delayed-auto depend= Tcpip error= normal obj= ".\LocalSystem"

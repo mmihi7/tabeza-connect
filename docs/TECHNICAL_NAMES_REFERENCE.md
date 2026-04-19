@@ -9,7 +9,7 @@ This document provides a quick reference for all technical and user-facing names
 | Context | Format | Example |
 |---------|--------|---------|
 | **Technical Names** | No space: `TabezaConnect` | `TabezaConnect-Setup-v1.3.0.exe` |
-| **User-Facing Names** | With spaces: `Tabeza POS Connect` | `Tabeza POS Connect Service` |
+| **User-Facing Names** | With spaces: `TabezaConnect` | `TabezaConnect Service` |
 
 ## Complete Name Mapping
 
@@ -27,7 +27,7 @@ This document provides a quick reference for all technical and user-facing names
 | Item | Name | Location |
 |------|------|----------|
 | Service Internal Name | `TabezaConnect` | sc.exe commands |
-| Service Display Name | `Tabeza POS Connect Service` | PowerShell scripts |
+| Service Display Name | `TabezaConnect Service` | PowerShell scripts |
 | Service Description | `Tabeza POS receipt capture and relay service` | PowerShell scripts |
 
 ### Registry
@@ -43,10 +43,10 @@ This document provides a quick reference for all technical and user-facing names
 
 | Item | Display Name | Location |
 |------|--------------|----------|
-| Application Name | `Tabeza POS Connect` | `AppName` in installer.iss |
-| Start Menu Group | `Tabeza POS Connect` | `DefaultGroupName` |
-| Programs List Entry | `Tabeza POS Connect` | Windows Programs & Features |
-| Uninstaller Name | `Tabeza POS Connect` | `UninstallDisplayName` |
+| Application Name | `TabezaConnect` | `AppName` in installer.iss |
+| Start Menu Group | `TabezaConnect` | `DefaultGroupName` |
+| Programs List Entry | `TabezaConnect` | Windows Programs & Features |
+| Uninstaller Name | `TabezaConnect` | `UninstallDisplayName` |
 
 ### Directories
 
@@ -103,9 +103,9 @@ HKLM\Software\Tabeza\Connect
 
 **User-facing contexts (with spaces):**
 ```
-Tabeza POS Connect
-Tabeza POS Connect Service
-Welcome to Tabeza POS Connect Setup
+TabezaConnect
+TabezaConnect Service
+Welcome to TabezaConnect Setup
 ```
 
 ### ❌ INCORRECT Usage
@@ -165,7 +165,7 @@ This naming convention satisfies **Requirement 3.2**:
 
 ## Related Requirements
 
-- **Requirement 3.1**: User-facing names use "Tabeza POS Connect" (with space)
+- **Requirement 3.1**: User-facing names use "TabezaConnect" (with space)
 - **Requirement 1.1**: Installer must properly request administrator privileges
 - **Requirement 2.1**: Installer must display terms and conditions acceptance
 

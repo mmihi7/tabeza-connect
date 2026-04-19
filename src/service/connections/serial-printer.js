@@ -1,7 +1,13 @@
 // serial-printer.js
 // Serial Printer Connection - Forwards print jobs to serial port printers
+// NOTE: serialport native module is optional — degrades gracefully if ABI mismatch.
 
-const { SerialPort } = require('serialport');
+let SerialPort = null;
+try {
+  SerialPort = require('serialport').SerialPort;
+} catch (e) {
+  // Native module not available for this runtime — serial printing disabled
+}
 
 class SerialPrinterConnection {
     constructor(config) {

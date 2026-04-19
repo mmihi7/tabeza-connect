@@ -166,7 +166,7 @@ if ($printers) {
     
     if ($redmonPrinters.Count -eq 0) {
         Write-Status "REDMON Virtual Printers" $false "No printers configured to use REDMON ports"
-        Write-Host "   Create one: Add-Printer -Name 'Tabeza Agent' -DriverName 'Generic / Text Only' -PortName 'TabezaPort'" -ForegroundColor Yellow
+        Write-Host "   Create one: Add-Printer -Name 'Send2Me' -DriverName 'Generic / Text Only' -PortName 'TabezaPort'" -ForegroundColor Yellow
     } else {
         Write-Status "REDMON Virtual Printers" $true "$($redmonPrinters.Count) printer(s) ready for capture"
     }

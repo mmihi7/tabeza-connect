@@ -64,7 +64,7 @@ function updateTrayIcon() {
   try {
     const icon = nativeImage.createFromPath(iconPath);
     tray.setImage(icon);
-    tray.setToolTip(`Tabeza POS Connect - ${currentState.toUpperCase()}`);
+    tray.setToolTip(`TabezaConnect - ${currentState.toUpperCase()}`);
   } catch (err) {
     console.error('Failed to update tray icon:', err);
   }
@@ -73,7 +73,7 @@ function updateTrayIcon() {
 function createTray() {
   try {
     tray = new Tray(ICON_PATHS.grey);
-    tray.setToolTip('Tabeza POS Connect - Starting...');
+    tray.setToolTip('TabezaConnect - Starting...');
     
     const contextMenu = Menu.buildFromTemplate([
       {
@@ -129,7 +129,7 @@ function showStatusWindow() {
     },
     icon: ICON_PATHS.green,
     show: false,
-    title: 'Tabeza POS Connect Status'
+    title: 'TabezaConnect Status'
   });
 
   // Create status HTML content
@@ -138,7 +138,7 @@ function showStatusWindow() {
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>Tabeza POS Connect Status</title>
+      <title>TabezaConnect Status</title>
       <style>
         body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
         .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -156,7 +156,7 @@ function showStatusWindow() {
     </head>
     <body>
       <div class="container">
-        <h1>🧾 Tabeza POS Connect Status</h1>
+        <h1>🧾 TabezaConnect Status</h1>
         <div id="status" class="status">Checking service status...</div>
         
         <button class="refresh-btn" onclick="location.reload()">🔄 Refresh Status</button>

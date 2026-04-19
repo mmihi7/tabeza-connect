@@ -1,11 +1,11 @@
-# Tabeza POS Connect v1.1.1 - Enhanced Stability & Performance
+# TabezaConnect v1.1.1 - Enhanced Stability & Performance
 
 ## Release Title
-**Tabeza POS Connect v1.1.1 - Enhanced Stability & Performance**
+**TabezaConnect v1.1.1 - Enhanced Stability & Performance**
 
 ## Release Description
 ```
-🚀 Tabeza POS Connect v1.1.1
+🚀 TabezaConnect v1.1.1
 
 This release delivers significant stability improvements and performance optimizations for our revolutionary system tray application.
 
@@ -57,11 +57,11 @@ This release delivers significant stability improvements and performance optimiz
 
 ## GitHub Release Copy-Paste Content
 
-**Title**: Tabeza POS Connect v1.1.1 - Enhanced Stability & Performance
+**Title**: TabezaConnect v1.1.1 - Enhanced Stability & Performance
 
 **Body**:
 ```
-🚀 Tabeza POS Connect v1.1.1
+🚀 TabezaConnect v1.1.1
 
 This release delivers significant stability improvements and performance optimizations for our revolutionary system tray application.
 

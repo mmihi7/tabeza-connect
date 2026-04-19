@@ -89,9 +89,9 @@ Monitors a single capture file written by Windows printer pool. This mode enable
   - Total stability verification time = `stabilityChecks * stabilityDelay` (default: 300ms)
 
 **How Pooling Mode Works:**
-1. Configure Windows printer pool named "Tabeza POS Connect"
+1. Configure Windows printer pool named "TabezaConnect"
 2. Add physical printer and file printer (targeting `captureFile`) to the pool
-3. POS prints to "Tabeza POS Connect" printer pool
+3. POS prints to "TabezaConnect" printer pool
 4. Windows routes print job to both physical printer and capture file
 5. TabezaConnect monitors capture file for changes
 6. When file becomes stable (unchanged for 3 checks), it's copied to temp folder
@@ -115,7 +115,7 @@ Monitors Windows print spooler for new print jobs (legacy mode).
 ```json
 "service": {
   "name": "TabezaConnect",
-  "displayName": "Tabeza POS Connect",
+  "displayName": "TabezaConnect",
   "description": "Captures receipt data from POS and syncs with Tabeza staff app",
   "port": 8765
 }
@@ -133,7 +133,7 @@ Monitors Windows print spooler for new print jobs (legacy mode).
 
 ```json
 "printer": {
-  "name": "Tabeza POS Connect",
+  "name": "TabezaConnect",
   "port": "FILE:",
   "outputPath": "C:\\TabezaPrints\\pending"
 }

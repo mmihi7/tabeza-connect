@@ -904,7 +904,7 @@
         <div class="progress-container">
           <div class="progress-header">
             <h4>Print 3 Different Receipts</h4>
-            <p class="progress-instructions">Print receipts from your POS to "Tabeza Agent". Each receipt must be different.</p>
+            <p class="progress-instructions">Print receipts from your POS to "Send2Me". Each receipt must be different.</p>
           </div>
           
           <!-- Progress Bar -->
@@ -947,7 +947,7 @@
       <!-- Fallback manual button (hidden by default) -->
       <div id="manual-template-section" class="hidden">
         <p class="template-instructions">
-          <strong>Step 1:</strong> Print 3 different receipts from your POS to "Tabeza Agent"<br>
+          <strong>Step 1:</strong> Print 3 different receipts from your POS to "Send2Me"<br>
           <strong>Step 2:</strong> Wait for samples to appear below<br>
           <strong>Step 3:</strong> Click "Generate Template" when you have 3+ samples
         </p>
@@ -1301,12 +1301,12 @@ function testTemplate() {
 
 function setupPrinter() {
   console.log('[setupPrinter] Button clicked');
-  showNotification('Printer Setup', 'Starting Tabeza Agent setup...');
+  showNotification('Printer Setup', 'Starting Send2Me setup...');
   
   ipc.invoke('setup-printer').then(result => {
     console.log('[setupPrinter] Result:', result);
     if (result && result.success) {
-      showNotification('Success', 'Tabeza Agent configured successfully');
+      showNotification('Success', 'Send2Me configured successfully');
       updatePrinterStatus('online');
     } else {
       showNotification('Error', result?.error || 'Failed to setup printer');
@@ -1323,28 +1323,15 @@ async function loadWindowsPrinters() {
   if (!select) return;
   select.innerHTML = '<option value="">Loading...</option>';
   try {
-    const res = await fetch('http://localhost:8765/api/printers/windows');
-    const data = await res.json();
-    const printers = data.printers || [];
-    if (printers.length === 0) {
+    // Use IPC directly — does not require the service to be running
+    const printers = await window.electronAPI.invoke('get-printers');
+    if (!printers || printers.length === 0) {
       select.innerHTML = '<option value="">No printers found</option>';
       return;
     }
-    // Get currently configured printer from status
-    let currentPrinter = null;
-    try {
-      const statusRes = await fetch('http://localhost:8765/api/status');
-      const statusData = await statusRes.json();
-      currentPrinter = statusData.printerName || null;
-    } catch (_) {}
-
-    select.innerHTML = printers.map(name =>
-      `<option value="${name}" ${name === currentPrinter ? 'selected' : ''}>${name}</option>`
+    select.innerHTML = printers.map(p =>
+      `<option value="${p.Name}">${p.Name}</option>`
     ).join('');
-
-    if (currentPrinter) {
-      updatePrinterStatus('online', currentPrinter);
-    }
   } catch (err) {
     select.innerHTML = '<option value="">Error loading printers</option>';
     console.error('[loadWindowsPrinters]', err);
@@ -1359,17 +1346,12 @@ async function savePrinterSelection() {
     return;
   }
   try {
-    const res = await fetch('http://localhost:8765/api/printers/select', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ printerName })
-    });
-    const data = await res.json();
-    if (data.success) {
+    const result = await window.electronAPI.invoke('save-printer-selection', printerName);
+    if (result && result.success) {
       showNotification('Saved', `Printer set to: ${printerName}`);
       updatePrinterStatus('online', printerName);
     } else {
-      showNotification('Error', data.error || 'Failed to save printer');
+      showNotification('Error', (result && result.error) || 'Failed to save printer');
     }
   } catch (err) {
     showNotification('Error', err.message);
@@ -1682,12 +1664,33 @@ function updateModeIndicator(modeLabel) {
 }
 
 function checkAdminAuthentication() {
-  // Simple password prompt for admin access
-  const password = prompt('Enter admin password:');
-  if (password === 'admin123') { // Change in production!
-    showNotification('Access Granted', 'Admin mode activated');
+  // Use IPC to verify admin password — prompt() is not supported in Electron
+  // Show a native input dialog via IPC
+  if (window.electronAPI && window.electronAPI.invoke) {
+    window.electronAPI.invoke('show-input-dialog', {
+      title: 'Admin Access',
+      message: 'Enter admin password:',
+      type: 'password'
+    }).then(password => {
+      if (password === null || password === undefined) {
+        // User cancelled
+        switchMode(DASHBOARD_MODE.CUSTOMER);
+        return;
+      }
+      return window.electronAPI.invoke('check-admin-password', password);
+    }).then(result => {
+      if (!result) return; // cancelled
+      if (result.granted) {
+        showNotification('Access Granted', 'Admin mode activated');
+      } else {
+        showNotification('Access Denied', 'Incorrect password');
+        switchMode(DASHBOARD_MODE.CUSTOMER);
+      }
+    }).catch(() => {
+      switchMode(DASHBOARD_MODE.CUSTOMER);
+    });
   } else {
-    showNotification('Access Denied', 'Incorrect password');
+    showNotification('Admin Mode', 'Authentication not available');
     switchMode(DASHBOARD_MODE.CUSTOMER);
   }
 }
@@ -1899,7 +1902,7 @@ function updateSetupPanel(captured, templateReady) {
     if (stepDot)   { stepDot.style.background = 'var(--ok)'; stepDot.style.boxShadow = '0 0 8px var(--ok)'; }
   } else {
     const remaining = 3 - captured;
-    if (stepLabel) stepLabel.textContent = `Print ${remaining} more receipt${remaining > 1 ? 's' : ''} from your POS to "Tabeza Agent"`;
+    if (stepLabel) stepLabel.textContent = `Print ${remaining} more receipt${remaining > 1 ? 's' : ''} from your POS to "Send2Me"`;
     if (stepDot)   { stepDot.style.background = '#fbbf24'; stepDot.style.boxShadow = '0 0 8px #fbbf24'; }
   }
 }
@@ -1952,9 +1955,9 @@ const ipc = window.electronAPI || {
 // ─────────────────────────────────────────────
 const NODES = [
   { id:'pos',        icon:'🖥️',  label:'POS System',             sub:'Print source',
-    tip:'Any POS printing to Tabeza Agent virtual driver.',
+    tip:'Any POS printing to Send2Me virtual driver.',
     fix: null },
-  { id:'printer',    icon:'🖨️',  label:'Tabeza Agent',     sub:'Virtual printer',
+  { id:'printer',    icon:'🖨️',  label:'Send2Me',     sub:'Virtual printer',
     tip:'Windows virtual printer — intercepts print jobs and redirects to RedMon.',
     fix: null },
   { id:'redmon',     icon:'🔀',  label:'RedMon',                 sub:'Port monitor',
@@ -2320,11 +2323,21 @@ function _logKey(entry) {
   return `${entry.time}|${entry.level}|${entry.msg}`;
 }
 
+let _serviceOffline = false;
+
 async function pollLogs(lines = 100) {
   try {
     const res = await fetch(`http://localhost:8765/api/logs/recent?lines=${lines}`);
     if (!res.ok) return;
     const entries = await res.json();
+
+    // Service came back online — clear the offline notice
+    if (_serviceOffline) {
+      _serviceOffline = false;
+      const offlineEl = document.getElementById('log-service-offline');
+      if (offlineEl) offlineEl.remove();
+    }
+
     let newCount = 0;
     for (const entry of entries) {
       const key = _logKey(entry);
@@ -2339,7 +2352,20 @@ async function pollLogs(lines = 100) {
       const arr = [..._logSeenKeys];
       arr.splice(0, arr.length - 1000).forEach(k => _logSeenKeys.delete(k));
     }
-  } catch { /* service not yet reachable */ }
+  } catch (e) {
+    // Service not reachable — show a single offline notice, don't spam console
+    if (!_serviceOffline) {
+      _serviceOffline = true;
+      const logPanel = document.getElementById('log-entries') || document.getElementById('logs-container');
+      if (logPanel && !document.getElementById('log-service-offline')) {
+        const notice = document.createElement('div');
+        notice.id = 'log-service-offline';
+        notice.style.cssText = 'padding:8px 12px;color:rgba(255,255,255,0.45);font-size:0.75rem;font-style:italic';
+        notice.textContent = 'Service offline — log polling paused';
+        logPanel.prepend(notice);
+      }
+    }
+  }
 }
 </script>
 </body>

@@ -96,7 +96,7 @@ So that busy periods don't cause problems
   },
   "service": {
     "name": "TabezaConnect",
-    "displayName": "Tabeza POS Connect",
+    "displayName": "TabezaConnect",
     "port": 8765
   }
 }

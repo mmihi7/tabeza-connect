@@ -71,7 +71,7 @@
 
 ## Installation Flow (Updated)
 
-1. **Welcome Screen** - Introduction to Tabeza POS Connect
+1. **Welcome Screen** - Introduction to TabezaConnect
 2. **License Agreement** - Terms & Privacy (scroll to bottom to enable "I accept")
 3. **Bar ID Input** - Enter venue identifier with validation
 4. **Installation** - Files copied, service registered

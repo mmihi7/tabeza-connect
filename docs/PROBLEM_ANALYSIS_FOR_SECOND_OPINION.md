@@ -24,7 +24,7 @@
 #### `src/service/index.js` (MAIN SERVICE ENTRY POINT)
 ```javascript
 /**
- * Tabeza POS Connect - Integrated Capture Service
+ * TabezaConnect - Integrated Capture Service
  *
  * CORE TRUTH: Manual service always exists.
  * Digital authority is singular.
@@ -149,7 +149,7 @@ REM ... rest of build process ...
 ; ============================================================================
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\register-service-pkg.ps1"" -InstallPath ""{app}"" -BarId ""{code:GetBarId}"" -ApiUrl ""{code:GetApiUrl}"" -WatchFolder ""C:\ProgramData\Tabeza\TabezaPrints"""; \
-  StatusMsg: "Registering Tabeza POS Connect service..."; \
+  StatusMsg: "Registering TabezaConnect service..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
@@ -167,7 +167,7 @@ Filename: "powershell.exe"; \
 ; ============================================================================
 Filename: "sc.exe"; \
   Parameters: "start TabezaConnect"; \
-  StatusMsg: "Starting Tabeza POS Connect service..."; \
+  StatusMsg: "Starting TabezaConnect service..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 ```
@@ -211,7 +211,7 @@ call pkg "%SERVICE_DIR%\index.js" --targets node18-win-x64 --output "%INSTALLER_
 // Lines 246-250: SERVICE REGISTRATION
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\register-service-pkg.ps1"" -InstallPath ""{app}"" -BarId ""{code:GetBarId}"" -ApiUrl ""{code:GetApiUrl}"" -WatchFolder ""C:\ProgramData\Tabeza\TabezaPrints"""; \
-  StatusMsg: "Registering Tabeza POS Connect service..."; \
+  StatusMsg: "Registering TabezaConnect service..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 ```
@@ -243,7 +243,7 @@ Filename: "powershell.exe"; \
 #### `src/tray/tray-app.js` (SYSTEM TRAY - FULLY IMPLEMENTED)
 ```javascript
 /**
- * Tabeza POS Connect Tray Application Wrapper
+ * TabezaConnect Tray Application Wrapper
  *
  * CORE TRUTH: Manual service always exists.
  * Digital authority is singular.

@@ -1,5 +1,5 @@
 /**
- * Tabeza POS Connect Tray Application Wrapper
+ * TabezaConnect Tray Application Wrapper
  *
  * CORE TRUTH: Manual service always exists.
  * Digital authority is singular.
@@ -54,12 +54,12 @@ const ICON_PATHS = {
 
 // ── State → icon / tooltip mapping ───────────────────────────────────────────
 const STATE_CONFIG = {
-  [ApplicationState.STARTING]:     { icon: 'grey', tooltip: 'Tabeza POS Connect - Starting...' },
-  [ApplicationState.CONNECTED]:    { icon: 'green', tooltip: 'Tabeza POS Connect - Connected' },
-  [ApplicationState.UNCONFIGURED]: { icon: 'grey', tooltip: 'Tabeza POS Connect - Configuration required' },
-  [ApplicationState.DISCONNECTED]: { icon: 'grey', tooltip: 'Tabeza POS Connect - Cloud disconnected' },
-  [ApplicationState.ERROR]:        { icon: 'grey', tooltip: 'Tabeza POS Connect - Error' },
-  [ApplicationState.SHUTTING_DOWN]:{ icon: 'grey', tooltip: 'Tabeza POS Connect - Shutting down...' },
+  [ApplicationState.STARTING]:     { icon: 'grey', tooltip: 'TabezaConnect - Starting...' },
+  [ApplicationState.CONNECTED]:    { icon: 'green', tooltip: 'TabezaConnect - Connected' },
+  [ApplicationState.UNCONFIGURED]: { icon: 'grey', tooltip: 'TabezaConnect - Configuration required' },
+  [ApplicationState.DISCONNECTED]: { icon: 'grey', tooltip: 'TabezaConnect - Cloud disconnected' },
+  [ApplicationState.ERROR]:        { icon: 'grey', tooltip: 'TabezaConnect - Error' },
+  [ApplicationState.SHUTTING_DOWN]:{ icon: 'grey', tooltip: 'TabezaConnect - Shutting down...' },
 };
 
 // ── Status polling interval (ms) ──────────────────────────────────────────────
@@ -112,7 +112,7 @@ class TrayApp {
     if (icon.isEmpty()) throw new Error(`Cannot load icon: ${ICON_PATHS.grey}`);
 
     this.tray = new Tray(icon);
-    this.tray.setToolTip('Tabeza POS Connect - Starting...');
+    this.tray.setToolTip('TabezaConnect - Starting...');
 
     this.tray.on('double-click', () => this._showWindow());
 
@@ -135,10 +135,10 @@ class TrayApp {
 
     let tooltip = cfg.tooltip;
     if (state === ApplicationState.CONNECTED && this.barId) {
-      tooltip = `Tabeza POS Connect - Connected (Bar: ${this.barId})`;
+      tooltip = `TabezaConnect - Connected (Bar: ${this.barId})`;
     }
     if (state === ApplicationState.ERROR && this.errorMessage) {
-      tooltip = `Tabeza POS Connect - Error: ${this.errorMessage}`;
+      tooltip = `TabezaConnect - Error: ${this.errorMessage}`;
     }
     this.tray.setToolTip(tooltip);
   }
@@ -153,7 +153,7 @@ class TrayApp {
       fullscreenable:  false,
       show:            false,           // start hidden
       skipTaskbar:     true,            // don't appear in taskbar
-      title:           'Tabeza POS Connect',
+      title:           'TabezaConnect',
       icon:            path.join(__dirname, '../../assets/icon-green.ico'),
       backgroundColor: '#020617',       // dark background matches UI
       webPreferences: {
@@ -191,8 +191,12 @@ class TrayApp {
     if (!this.window) return;
     if (!this.window.isVisible()) {
       this.window.show();
+      // Let OS handle focus naturally - don't force focus
+      // This prevents the window from staying on top of all other windows
+    } else {
+      // Only focus if window is already visible (user clicked tray again)
+      this.window.focus();
     }
-    this.window.focus();
   }
 
   _hideWindow() {
@@ -239,8 +243,12 @@ class TrayApp {
     
     if (!this.wizardWindow.isVisible()) {
       this.wizardWindow.show();
+      // Let OS handle focus naturally - don't force focus
+      // This prevents the window from staying on top of all other windows
+    } else {
+      // Only focus if window is already visible (user clicked tray again)
+      this.wizardWindow.focus();
     }
-    this.wizardWindow.focus();
   }
 
   _hideWizardWindow() {
@@ -384,7 +392,7 @@ class TrayApp {
     }
 
     const menu = Menu.buildFromTemplate([
-      { label: 'Tabeza POS Connect',                 enabled: false },
+      { label: 'TabezaConnect',                 enabled: false },
       { label: configured ? `Bar: ${this.barId}` : 'Bar: Not configured', enabled: false },
       { label: `${statusLabel}`, enabled: false },
       { label: `Queue: ${pending} pending, ${uploaded} uploaded`, enabled: false },
@@ -685,7 +693,7 @@ class TrayApp {
           type:      'question',
           title:     'Restart Service',
           message:   'Restart requires a full application restart.',
-          detail:    'Exit and restart Tabeza POS Connect now?',
+          detail:    'Exit and restart TabezaConnect now?',
           buttons:   ['Restart Now', 'Cancel'],
           defaultId: 0,
           cancelId:  1,
@@ -706,8 +714,8 @@ class TrayApp {
 
     dialog.showMessageBox({
       type:    'info',
-      title:   'About Tabeza POS Connect',
-      message: `Tabeza POS Connect v${version}`,
+      title:   'About TabezaConnect',
+      message: `TabezaConnect v${version}`,
       detail:
         'POS Printer Capture Service\n\n' +
         'Copyright © 2024 Tabeza\nAll rights reserved.\n\n' +

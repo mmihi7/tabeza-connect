@@ -1,4 +1,4 @@
-# Configure Tabeza Agent with Redmon Port
+# Configure Send2Me with Redmon Port
 # Creates a printer using Generic/Text Only driver with Redmon port
 # that pipes print jobs to the Tabeza Connect capture script
 # v1.7.14 - Redmon-based receipt capture implementation (No emoji version)
@@ -8,13 +8,14 @@ param(
     [string]$BarId = "UNCONFIGURED",
     
     [string]$CaptureScriptPath = "C:\Program Files\TabezaConnect\capture.exe",
-    [string]$PrinterName = "Tabeza Agent",
+    [string]$PrinterName = "Send2Me",
     [string]$DriverName = "Generic / Text Only",
     [string]$PortName = "TabezaCapturePort",
+    [string]$PhysicalPrinter = "",   # Physical printer Redmon forwards to after capture
     [switch]$Detailed
 )
 
-Write-Host "Configuring Tabeza Agent with Redmon..." -ForegroundColor Cyan
+Write-Host "Configuring Send2Me with Redmon..." -ForegroundColor Cyan
 Write-Host ""
 
 # ===============================================================================
@@ -47,7 +48,7 @@ Write-Host "Verifying Redmon installation..." -ForegroundColor Cyan
 
 $redmonRegPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Print\Monitors\Redirected Port"
 if (-not (Test-Path $redmonRegPath)) {
-    Write-Host "[ERROR] Redmon is not installed" -ForegroundColor Red
+    Write-Host "[ERROR] Redmon is not installed (checked: $redmonRegPath)" -ForegroundColor Red
     Write-Host ""
     Write-Host "Please run install-redmon.ps1 before configuring the printer." -ForegroundColor Yellow
     exit 1
@@ -156,8 +157,15 @@ try {
     # Arguments: Pass Bar ID to capture script
     Set-ItemProperty -Path $portRegPath -Name "Arguments" -Value "--bar-id $BarId" -Type String
     
-    # Output: Use stdin (empty string means pipe to stdin)
-    Set-ItemProperty -Path $portRegPath -Name "Output" -Value "" -Type String
+    # Output: Physical printer to forward job to after capture (empty = capture only)
+    # When set, Redmon pipes to capture.exe AND forwards raw job to the physical printer
+    Set-ItemProperty -Path $portRegPath -Name "Output" -Value $PhysicalPrinter -Type String
+    
+    if ($PhysicalPrinter -ne "") {
+        Write-Host "[OK] Redmon will forward jobs to physical printer: $PhysicalPrinter" -ForegroundColor Green
+    } else {
+        Write-Host "[INFO] No physical printer forwarding configured (capture only)" -ForegroundColor Cyan
+    }
     
     # ShowWindow: 0 = hidden (no console window)
     Set-ItemProperty -Path $portRegPath -Name "ShowWindow" -Value 0 -Type DWord

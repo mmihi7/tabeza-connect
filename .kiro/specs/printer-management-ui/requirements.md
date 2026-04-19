@@ -42,7 +42,7 @@ So that I can continue using Tabeza without calling support
 - "Update Printer" button saves the change
 - Bridge restarts automatically with new printer
 - Success message confirms the change
-- POS configuration remains unchanged (still prints to "Tabeza POS Connect")
+- POS configuration remains unchanged (still prints to "TabezaConnect")
 
 ### 3. As a venue owner
 I want to send a test print to verify my printer works
@@ -72,7 +72,7 @@ I want clear instructions when changing printers
 So that I understand what will happen
 
 **Acceptance Criteria:**
-- Help text explains: "Your POS will continue printing to 'Tabeza POS Connect' - no POS changes needed"
+- Help text explains: "Your POS will continue printing to 'TabezaConnect' - no POS changes needed"
 - Warning shown before changing printer
 - Confirmation required for printer change
 - Instructions for testing after change

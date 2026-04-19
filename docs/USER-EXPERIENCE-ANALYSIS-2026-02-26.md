@@ -92,7 +92,7 @@ _pollStatus() {
 
 ```xml
 <RegistryKey Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Run">
-  <RegistryValue Name="Tabeza POS Connect" 
+  <RegistryValue Name="TabezaConnect" 
                  Value="&quot;[#TabezaConnect.exe]&quot;" />
 </RegistryKey>
 ```
@@ -134,7 +134,7 @@ Write-Host "  Status: $($preferredPrinter.PrinterStatus)"
 ### **Manual Setup Required** (after installation):
 
 1. **Step 1**: Install thermal printer drivers
-2. **Step 2**: Create "Tabeza POS Connect" printer port
+2. **Step 2**: Create "TabezaConnect" printer port
 3. **Step 3**: Configure printer to use pooling mode
 
 ### **Setup Scripts Available:**
@@ -225,7 +225,7 @@ fs.watchFile(captureFile, async (curr, prev) => {
 ### **Printer Setup Steps:**
 
 1. **Install Drivers**: Thermal printer drivers from manufacturer
-2. **Create Port**: "Tabeza POS Connect" local port pointing to `C:\TabezaPrints\order.prn`
+2. **Create Port**: "TabezaConnect" local port pointing to `C:\TabezaPrints\order.prn`
 3. **Configure Pooling**: Set printer to use pooling mode
 4. **Test**: Print test receipt to verify capture
 5. **Monitor**: Check tray app for queue statistics

@@ -1,11 +1,11 @@
-# Tabeza POS Connect - Release Templates
+# TabezaConnect - Release Templates
 
 ## Version 1.1.1
-**Release Title**: `Tabeza POS Connect v1.1.1 - Enhanced Stability & Performance`
+**Release Title**: `TabezaConnect v1.1.1 - Enhanced Stability & Performance`
 
 **Release Description**:
 ```
-🚀 Tabeza POS Connect v1.1.1
+🚀 TabezaConnect v1.1.1
 
 This release includes important stability improvements and performance optimizations for reliable POS printer integration.
 
@@ -40,11 +40,11 @@ This release includes important stability improvements and performance optimizat
 ---
 
 ## Version 1.1.0
-**Release Title**: `Tabeza POS Connect v1.1.0 - Modern Tray Application`
+**Release Title**: `TabezaConnect v1.1.0 - Modern Tray Application`
 
 **Release Description**:
 ```
-🎉 Tabeza POS Connect v1.1.0 - Major Update
+🎉 TabezaConnect v1.1.0 - Major Update
 
 Introducing the new system tray application for seamless POS printer integration.
 
@@ -81,11 +81,11 @@ Introducing the new system tray application for seamless POS printer integration
 ---
 
 ## Version 1.0.x Series
-**Release Title**: `Tabeza POS Connect v1.0.x - Legacy Service Version`
+**Release Title**: `TabezaConnect v1.0.x - Legacy Service Version`
 
 **Release Description**:
 ```
-🔧 Tabeza POS Connect v1.0.x - Stable Platform
+🔧 TabezaConnect v1.0.x - Stable Platform
 
 Reliable Windows Service version for POS printer integration and monitoring.
 

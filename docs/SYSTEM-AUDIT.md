@@ -474,7 +474,7 @@ npm run dev:service
     "confidence": "high"
   },
   "rawText": "CAPTAIN'S ORDER...",
-  "printerName": "Tabeza POS Connect"
+  "printerName": "TabezaConnect"
 }
 ```
 

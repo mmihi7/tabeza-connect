@@ -101,7 +101,7 @@
 
 2. 
 /***
- * Tabeza POS Connect - Pooling Capture Service v1.7.0
+ * TabezaConnect - Pooling Capture Service v1.7.0
  *
  * Architecture: Windows Printer Pooling (NO BRIDGE)
  * ─────────────────────────────────────────────────
@@ -212,7 +212,7 @@ class IntegratedCaptureService {
 
   async start() {
     info('========================================');
-    info('Tabeza POS Connect - Integrated Service v1.7.0');
+    info('TabezaConnect - Integrated Service v1.7.0');
     info('========================================');
     
     // Log configuration with source
@@ -448,7 +448,7 @@ class IntegratedCaptureService {
   }
 
   async stop() {
-    info('Stopping Tabeza POS Connect Integrated Service...');
+    info('Stopping TabezaConnect Integrated Service...');
     this.isRunning = false;
 
     // Stop file watcher
@@ -514,7 +514,7 @@ class IntegratedCaptureService {
 
 // Signal ready to Windows SCM BEFORE anything else (guards against slow startup)
 if (process.send) {
-  process.send({ type: 'started', message: 'Tabeza POS Connect starting' });
+  process.send({ type: 'started', message: 'TabezaConnect starting' });
 }
 
 const service = new IntegratedCaptureService();

@@ -28,7 +28,7 @@ if (-not $isAdmin) {
 }
 
 $serviceName = "TabezaConnect"
-$displayName = "Tabeza POS Connect"
+$displayName = "TabezaConnect"
 $description = "Captures receipt data from POS and syncs with Tabeza staff app"
 
 # Check if service exists

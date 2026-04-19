@@ -27,7 +27,7 @@ Verify: `pkg --version`
 
 Make sure these files have been updated:
 - ✅ `src/service/index.js` - Fixed missing functions
-- ✅ `src/installer/scripts/configure-printer.ps1` - Updated printer name to "Tabeza POS Connect"
+- ✅ `src/installer/scripts/configure-printer.ps1` - Updated printer name to "TabezaConnect"
 - ✅ `installer.iss` - Updated uninstaller to remove correct printer
 
 ## Build Process
@@ -127,14 +127,14 @@ The installer now includes:
    - Enter a test Bar ID
 
 4. **Verify Installation**
-   - Check Services: `services.msc` → Look for "Tabeza POS Connect"
-   - Check Printers: Settings → Printers → Look for "Tabeza POS Connect"
+   - Check Services: `services.msc` → Look for "TabezaConnect"
+   - Check Printers: Settings → Printers → Look for "TabezaConnect"
    - Check Files: `C:\Program Files\TabezaConnect\`
 
 5. **Test Receipt Capture**
    - Open Notepad
    - Type some text
-   - File → Print → Select "Tabeza POS Connect"
+   - File → Print → Select "TabezaConnect"
    - Print
    - Check logs: `C:\ProgramData\Tabeza\logs\`
    - Verify receipt was captured

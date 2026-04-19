@@ -1,20 +1,20 @@
-TABEZA POS CONNECT - TERMS OF SERVICE AND PRIVACY POLICY
+TabezaConnect - TERMS OF SERVICE AND PRIVACY POLICY
 
 Last Updated: February 19, 2026
 
-BY INSTALLING TABEZA POS CONNECT, YOU AGREE TO THESE TERMS AND OUR PRIVACY POLICY.
+BY INSTALLING TabezaConnect, YOU AGREE TO THESE TERMS AND OUR PRIVACY POLICY.
 
 ================================================================================
 1. SERVICE DESCRIPTION
 ================================================================================
 
-Tabeza POS Connect is a Windows background service that:
+TabezaConnect is a Windows background service that:
 - Monitors your Windows print spooler for receipt data
 - Captures receipt information AFTER printing completes
 - Sends receipt data to Tabeza cloud services for digital receipt delivery
 - Does NOT interfere with or delay your normal printing operations
 
-IMPORTANT: Your printer and POS system operate independently. Tabeza POS Connect 
+IMPORTANT: Your printer and POS system operate independently. TabezaConnect 
 only observes print jobs after they complete - it never blocks or modifies 
 printing.
 
@@ -32,7 +32,7 @@ If you do not agree to these terms, do not install or use this software.
 ================================================================================
 
 Tabeza grants you a non-exclusive, non-transferable license to:
-- Install and use Tabeza POS Connect on your venue's computers
+- Install and use TabezaConnect on your venue's computers
 - Capture and transmit receipt data from your POS system
 - Access digital receipt services through the Tabeza platform
 
@@ -44,7 +44,7 @@ This license is valid for the duration of your Tabeza subscription.
 
 4.1 WHAT WE COLLECT
 
-Tabeza POS Connect collects and transmits:
+TabezaConnect collects and transmits:
 - Receipt data: items, quantities, prices, totals, taxes
 - Venue identifier (Bar ID)
 - Timestamp of each transaction
@@ -111,7 +111,7 @@ You must NOT:
 
 6.1 SUPPORTED SYSTEMS
 
-Tabeza POS Connect works with:
+TabezaConnect works with:
 - Any POS system that prints to Windows printers
 - Thermal printers, network printers, USB printers
 - ESC/POS compatible receipt printers
@@ -124,7 +124,7 @@ may vary based on receipt format.
 
 6.3 NO LIABILITY FOR PRINTING ISSUES
 
-Tabeza POS Connect operates AFTER printing completes and does not interfere 
+TabezaConnect operates AFTER printing completes and does not interfere 
 with your printing process. We are not liable for any printing delays, failures, 
 or issues with your POS system or printers.
 
@@ -143,7 +143,7 @@ service may be unavailable due to:
 
 7.2 LOCAL QUEUE
 
-Tabeza POS Connect includes a local queue that stores receipts when internet 
+TabezaConnect includes a local queue that stores receipts when internet 
 connectivity is unavailable. Receipts will be uploaded when connectivity is 
 restored.
 
@@ -153,7 +153,7 @@ restored.
 
 TO THE MAXIMUM EXTENT PERMITTED BY LAW:
 
-- Tabeza POS Connect is provided "AS IS" without warranties of any kind
+- TabezaConnect is provided "AS IS" without warranties of any kind
 - We are not liable for any indirect, incidental, or consequential damages
 - Our total liability shall not exceed the amount you paid for the service 
   in the 12 months preceding the claim
@@ -165,7 +165,7 @@ TO THE MAXIMUM EXTENT PERMITTED BY LAW:
 
 You agree to indemnify and hold Tabeza harmless from any claims, damages, or 
 expenses arising from:
-- Your use of Tabeza POS Connect
+- Your use of TabezaConnect
 - Your violation of these terms
 - Your violation of any third-party rights
 - Any data you transmit through the service
@@ -177,7 +177,7 @@ expenses arising from:
 10.1 BY YOU
 
 You may terminate this agreement at any time by:
-- Uninstalling Tabeza POS Connect
+- Uninstalling TabezaConnect
 - Canceling your Tabeza subscription
 - Requesting deletion of your venue data
 
@@ -192,7 +192,7 @@ We may terminate or suspend your access if:
 
 Upon termination:
 - Your license to use the software ends immediately
-- You must uninstall Tabeza POS Connect
+- You must uninstall TabezaConnect
 - Your data will be deleted according to our retention policy
 
 ================================================================================
@@ -201,7 +201,7 @@ Upon termination:
 
 11.1 SOFTWARE UPDATES
 
-Tabeza POS Connect may automatically download and install updates. Updates may:
+TabezaConnect may automatically download and install updates. Updates may:
 - Add new features
 - Fix bugs or security issues
 - Improve performance
@@ -217,7 +217,7 @@ material changes via email or dashboard notification.
 12. COMPLIANCE WITH LAWS
 ================================================================================
 
-You are responsible for ensuring your use of Tabeza POS Connect complies with:
+You are responsible for ensuring your use of TabezaConnect complies with:
 - Local data protection laws (GDPR, CCPA, etc.)
 - Tax and accounting regulations
 - Consumer protection laws
@@ -248,7 +248,7 @@ in class action lawsuits.
 14.1 ENTIRE AGREEMENT
 
 These terms constitute the entire agreement between you and Tabeza regarding 
-Tabeza POS Connect.
+TabezaConnect.
 
 14.2 SEVERABILITY
 

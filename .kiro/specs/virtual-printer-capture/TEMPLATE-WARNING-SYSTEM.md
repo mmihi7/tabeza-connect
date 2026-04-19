@@ -49,7 +49,7 @@ Without a regex template (`template.json`), Tabeza Connect can capture receipts 
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Tabeza POS Connect Dashboard                                │
+│ TabezaConnect Dashboard                                │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
 │ Template Status: ❌ Not configured                          │

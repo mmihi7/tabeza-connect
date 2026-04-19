@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" />
-  <title>Tabeza POS Connect Status</title>
+  <title>TabezaConnect Status</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -142,7 +142,7 @@
 
   <div class="header">
     <img id="header-icon" src="" alt="" />
-    <h1>Tabeza POS Connect</h1>
+    <h1>TabezaConnect</h1>
   </div>
 
   <div class="status-bar starting" id="status-bar">

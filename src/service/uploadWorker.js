@@ -280,7 +280,7 @@ class UploadWorker extends EventEmitter {
       rawData: receipt.escposBytes || null,
       parsedData: parsedData,  // Use receipt.parsedData (our Python parser data)
       rawText: receipt.text || parsedData?.rawText || null,
-      printerName: receipt.metadata?.printerName || 'Tabeza POS Connect',
+      printerName: receipt.metadata?.printerName || 'TabezaConnect',
       documentName: receipt.metadata?.documentName || receipt.metadata?.fileName || 'Receipt',
       metadata: {
         ...receipt.metadata,

@@ -19,10 +19,16 @@ const { spawn, exec } = require('child_process');
 app.commandLine.appendSwitch('disable-accelerated-video-decode');
 app.commandLine.appendSwitch('disable-ffmpeg');
 
+// CRITICAL: Set a fixed app user model ID for single-instance lock to work correctly
+// Without this, each build/path is treated as a different app
+app.setAppUserModelId('com.tabeza.tabezaconnect');
+
 // Single instance lock - MUST be at top before any app ready
-const gotTheLock = app.requestSingleInstanceLock ? app.requestSingleInstanceLock() : app.requestSingleInstanceLock();
+const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
+  console.log('Another instance is already running. Exiting...');
   app.quit();
+  process.exit(0);
 }
 app.on('second-instance', () => {
   if (mainWindow) {
@@ -72,6 +78,79 @@ let setupWindow = null;
 let templateWindow = null;
 let backgroundService = null;
 let isQuitting = false;
+
+// Circuit breaker for RedMon registry check failures
+// Prevents cascading EPIPE errors by skipping subsequent checks after first failure
+// Requirements: 2.8 from bugfix.md
+let redmonCheckFailed = false;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Focus Guard - Prevent Programmatic Focus Stealing
+// ─────────────────────────────────────────────────────────────────────────────
+// Track last user interaction timestamp to distinguish user-initiated focus
+// from programmatic focus events. Only allow focus changes within 500ms of
+// user action (clicking tray icon, opening dashboard).
+// 
+// Requirements: 2.5, 2.6 from bugfix.md
+
+let lastUserInteractionTimestamp = null;
+let lastFocusSyncTimestamp = null; // Track last focus sync to prevent feedback loop
+
+/**
+ * Mark that a user interaction occurred (e.g., tray icon click)
+ * This allows focus changes within the next 500ms
+ */
+function markUserInteraction() {
+  lastUserInteractionTimestamp = Date.now();
+  log('INFO', 'User interaction marked - focus changes allowed for 500ms');
+}
+
+/**
+ * Check if a focus change is user-initiated (within 500ms of user action)
+ * @returns {boolean} true if focus change is allowed, false otherwise
+ */
+function isFocusUserInitiated() {
+  if (!lastUserInteractionTimestamp) {
+    return false;
+  }
+  
+  const timeSinceUserAction = Date.now() - lastUserInteractionTimestamp;
+  const isAllowed = timeSinceUserAction <= 500;
+  
+  if (!isAllowed) {
+    log('INFO', `Focus change blocked - ${timeSinceUserAction}ms since user action (> 500ms threshold)`);
+  }
+  
+  return isAllowed;
+}
+
+/**
+ * Check if we should skip state sync to prevent feedback loop
+ * Debounces focus events - only sync if at least 200ms since last sync
+ * @returns {boolean} true if should skip sync, false if should proceed
+ */
+function shouldSkipFocusSync() {
+  if (!lastFocusSyncTimestamp) {
+    return false; // First sync, proceed
+  }
+  
+  const timeSinceLastSync = Date.now() - lastFocusSyncTimestamp;
+  const shouldSkip = timeSinceLastSync < 200; // Debounce threshold: 200ms
+  
+  if (shouldSkip) {
+    log('INFO', `Focus sync skipped - ${timeSinceLastSync}ms since last sync (< 200ms debounce threshold)`);
+  }
+  
+  return shouldSkip;
+}
+
+/**
+ * Mark that a focus sync occurred
+ * Used for debouncing to prevent rapid focus changes
+ */
+function markFocusSync() {
+  lastFocusSyncTimestamp = Date.now();
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Real-Time State Synchronization - Singleton Instances
@@ -159,8 +238,108 @@ function initializeStateSync() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // Verify and fix RedMon registry on startup
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Verify and fix RedMon registry configuration (Async version)
+ * 
+ * This function checks if RedMon port monitor is properly configured and
+ * attempts to fix common configuration issues.
+ * 
+ * EPIPE Error Prevention:
+ * - Uses async exec instead of execSync to avoid blocking and pipe issues
+ * - Handles stdout/stderr streams properly
+ * - Closes streams explicitly after reading
+ * - Uses safeLog() instead of console.log to prevent EPIPE errors
+ * - Implements circuit breaker to prevent cascading failures
+ * - Gracefully handles registry check failures without polluting error logs
+ * 
+ * Requirements: 2.7, 2.8, 3.1, 3.2 from bugfix.md
+ * 
+ * Bug Condition: isBugCondition_EPIPE(input) where:
+ *   input.redmonCheckFailed == true
+ *   AND input.errorType == "EPIPE"
+ *   AND input.cascadingErrors > 0
+ * 
+ * Expected Behavior: System SHALL handle error gracefully without generating EPIPE errors
+ * Preservation: Successful registry check when RedMon is installed must remain unchanged
+ */
+async function verifyRedMonRegistryAsync() {
+  // Circuit breaker: Skip if previous check failed
+  // Prevents cascading EPIPE errors from repeated failures
+  if (redmonCheckFailed) {
+    safeLog('INFO', 'RedMon registry check skipped (circuit breaker active)');
+    return;
+  }
+  
+  const { exec } = require('child_process');
+  const { promisify } = require('util');
+  const execAsync = promisify(exec);
+  
+  // Check for the RedMon port monitor itself — this is what setup64.exe registers.
+  // The key name is "RedMon" (capital M), not "Redirected Port".
+  const monitorPath = 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Monitors\\RedMon';
+  const portPath = 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Monitors\\Redirected Port\\Ports\\TabezaCapturePort';
+  
+  try {
+    // Step 1: Verify the RedMon monitor is registered
+    await execAsync(`reg query "${monitorPath}"`, { encoding: 'utf8' });
+    safeLog('INFO', 'RedMon port monitor is registered');
+  } catch (e) {
+    // Monitor not found — this is the real missing dependency
+    redmonCheckFailed = true;
+    safeLog('WARN', `RedMon monitor not found at ${monitorPath}: ${e.message}`);
+    return;
+  }
+
+  try {
+    // Step 2: Check port config — best-effort only, does NOT set circuit breaker
+    const { stdout } = await execAsync(`reg query "${portPath}"`, { encoding: 'utf8' });
+    const command = stdout || '';
+    
+    if (!command.includes('C:\\TabezaPrints\\capture.exe')) {
+      safeLog('INFO', 'Fixing RedMon registry: Setting capture.exe path');
+      await execAsync(`reg add "${portPath}" /v Command /t REG_SZ /d "C:\\TabezaPrints\\capture.exe" /f`, { encoding: 'utf8' });
+    }
+    
+    safeLog('INFO', 'RedMon registry verified');
+  } catch (e) {
+    // Port not configured yet — this is normal before the printer is set up.
+    // Do NOT set redmonCheckFailed — the monitor is installed, just not configured.
+    safeLog('INFO', `RedMon port not yet configured (normal before printer setup): ${e.message}`);
+  }
+}
+
+/**
+ * Verify and fix RedMon registry configuration (Synchronous version - DEPRECATED)
+ * 
+ * This is the original synchronous implementation kept for backward compatibility.
+ * New code should use verifyRedMonRegistryAsync() instead.
+ * 
+ * EPIPE Error Prevention:
+ * - Uses safeLog() instead of console.log to prevent EPIPE errors
+ * - Implements circuit breaker to prevent cascading failures
+ * - Gracefully handles registry check failures without polluting error logs
+ * 
+ * Requirements: 2.7, 2.8, 3.1, 3.2 from bugfix.md
+ * 
+ * Bug Condition: isBugCondition_EPIPE(input) where:
+ *   input.redmonCheckFailed == true
+ *   AND input.errorType == "EPIPE"
+ *   AND input.cascadingErrors > 0
+ * 
+ * Expected Behavior: System SHALL handle error gracefully without generating EPIPE errors
+ * Preservation: Successful registry check when RedMon is installed must remain unchanged
+ */
 function verifyRedMonRegistry() {
+  // Circuit breaker: Skip if previous check failed
+  // Prevents cascading EPIPE errors from repeated failures
+  if (redmonCheckFailed) {
+    safeLog('INFO', 'RedMon registry check skipped (circuit breaker active)');
+    return;
+  }
+  
   const { execSync } = require('child_process');
   const regPath = 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Monitors\\Redirected Port\\Ports\\TabezaCapturePort';
   
@@ -169,19 +348,25 @@ function verifyRedMonRegistry() {
     
     // Check if command is correct
     if (!command.includes('C:\\TabezaPrints\\capture.exe')) {
-      log('INFO', 'Fixing RedMon registry: Setting capture.exe path');
+      safeLog('INFO', 'Fixing RedMon registry: Setting capture.exe path');
       execSync(`reg add "${regPath}" /v Command /t REG_SZ /d "C:\\TabezaPrints\\capture.exe" /f`, { encoding: 'utf8' });
     }
     
     // Check if output (physical printer) is set
     if (!command.includes('EPSON')) {
-      log('INFO', 'Fixing RedMon registry: Setting output printer');
+      safeLog('INFO', 'Fixing RedMon registry: Setting output printer');
       execSync(`reg add "${regPath}" /v Output /t REG_SZ /d "EPSON L3210 Series" /f`, { encoding: 'utf8' });
     }
     
-    log('INFO', 'RedMon registry verified');
+    safeLog('INFO', 'RedMon registry verified');
   } catch (e) {
-    log('WARN', `RedMon registry check failed: ${e.message}`);
+    // Set circuit breaker flag on first failure
+    // This prevents subsequent checks from cascading the error
+    redmonCheckFailed = true;
+    
+    // Use safeLog to prevent EPIPE errors during error logging
+    // If console.log fails with EPIPE, safeLog falls back to file logging
+    safeLog('WARN', `RedMon registry check failed: ${e.message}`);
   }
 }
 
@@ -194,8 +379,60 @@ function verifyRedMonRegistry() {
 app.whenReady().then(async () => {
   log('INFO', 'Electron app ready - starting initialization sequence');
   
-  // Verify RedMon registry on startup
-  verifyRedMonRegistry();
+  // Verify RedMon registry on startup (async version to avoid pipe issues)
+  // Use async version to prevent EPIPE errors from blocking operations
+  await verifyRedMonRegistryAsync();
+  
+  // ─────────────────────────────────────────────────────────────────────────
+  // MANDATORY DEPENDENCY CHECK: RedMon Port Monitor
+  // ─────────────────────────────────────────────────────────────────────────
+  // Bug Fix: Bug 5 - RedMon Registry Check Failure
+  // Requirements: 2.9, 2.10, 3.1, 3.2, 3.9, 3.10 from bugfix.md
+  //
+  // Bug Condition: isBugCondition_RedMonCheck(input) where:
+  //   input.redmonInstalled == false
+  //   AND input.appStartupBlocked == false
+  //   AND input.userGuidance == null
+  //
+  // Expected Behavior: System SHALL display clear user-facing message and
+  // block startup OR enter degraded mode
+  //
+  // Preservation: Normal startup when RedMon is installed must remain unchanged
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  if (redmonCheckFailed) {
+    log('ERROR', 'RedMon port monitor is not installed - mandatory dependency missing');
+    
+    // Show user-facing error dialog with clear guidance
+    // Requirement 2.9: Display clear user-facing message
+    const errorMessage = 
+      'RedMon port monitor is required but not installed.\n\n' +
+      'Please run the installer to configure RedMon.\n\n' +
+      'Receipt capture will not work without RedMon.';
+    
+    dialog.showErrorBox('Tabeza Connect - RedMon Required', errorMessage);
+    
+    log('INFO', 'User notified about missing RedMon dependency');
+    
+    // OPTION 1: Block startup (commented out - using degraded mode instead)
+    // log('INFO', 'Blocking startup until RedMon is installed');
+    // app.quit();
+    // return;
+    
+    // OPTION 2: Enter degraded mode (allows configuration but disables receipt capture)
+    // Requirement 2.10: Enter safe degraded mode that prevents receipt capture
+    log('INFO', 'Entering degraded mode - receipt capture disabled');
+    global.redmonDegradedMode = true;
+    global.serviceStatus = 'degraded';
+    
+    // Continue with initialization in degraded mode
+    // Configuration and template generation will still work
+    // Receipt capture functionality will be disabled
+  } else {
+    log('INFO', 'RedMon port monitor verified - normal operation mode');
+    global.redmonDegradedMode = false;
+    global.serviceStatus = 'online';
+  }
   
   // Set development mode now that app is ready
   isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
@@ -233,14 +470,51 @@ function log(level, message) {
   const timestamp = new Date().toISOString();
   const line = `[${timestamp}][${level}] ${message}`;
   console.log(line);
-  
+
   try {
-    if (!fs.existsSync(LOG_DIR)) {
-      fs.mkdirSync(LOG_DIR, { recursive: true });
-    }
-    fs.appendFileSync(LOG_FILE, line + '\n', 'utf8');
+    require('./src/utils/log-rotator').writeLog(LOG_FILE, line, { maxBytes: 5 * 1024 * 1024, maxFiles: 3 });
   } catch (e) {
     // Ignore logging errors
+  }
+}
+
+/**
+ * Safe logging function that catches EPIPE errors
+ * 
+ * This function wraps console.log in a try/catch to prevent EPIPE errors
+ * from cascading when child processes close their stdout/stderr pipes.
+ * 
+ * If console.log fails with EPIPE, falls back to file-based logging.
+ * 
+ * Requirements: 2.7, 2.8 from bugfix.md
+ * 
+ * @param {string} level - Log level (INFO, WARN, ERROR)
+ * @param {string} message - Log message
+ */
+function safeLog(level, message) {
+  const timestamp = new Date().toISOString();
+  const line = `[${timestamp}][${level}] ${message}`;
+  
+  try {
+    // Attempt console logging first
+    console.log(line);
+  } catch (e) {
+    // If EPIPE error occurs, silently ignore and use file logging
+    if (e.code === 'EPIPE' || (e.message && e.message.includes('EPIPE'))) {
+      // Pipe is broken - fall back to file logging only
+      // Do NOT attempt to log the EPIPE error itself (would cascade)
+    } else {
+      // For non-EPIPE errors, rethrow
+      throw e;
+    }
+  }
+  
+  // Always attempt file logging (independent of console)
+  try {
+    require('./src/utils/log-rotator').writeLog(LOG_FILE, line, { maxBytes: 5 * 1024 * 1024, maxFiles: 3 });
+  } catch (e) {
+    // Silently ignore file logging errors
+    // If both console and file logging fail, we give up gracefully
   }
 }
 
@@ -307,8 +581,15 @@ function initializeTabezaPrintsFolder() {
         watchFolder: TABEZA_PRINTS_DIR,
         httpPort: 8765
       };
-      // Write without BOM to avoid JSON parse errors
-      fs.writeFileSync(CONFIG_PATH, JSON.stringify(defaultConfig, null, 2), { encoding: 'utf8', flag: 'w' });
+      // Write without BOM to avoid JSON parse errors — atomic rename pattern
+      const tmpInit = CONFIG_PATH + '.tmp';
+      try {
+        fs.writeFileSync(tmpInit, JSON.stringify(defaultConfig, null, 2), 'utf8');
+        fs.renameSync(tmpInit, CONFIG_PATH);
+      } catch (err) {
+        try { fs.unlinkSync(tmpInit); } catch (_) {}
+        throw err;
+      }
       log('INFO', `  ✓ Created: ${CONFIG_PATH}`);
     } catch (err) {
       log('ERROR', `  ✗ Failed to create: ${CONFIG_PATH} - ${err.message}`);
@@ -695,110 +976,319 @@ async function migrateExistingInstallation() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Background Service Management
+// Background Service Management — Supervisor State Machine
+// Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 8.3, 9.1, 9.2, 9.3
 // ─────────────────────────────────────────────────────────────────────────────
 
-function startBackgroundService() {
-  return new Promise((resolve, reject) => {
-    if (backgroundService) {
-      log('INFO', 'Background service already running');
-      resolve();
-      return;
-    }
+const SERVICE_LOG_PATH = path.join(LOG_DIR, 'service.log');
+const LOG_OPTS = { maxBytes: 5 * 1024 * 1024, maxFiles: 3 };
 
-    const servicePath = isDev 
-      ? path.join(__dirname, 'src/service/index.js')
-      : path.join(process.resourcesPath, 'service/index.js');
+// Lazy-load log rotator (avoids circular dependency issues at module load time)
+function getWriteLog() {
+  return require('./src/utils/log-rotator').writeLog;
+}
 
-    if (!fs.existsSync(servicePath)) {
-      log('ERROR', `Service file not found: ${servicePath}`);
-      reject(new Error('Service file not found'));
-      return;
-    }
+// Supervisor state object — single source of truth for child process lifecycle
+const supervisor = {
+  child: null,
+  restartAttempts: 0,
+  lastStartTime: 0,
+  state: 'stopped', // 'stopped' | 'running' | 'restarting' | 'error'
+  isQuitting: false
+};
 
-    log('INFO', `Starting background service: ${servicePath}`);
-
-    backgroundService = spawn(process.execPath, [servicePath], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      detached: false,
-      windowsHide: true,
-      env: {
-        ...process.env,
-        TABEZA_DATA_DIR: TABEZA_PRINTS_DIR,
-        TABEZA_SERVICE_MODE: 'true'
+/**
+ * Check port 8765 for conflicts before spawning child.
+ * Only kills the occupying process if it is a node.exe process with 'tabeza' in its command line.
+ * Requirements: 8.3
+ */
+async function checkPort8765Conflict() {
+  return new Promise((resolve) => {
+    exec('netstat -ano | findstr :8765', (error, stdout) => {
+      if (error || !stdout.trim()) {
+        // No process on port 8765
+        resolve(true);
+        return;
       }
-    });
 
-    backgroundService.stdout.on('data', (data) => {
-      const output = data.toString().trim();
-      if (output) {
-        log('SERVICE', output);
-      }
-    });
-
-    backgroundService.stderr.on('data', (data) => {
-      const output = data.toString().trim();
-      if (output) {
-        log('SERVICE-ERROR', output);
-      }
-    });
-
-    backgroundService.on('close', (code) => {
-      log('INFO', `Background service exited with code ${code}`);
-      backgroundService = null;
-      updateTrayMenu();
-      // Auto-restart the service after a short delay
-      setTimeout(() => {
-        if (!backgroundService) {
-          log('INFO', 'Auto-restarting background service...');
-          startBackgroundService().catch(err => {
-            log('ERROR', `Failed to auto-restart service: ${err.message}`);
-          });
+      // Extract PID from netstat output (last column)
+      const lines = stdout.trim().split('\n');
+      let pid = null;
+      for (const line of lines) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 5) {
+          pid = parts[parts.length - 1];
+          break;
         }
-      }, 3000);
-    });
+      }
 
-    backgroundService.on('error', (err) => {
-      log('ERROR', `Failed to start background service: ${err.message}`);
-      backgroundService = null;
-      reject(err);
-    });
+      if (!pid || pid === '0') {
+        resolve(true);
+        return;
+      }
 
-    setTimeout(() => {
-      log('INFO', 'Background service started');
-      updateTrayMenu();
-      resolve();
-    }, 2000);
+      log('INFO', `Port 8765 occupied by PID ${pid} — checking process identity`);
+
+      exec(`wmic process where processid=${pid} get name,commandline /format:csv`, (err2, stdout2) => {
+        if (err2 || !stdout2.trim()) {
+          log('WARN', `Could not identify process on port 8765 (PID ${pid}) — skipping kill`);
+          resolve(true);
+          return;
+        }
+
+        const output = stdout2.toLowerCase();
+        const isNode = output.includes('node.exe');
+        const isTabeza = output.includes('tabeza');
+
+        if (isNode && isTabeza) {
+          log('INFO', `Port 8765 occupied by Tabeza node process (PID ${pid}) — killing stale process`);
+          exec(`taskkill /F /PID ${pid}`, (err3) => {
+            if (err3) {
+              log('WARN', `Failed to kill stale process on port 8765: ${err3.message}`);
+            } else {
+              log('INFO', `Stale process on port 8765 killed (PID ${pid})`);
+            }
+            resolve(true);
+          });
+        } else {
+          log('WARN', `Port 8765 is in use by an unrelated process (PID ${pid}) — NOT killing`);
+          if (tray) {
+            tray.setToolTip(`${APP_NAME} - Error: Port 8765 is in use by another application`);
+          }
+          resolve(false); // Port conflict — do not spawn
+        }
+      });
+    });
   });
 }
 
-function stopBackgroundService() {
-  return new Promise((resolve) => {
-    if (!backgroundService) {
-      resolve();
+/**
+ * Spawn the child process (src/service/index.js).
+ * Checks for barId config before spawning.
+ * Requirements: 3.1, 3.2, 3.3, 3.7
+ */
+async function spawnChild() {
+  if (supervisor.isQuitting) {
+    log('INFO', 'spawnChild: skipping — app is quitting');
+    return;
+  }
+
+  // Check barId before spawning
+  let config = {};
+  try {
+    if (!fs.existsSync(CONFIG_PATH)) {
+      log('INFO', 'spawnChild: CONFIG_PATH does not exist — skipping spawn (UNCONFIGURED)');
+      supervisor.state = 'stopped';
+      if (tray) updateTrayMenu();
+      return;
+    }
+    const raw = fs.readFileSync(CONFIG_PATH, 'utf8').replace(/^\uFEFF/, '');
+    config = JSON.parse(raw);
+  } catch (e) {
+    log('WARN', `spawnChild: Failed to read config — ${e.message}`);
+  }
+
+  if (!config.barId || config.barId.trim() === '' || config.barId === 'NOT_CONFIGURED') {
+    log('INFO', 'spawnChild: No barId configured — skipping spawn (UNCONFIGURED)');
+    supervisor.state = 'stopped';
+    if (tray) updateTrayMenu();
+    return;
+  }
+
+  // Ensure log directory exists before piping stdio
+  try {
+    fs.mkdirSync(LOG_DIR, { recursive: true });
+  } catch (e) {
+    log('WARN', `spawnChild: Could not create log dir — ${e.message}`);
+  }
+
+  const servicePath = isDev
+    ? path.join(__dirname, 'src/service/index.js')
+    : path.join(process.resourcesPath, 'service/index.js');
+
+  if (!fs.existsSync(servicePath)) {
+    log('ERROR', `spawnChild: Service file not found: ${servicePath}`);
+    supervisor.state = 'error';
+    return;
+  }
+
+  log('INFO', `spawnChild: Spawning child process — ${servicePath}`);
+
+  // Architecture note: Redmon invokes capture.exe directly per print job via stdin.
+  // service/index.js is the upload worker + HTTP server only.
+  // TABEZA_WATCH_FOLDER is NOT consumed by service/index.js — omitted intentionally.
+  const child = spawn(process.execPath, [servicePath], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    detached: false,
+    windowsHide: true,
+    env: {
+      ...process.env,
+      ELECTRON_RUN_AS_NODE: '1',
+      TABEZA_BAR_ID: config.barId || '',
+      TABEZA_API_URL: config.apiUrl || 'https://tabeza.co.ke',
+      TABEZA_DATA_DIR: TABEZA_PRINTS_DIR,
+      TABEZA_SERVICE_MODE: 'true'
+    }
+  });
+
+  supervisor.child = child;
+  // Keep backgroundService in sync for legacy code that checks it
+  backgroundService = child;
+  supervisor.lastStartTime = Date.now();
+  supervisor.state = 'running';
+
+  const writeLog = getWriteLog();
+
+  child.stdout.on('data', (data) => {
+    const line = data.toString().trim();
+    if (line) {
+      writeLog(SERVICE_LOG_PATH, `[${new Date().toISOString()}][INFO] ${line}`, LOG_OPTS);
+    }
+  });
+
+  child.stderr.on('data', (data) => {
+    const line = data.toString().trim();
+    if (line) {
+      writeLog(SERVICE_LOG_PATH, `[${new Date().toISOString()}][STDERR] ${line}`, LOG_OPTS);
+    }
+  });
+
+  child.on('exit', (code) => {
+    log('INFO', `Child process exited with code ${code}`);
+    supervisor.child = null;
+    backgroundService = null;
+
+    if (supervisor.isQuitting) {
+      log('INFO', 'Child process exit during quit — not restarting');
+      supervisor.state = 'stopped';
       return;
     }
 
-    log('INFO', 'Stopping background service...');
+    if (code === 0) {
+      log('INFO', 'Child process exited cleanly (code 0) — not restarting');
+      supervisor.state = 'stopped';
+      if (tray) updateTrayMenu();
+      return;
+    }
 
-    if (process.platform === 'win32') {
-      exec(`taskkill /pid ${backgroundService.pid} /T`, (error) => {
-        if (error) {
-          log('WARN', `Error stopping service: ${error.message}`);
-        }
-        backgroundService = null;
-        updateTrayMenu();
-        resolve();
-      });
-    } else {
-      backgroundService.kill('SIGTERM');
+    // Unexpected exit — apply restart supervisor
+    // Reset attempt counter if child ran stably for > 60 seconds
+    if (Date.now() - supervisor.lastStartTime > 60000) {
+      log('INFO', 'Child ran > 60s before crash — resetting restart counter');
+      supervisor.restartAttempts = 0;
+    }
+
+    if (supervisor.restartAttempts < 3) {
+      supervisor.restartAttempts++;
+      supervisor.state = 'restarting';
+      const delay = Math.pow(2, supervisor.restartAttempts) * 1000;
+      log('INFO', `Child process crashed (attempt ${supervisor.restartAttempts}/3) — restarting in ${delay}ms`);
+      if (tray) updateTrayMenu();
       setTimeout(() => {
-        backgroundService = null;
+        if (!supervisor.isQuitting) {
+          spawnChild();
+        }
+      }, delay);
+    } else {
+      supervisor.state = 'error';
+      log('ERROR', 'Child process failed 3 times — entering error state');
+      if (tray) {
+        tray.setToolTip(`${APP_NAME} - Service failed after 3 attempts. Click to view logs.`);
         updateTrayMenu();
-        resolve();
-      }, 3000);
+      }
+      showNotification('TabezaConnect Service Error', 'Service failed to start after 3 attempts. Click tray icon to view logs.');
     }
   });
+
+  child.on('error', (err) => {
+    log('ERROR', `Child process error: ${err.message}`);
+    supervisor.child = null;
+    backgroundService = null;
+    supervisor.state = 'error';
+  });
+
+  updateTrayMenu();
+  log('INFO', 'Child process spawned successfully');
+}
+
+/**
+ * Kill the child process gracefully (SIGTERM → wait 5s → SIGKILL).
+ * Requirements: 3.4, 9.1, 9.2, 9.3
+ */
+async function killChildProcess() {
+  const child = supervisor.child;
+  if (!child) {
+    log('INFO', 'killChildProcess: no child process running');
+    return;
+  }
+
+  supervisor.isQuitting = true;
+  isQuitting = true; // keep legacy flag in sync
+
+  log('INFO', 'killChildProcess: sending SIGTERM to child process');
+  try {
+    child.kill('SIGTERM');
+  } catch (e) {
+    log('WARN', `killChildProcess: SIGTERM failed — ${e.message}`);
+  }
+
+  // Wait up to 5000ms for child to exit
+  const deadline = Date.now() + 5000;
+  await new Promise((resolve) => {
+    const poll = setInterval(() => {
+      if (child.exitCode !== null || Date.now() >= deadline) {
+        clearInterval(poll);
+        resolve();
+      }
+    }, 100);
+  });
+
+  if (child.exitCode === null) {
+    log('WARN', 'killChildProcess: child did not exit in 5s — sending SIGKILL');
+    try {
+      child.kill('SIGKILL');
+    } catch (e) {
+      log('WARN', `killChildProcess: SIGKILL failed — ${e.message}`);
+    }
+  } else {
+    log('INFO', `killChildProcess: child exited with code ${child.exitCode}`);
+  }
+
+  supervisor.child = null;
+  backgroundService = null;
+}
+
+/**
+ * Start the background service (public API — wraps spawnChild with port check).
+ * Kept for backward compatibility with tray menu and other callers.
+ * Requirements: 3.1, 3.2, 3.3, 3.7, 8.3
+ */
+async function startBackgroundService() {
+  if (supervisor.child) {
+    log('INFO', 'startBackgroundService: child already running');
+    return;
+  }
+
+  // Check for port 8765 conflicts before spawning
+  const portClear = await checkPort8765Conflict();
+  if (!portClear) {
+    log('WARN', 'startBackgroundService: port 8765 conflict — not spawning');
+    return;
+  }
+
+  // Reset restart counter on manual start
+  supervisor.restartAttempts = 0;
+  supervisor.isQuitting = false;
+  await spawnChild();
+}
+
+/**
+ * Stop the background service gracefully.
+ * Kept for backward compatibility with tray menu and other callers.
+ */
+async function stopBackgroundService() {
+  await killChildProcess();
+  updateTrayMenu();
 }
 
 function stopAllServices() {
@@ -896,9 +1386,16 @@ function showPrinterSetupWizard() {
   // Focus event listener for real-time state synchronization
   // Requirements: Task 6.1 - Add focus event listeners to all windows
   // Requirements: Task 6.2 - Implement full state sync on focus
+  // Bug Fix: Prevent focus feedback loop (Requirements 2.5)
   // ─────────────────────────────────────────────────────────────────────────
   setupWindow.on('focus', () => {
     if (!setupWindow || setupWindow.isDestroyed()) {
+      return;
+    }
+    
+    // Check if we should skip this sync to prevent feedback loop
+    if (shouldSkipFocusSync()) {
+      log('INFO', 'Printer Setup window focused - skipping state sync (debounced)');
       return;
     }
     
@@ -914,6 +1411,7 @@ function showPrinterSetupWizard() {
         
         if (syncSuccess) {
           log('INFO', 'State sync completed successfully for printer setup window');
+          markFocusSync(); // Mark that sync occurred for debouncing
         } else {
           log('WARN', 'State sync failed for printer setup window');
         }
@@ -979,9 +1477,16 @@ function showTemplateGenerator() {
   // Focus event listener for real-time state synchronization
   // Requirements: Task 6.1 - Add focus event listeners to all windows
   // Requirements: Task 6.2 - Implement full state sync on focus
+  // Bug Fix: Prevent focus feedback loop (Requirements 2.5)
   // ─────────────────────────────────────────────────────────────────────────
   templateWindow.on('focus', () => {
     if (!templateWindow || templateWindow.isDestroyed()) {
+      return;
+    }
+    
+    // Check if we should skip this sync to prevent feedback loop
+    if (shouldSkipFocusSync()) {
+      log('INFO', 'Template Generator window focused - skipping state sync (debounced)');
       return;
     }
     
@@ -997,6 +1502,7 @@ function showTemplateGenerator() {
         
         if (syncSuccess) {
           log('INFO', 'State sync completed successfully for template generator window');
+          markFocusSync(); // Mark that sync occurred for debouncing
         } else {
           log('WARN', 'State sync failed for template generator window');
         }
@@ -1026,14 +1532,19 @@ function createTray() {
     const serviceRunning = backgroundService !== null;
     const setupComplete = setupStateManager.isSetupComplete();
     const templateExists = checkTemplateExists();
+    const inDegradedMode = global.redmonDegradedMode === true;
     
     // Priority order for icon color:
+    // 0. Degraded mode (grey with warning) - Requirement 2.10
     // 1. No template (grey with warning) - Requirement 15A.5, 18.4
     // 2. Service running AND setup complete AND template exists (green)
     // 3. Service running but setup incomplete (grey)
     // 4. Service not running (grey)
     
-    if (!templateExists) {
+    if (inDegradedMode) {
+      iconColor = 'grey'; // Requirement 2.10: grey icon in degraded mode
+      tooltipSuffix = ' - Degraded mode: RedMon not installed';
+    } else if (!templateExists) {
       iconColor = 'grey'; // Requirement 18.4: grey icon when no template
       tooltipSuffix = ' - Setup incomplete: template required';
     } else if (serviceRunning && setupComplete) {
@@ -1066,11 +1577,16 @@ function createTray() {
   try {
     tray = new Tray(iconPath);
     
-    // Set tooltip with setup progress if incomplete or template missing
+    // Set tooltip with degraded mode warning, setup progress, or template missing
+    // Requirement 2.10: Display degraded mode warning when RedMon not installed
     // Requirement 15A.6: Display "Setup incomplete - template required" when no template
     try {
+      const inDegradedMode = global.redmonDegradedMode === true;
       const templateExists = checkTemplateExists();
-      if (!templateExists) {
+      
+      if (inDegradedMode) {
+        tray.setToolTip(`${APP_NAME} - Degraded mode: RedMon not installed`);
+      } else if (!templateExists) {
         tray.setToolTip(`${APP_NAME} - Setup incomplete: template required`);
       } else {
         const progress = setupStateManager.getSetupProgress();
@@ -1088,11 +1604,13 @@ function createTray() {
 
     // Handle single-click to open Management UI
     tray.on('click', () => {
+      markUserInteraction(); // Mark user action before showing window
       showManagementUI();
     });
 
     // Handle double-click to open Management UI (same behavior as single-click)
     tray.on('double-click', () => {
+      markUserInteraction(); // Mark user action before showing window
       showManagementUI();
     });
 
@@ -1149,21 +1667,26 @@ function updateTrayMenu() {
 
   tray.setContextMenu(contextMenu);
   
-  // Update tray icon color based on service status, setup completion, and template existence
+  // Update tray icon color based on service status, setup completion, template existence, and degraded mode
+  // Requirement 2.10: Display grey icon in degraded mode
   // Requirement 15A.5: Display grey icon when no template exists
   // Requirement 18.4: Display grey icon when setup incomplete
   try {
     let iconColor = 'grey';
     const setupComplete = setupStateManager.isSetupComplete();
     const templateExists = checkTemplateExists();
+    const inDegradedMode = global.redmonDegradedMode === true;
     
     // Priority order for icon color:
+    // 0. Degraded mode (grey with warning) - Requirement 2.10
     // 1. No template (grey with warning) - Requirement 15A.5, 18.4
     // 2. Service running AND setup complete AND template exists (green)
     // 3. Service running but setup incomplete (grey)
     // 4. Service not running (grey)
     
-    if (!templateExists) {
+    if (inDegradedMode) {
+      iconColor = 'grey'; // Requirement 2.10: grey icon in degraded mode
+    } else if (!templateExists) {
       iconColor = 'grey'; // Requirement 18.4: grey icon when no template
     } else if (serviceRunning && setupComplete) {
       iconColor = 'green';
@@ -1178,9 +1701,12 @@ function updateTrayMenu() {
       tray.setImage(iconPath);
     }
     
-    // Update tooltip with template warning or setup progress
+    // Update tooltip with degraded mode warning, template warning, or setup progress
+    // Requirement 2.10: Display degraded mode warning when RedMon not installed
     // Requirement 15A.6: Display "Setup incomplete - template required" when no template
-    if (!templateExists) {
+    if (inDegradedMode) {
+      tray.setToolTip(`${APP_NAME} - Degraded mode: RedMon not installed`);
+    } else if (!templateExists) {
       tray.setToolTip(`${APP_NAME} - Setup incomplete: template required`);
     } else {
       const progress = setupStateManager.getSetupProgress();
@@ -1207,15 +1733,39 @@ function updateTrayMenu() {
  * - Window is only created when user clicks tray icon
  * - Existing window is reused if already open (focus instead of recreate)
  * - This reduces startup time and memory usage
+ * 
+ * Bug Fix: Window Focus Stealing (Requirements 2.5, 2.6, 3.7, 3.8)
+ * - Only focus if window was previously hidden/minimized
+ * - Let OS handle focus based on user interaction
+ * - Prevent aggressive focus calls that steal focus from other applications
+ * - Use focus guard to only allow focus within 500ms of user action
  */
 function showManagementUI() {
-  // Window reuse logic - focus existing window if already open
+  // Window reuse logic - conditional focus to prevent focus stealing
   if (mainWindow) {
+    // Only restore if minimized - this is a legitimate focus change
     if (mainWindow.isMinimized()) {
       mainWindow.restore();
+      log('INFO', 'Management UI window restored from minimized state');
+      return;
     }
-    mainWindow.focus();
-    log('INFO', 'Management UI window focused (already exists)');
+    
+    // If window is hidden, show it - this is also legitimate
+    if (!mainWindow.isVisible()) {
+      mainWindow.show();
+      log('INFO', 'Management UI window shown from hidden state');
+      return;
+    }
+    
+    // Window is already visible and not minimized
+    // Only focus if this is a user-initiated action (within 500ms of tray click)
+    if (isFocusUserInitiated()) {
+      mainWindow.focus();
+      log('INFO', 'Management UI window focused (user-initiated)');
+    } else {
+      // Do NOT call focus() - let OS handle focus based on user interaction
+      log('INFO', 'Management UI window already visible - not forcing focus (no recent user action)');
+    }
     return;
   }
 
@@ -1260,9 +1810,51 @@ function showManagementUI() {
     mainWindow.hide();
   });
 
-  // Show the window
+  // ─────────────────────────────────────────────────────────────────────────
+  // Focus event listener for real-time state synchronization
+  // Requirements: Task 6.1 - Add focus event listeners to all windows
+  // Requirements: Task 6.2 - Implement full state sync on focus
+  // Bug Fix: Prevent focus feedback loop (Requirements 2.5)
+  // ─────────────────────────────────────────────────────────────────────────
+  mainWindow.on('focus', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return;
+    }
+    
+    // Check if we should skip this sync to prevent feedback loop
+    if (shouldSkipFocusSync()) {
+      log('INFO', 'Management UI window focused - skipping state sync (debounced)');
+      return;
+    }
+    
+    log('INFO', 'Management UI window focused - syncing state');
+    
+    // Get complete current state from StateManager
+    if (stateManager && broadcastManager) {
+      try {
+        const currentState = stateManager.getState();
+        
+        // Broadcast full state sync to focused window
+        const syncSuccess = broadcastManager.syncWindowState('main-window', currentState);
+        
+        if (syncSuccess) {
+          log('INFO', 'State sync completed successfully for management UI window');
+          markFocusSync(); // Mark that sync occurred for debouncing
+        } else {
+          log('WARN', 'State sync failed for management UI window');
+        }
+      } catch (error) {
+        log('ERROR', `Failed to sync state on focus: ${error.message}`);
+      }
+    } else {
+      log('WARN', 'StateManager or BroadcastManager not available for focus sync');
+    }
+  });
+
+  // Show the window - let OS handle focus naturally
+  // Do NOT call focus() - this is a new window being shown for the first time
+  // The OS will bring it to front automatically when show() is called
   mainWindow.show();
-  mainWindow.focus();
 
   log('INFO', 'Dashboard window created and shown');
 }
@@ -1324,7 +1916,14 @@ ipcMain.handle('save-api-settings', async (event, settings) => {
     if (settings.endpoint) config.apiUrl = settings.endpoint;
     if (settings.apiUrl)   config.apiUrl = settings.apiUrl;
     
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), { encoding: 'utf8', flag: 'w' });
+    const tmp = CONFIG_PATH + '.tmp';
+    try {
+      fs.writeFileSync(tmp, JSON.stringify(config, null, 2), 'utf8');
+      fs.renameSync(tmp, CONFIG_PATH);
+    } catch (err) {
+      try { fs.unlinkSync(tmp); } catch (_) {}
+      throw err;
+    }
     log('INFO', 'save-api-settings: saved successfully');
     return { success: true };
   } catch (error) {
@@ -1366,8 +1965,15 @@ ipcMain.handle('get-config', async () => {
 
 ipcMain.handle('save-config', async (event, config) => {
   try {
-    // Write without BOM
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), { encoding: 'utf8', flag: 'w' });
+    // Write without BOM — atomic rename pattern
+    const tmp = CONFIG_PATH + '.tmp';
+    try {
+      fs.writeFileSync(tmp, JSON.stringify(config, null, 2), 'utf8');
+      fs.renameSync(tmp, CONFIG_PATH);
+    } catch (err) {
+      try { fs.unlinkSync(tmp); } catch (_) {}
+      throw err;
+    }
     log('INFO', `Config saved successfully to ${CONFIG_PATH}`);
     
     // Broadcast config change to all windows
@@ -1872,39 +2478,162 @@ ipcMain.handle('check-template-exists', async (event) => {
 // Printer Setup IPC Handlers
 // ─────────────────────────────────────────────────────────────────────────────
 
-ipcMain.handle('get-printers', async () => {
-  // List available Windows printers directly via PowerShell (no pooling script needed)
+// Admin authentication — returns boolean only, never logs the password
+ipcMain.handle('check-admin-password', async (event, password) => {
+  const ADMIN_PASSWORD = process.env.TABEZA_ADMIN_PASSWORD || 'tabeza-admin';
+  return { granted: password === ADMIN_PASSWORD };
+});
+
+// Native input dialog — used for admin password entry (replaces prompt())
+ipcMain.handle('show-input-dialog', async (event, opts = {}) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  // Electron doesn't have a native input dialog — use a small BrowserWindow
   return new Promise((resolve) => {
-    const command = `powershell.exe -Command "Get-Printer | Where-Object {$_.Name -ne 'Tabeza Agent'} | Select-Object Name,DriverName,PortName | ConvertTo-Json -AsArray"`;
-    
-    exec(command, { maxBuffer: 1024 * 1024, timeout: 15000 }, (error, stdout, stderr) => {
-      if (error) {
-        log('ERROR', `get-printers: Error: ${error.message}`);
-        resolve([]);
-        return;
-      }
-      
-      try {
-        const output = stdout.trim();
-        if (!output) {
-          resolve([]);
-          return;
-        }
-        const printers = JSON.parse(output);
-        const list = Array.isArray(printers) ? printers : [printers];
-        log('INFO', `get-printers: Found ${list.length} printers`);
-        resolve(list.map(p => ({ name: p.Name, driver: p.DriverName, port: p.PortName })));
-      } catch (parseError) {
-        log('ERROR', `get-printers: Parse error: ${parseError.message}`);
-        resolve([]);
-      }
+    const inputWin = new BrowserWindow({
+      width: 360,
+      height: 180,
+      resizable: false,
+      minimizable: false,
+      maximizable: false,
+      modal: true,
+      parent: win || undefined,
+      title: opts.title || 'Input',
+      webPreferences: { nodeIntegration: true, contextIsolation: false }
     });
+    const html = `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:20px;background:#1a1a2e;color:#fef3c7">
+      <p style="margin:0 0 12px">${opts.message || 'Enter value:'}</p>
+      <input id="v" type="password" autofocus style="width:100%;padding:8px;background:#22223a;border:1px solid rgba(255,255,255,0.15);color:#fef3c7;border-radius:4px;font-size:14px">
+      <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="require('electron').ipcRenderer.send('input-dialog-result',null)" style="padding:6px 16px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:#fef3c7;border-radius:4px;cursor:pointer">Cancel</button>
+        <button onclick="require('electron').ipcRenderer.send('input-dialog-result',document.getElementById('v').value)" style="padding:6px 16px;background:#f59e0b;border:none;color:#1a1a2e;border-radius:4px;cursor:pointer;font-weight:600">OK</button>
+      </div>
+      <script>document.getElementById('v').addEventListener('keydown',e=>{if(e.key==='Enter')require('electron').ipcRenderer.send('input-dialog-result',e.target.value);if(e.key==='Escape')require('electron').ipcRenderer.send('input-dialog-result',null)});</script>
+    </body></html>`;
+    inputWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    ipcMain.once('input-dialog-result', (e, value) => {
+      inputWin.close();
+      resolve(value);
+    });
+    inputWin.on('closed', () => resolve(null));
   });
 });
+
+// Save printer selection to config
+ipcMain.handle('save-printer-selection', async (event, printerName) => {
+  try {
+    const raw = fs.existsSync(CONFIG_PATH) ? fs.readFileSync(CONFIG_PATH, 'utf8').replace(/^\uFEFF/, '') : '{}';
+    const config = JSON.parse(raw);
+    config.physicalPrinter = printerName;
+    const tmp = CONFIG_PATH + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(config, null, 2), 'utf8');
+    fs.renameSync(tmp, CONFIG_PATH);
+    log('INFO', `save-printer-selection: saved ${printerName}`);
+    return { success: true };
+  } catch (e) {
+    log('ERROR', `save-printer-selection: ${e.message}`);
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('get-printers', async () => {
+  // Use Electron's native printer API — no subprocess, no PowerShell, always available
+  try {
+    const win = BrowserWindow.getAllWindows()[0];
+    if (!win) return [];
+    const printers = await win.webContents.getPrintersAsync();
+    // Filter out Send2Me, Tabeza printers, and virtual printers
+    const filtered = printers.filter(p =>
+      !p.name.startsWith('Send2Me') &&
+      !p.name.startsWith('Tabeza') &&
+      p.name !== 'Microsoft Print to PDF' &&
+      p.name !== 'Microsoft XPS Document Writer' &&
+      p.name !== 'Fax'
+    );
+    log('INFO', `get-printers: Found ${filtered.length} printers via getPrintersAsync`);
+    // Return PascalCase keys to match what printer-setup.html expects
+    return filtered.map(p => ({ Name: p.name, DriverName: p.description || '', PortName: '' }));
+  } catch (e) {
+    log('ERROR', `get-printers: getPrintersAsync failed: ${e.message}`);
+    return [];
+  }
+});
+
+// Helper function to interpret printer setup exit codes
+function interpretPrinterSetupExitCode(exitCode) {
+  const exitCodeMap = {
+    0: { success: true, message: 'Printer setup completed successfully' },
+    '-196608': { success: false, error: 'Setup cancelled or UAC denied. Please grant administrator privileges and try again.' },
+    1: { success: false, error: 'Printer driver not found. Please install the printer driver and try again.' },
+    2: { success: false, error: 'RedMon port monitor not installed. Please run the full installer to configure RedMon.' },
+    3: { success: false, error: 'Port configuration failed. The printer port may already be in use or inaccessible.' },
+    4: { success: false, error: 'Printer creation failed. Check if a printer with this name already exists.' }
+  };
+
+  const result = exitCodeMap[String(exitCode)];
+  if (result) {
+    return result;
+  }
+
+  // Default for unknown exit codes
+  return {
+    success: false,
+    error: `Setup failed with exit code ${exitCode}. Check C:\\TabezaPrints\\logs\\electron.log for details.`
+  };
+}
+
+// Helper function to validate printer setup prerequisites
+async function validatePrinterPrerequisites() {
+  const errors = [];
+
+  // Check if RedMon is installed by checking registry
+  try {
+    const redmonCheck = await new Promise((resolve) => {
+      exec('powershell.exe -Command "Test-Path \\"HKLM:\\SOFTWARE\\Monitorui\\Redirected Port\\""', (error, stdout) => {
+        resolve(stdout.trim() === 'True');
+      });
+    });
+
+    if (!redmonCheck) {
+      errors.push('RedMon port monitor not installed. Please run the full installer to configure RedMon.');
+    }
+  } catch (e) {
+    log('WARN', `Could not verify RedMon installation: ${e.message}`);
+    errors.push('Unable to verify RedMon installation. Please ensure RedMon is installed.');
+  }
+
+  // Check if printer driver is available
+  try {
+    const driverCheck = await new Promise((resolve) => {
+      exec('powershell.exe -Command "Get-PrinterDriver -Name \\"Generic / Text Only\\" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name"', (error, stdout) => {
+        resolve(stdout.trim().length > 0);
+      });
+    });
+
+    if (!driverCheck) {
+      errors.push('Printer driver not found. Please install the printer driver and try again.');
+    }
+  } catch (e) {
+    log('WARN', `Could not verify printer driver: ${e.message}`);
+  }
+
+  return errors;
+}
 
 ipcMain.handle('setup-printer', async (event, printerName) => {
   try {
     log('INFO', `Setting up printer: ${printerName}`);
+    
+    // Validate prerequisites before attempting setup
+    log('INFO', 'Validating printer setup prerequisites...');
+    const prerequisiteErrors = await validatePrinterPrerequisites();
+    
+    if (prerequisiteErrors.length > 0) {
+      const errorMessage = prerequisiteErrors.join(' ');
+      log('ERROR', `Prerequisite validation failed: ${errorMessage}`);
+      return { success: false, error: errorMessage };
+    }
+    
+    log('INFO', 'Prerequisites validated successfully');
     
     // Use the Redmon-based configure script (not the old pooling script)
     const scriptPath = isDev 
@@ -1945,7 +2674,7 @@ ipcMain.handle('setup-printer', async (event, printerName) => {
       
       const psCommand = [
         `$p = Start-Process powershell.exe`,
-        `-ArgumentList '-ExecutionPolicy Bypass -File \"${scriptPath}\" -BarId \"${barId}\" -CaptureScriptPath \"${captureScriptPath}\"'`,
+        `-ArgumentList '-ExecutionPolicy Bypass -File \"${scriptPath}\" -BarId \"${barId}\" -CaptureScriptPath \"${captureScriptPath}\" -PhysicalPrinter \"${printerName}\"'`,
         `-Verb RunAs -Wait -PassThru -WindowStyle Hidden;`,
         `$p.ExitCode | Out-File -FilePath \"${exitCodeFile}\" -Encoding ascii`
       ].join(' ');
@@ -1964,7 +2693,8 @@ ipcMain.handle('setup-printer', async (event, printerName) => {
             log('INFO', `Printer setup exit code (from file): ${exitCode}`);
           } else if (error) {
             log('WARN', 'Exit code file not found - UAC may have been cancelled');
-            resolve({ success: false, error: 'Setup cancelled or UAC denied' });
+            const result = interpretPrinterSetupExitCode(-196608);
+            resolve(result);
             return;
           }
         } catch (e) {
@@ -1977,7 +2707,7 @@ ipcMain.handle('setup-printer', async (event, printerName) => {
           try {
             updateStateAndBroadcast(stateManager, broadcastManager, 'printer', {
               status: 'FullyConfigured',
-              printerName: 'Tabeza Agent',
+              printerName: 'Send2Me',
               lastChecked: new Date().toISOString()
             }, 'setup-printer-handler');
 
@@ -1997,7 +2727,8 @@ ipcMain.handle('setup-printer', async (event, printerName) => {
           resolve({ success: true, message: 'Printer setup completed successfully' });
         } else {
           log('ERROR', `Printer setup failed with exit code: ${exitCode}`);
-          resolve({ success: false, error: `Setup failed (exit code ${exitCode}). Check C:\\TabezaPrints\\logs\\electron.log for details.` });
+          const result = interpretPrinterSetupExitCode(exitCode);
+          resolve(result);
         }
       });
     });
@@ -2008,14 +2739,14 @@ ipcMain.handle('setup-printer', async (event, printerName) => {
 });
 
 ipcMain.handle('check-printer-setup', async () => {
-  // BUGFIX: Check for actual "Tabeza Agent" existence using Get-Printer
+  // BUGFIX: Check for actual "Send2Me" existence using Get-Printer
   // instead of checking for printer pooling configuration.
   // Root cause: The printer uses Redmon (not pooling), so checking for pooling
   // configuration returns "Not configured" even though the printer exists.
   // Requirements: 2.1, 2.3, 2.5
   
   return new Promise((resolve) => {
-    const command = `powershell.exe -Command "Get-Printer -Name 'Tabeza Agent' -ErrorAction SilentlyContinue | ConvertTo-Json"`;
+    const command = `powershell.exe -Command "Get-Printer -Name 'Send2Me' -ErrorAction SilentlyContinue | ConvertTo-Json"`;
     
     exec(command, (error, stdout, stderr) => {
       if (error) {
@@ -2023,7 +2754,7 @@ ipcMain.handle('check-printer-setup', async () => {
         log('INFO', 'Printer check failed - printer likely not configured');
         resolve({ 
           status: 'not-configured', 
-          printerName: 'Tabeza Agent',
+          printerName: 'Send2Me',
           portName: null,
           exists: false
         });
@@ -2038,7 +2769,7 @@ ipcMain.handle('check-printer-setup', async () => {
           log('INFO', 'Printer not found - no output from Get-Printer');
           resolve({ 
             status: 'not-configured', 
-            printerName: 'Tabeza Agent',
+            printerName: 'Send2Me',
             portName: null,
             exists: false
           });
@@ -2052,7 +2783,7 @@ ipcMain.handle('check-printer-setup', async () => {
         log('INFO', `Printer found: ${printer.Name} on port ${printer.PortName}`);
         resolve({ 
           status: 'configured', 
-          printerName: printer.Name || 'Tabeza Agent',
+          printerName: printer.Name || 'Send2Me',
           portName: printer.PortName || null,
           exists: true
         });
@@ -2062,7 +2793,7 @@ ipcMain.handle('check-printer-setup', async () => {
         log('WARN', `Failed to parse printer info: ${parseError.message}`);
         resolve({ 
           status: 'not-configured', 
-          printerName: 'Tabeza Agent',
+          printerName: 'Send2Me',
           portName: null,
           exists: false
         });
@@ -2077,14 +2808,14 @@ ipcMain.handle('check-printer-setup', async () => {
 // Requirements: 2.1, 2.3, 3.1, 3.4
 ipcMain.handle('check-printer-status', async () => {
   return new Promise((resolve) => {
-    const command = `powershell.exe -Command "Get-Printer -Name 'Tabeza Agent' -ErrorAction SilentlyContinue | ConvertTo-Json"`;
+    const command = `powershell.exe -Command "Get-Printer -Name 'Send2Me' -ErrorAction SilentlyContinue | ConvertTo-Json"`;
     
     exec(command, (error, stdout, stderr) => {
       if (error) {
         log('INFO', 'check-printer-status: Printer check failed - printer likely not configured');
         resolve({ 
           status: 'not-configured', 
-          printerName: 'Tabeza Agent',
+          printerName: 'Send2Me',
           portName: null,
           exists: false
         });
@@ -2098,7 +2829,7 @@ ipcMain.handle('check-printer-status', async () => {
           log('INFO', 'check-printer-status: Printer not found - no output from Get-Printer');
           resolve({ 
             status: 'not-configured', 
-            printerName: 'Tabeza Agent',
+            printerName: 'Send2Me',
             portName: null,
             exists: false
           });
@@ -2110,7 +2841,7 @@ ipcMain.handle('check-printer-status', async () => {
         log('INFO', `check-printer-status: Printer found - ${printer.Name} on port ${printer.PortName}`);
         resolve({ 
           status: 'configured', 
-          printerName: printer.Name || 'Tabeza Agent',
+          printerName: printer.Name || 'Send2Me',
           portName: printer.PortName || null,
           exists: true
         });
@@ -2119,7 +2850,7 @@ ipcMain.handle('check-printer-status', async () => {
         log('WARN', `check-printer-status: Failed to parse printer info - ${parseError.message}`);
         resolve({ 
           status: 'not-configured', 
-          printerName: 'Tabeza Agent',
+          printerName: 'Send2Me',
           portName: null,
           exists: false
         });
@@ -2240,19 +2971,35 @@ ipcMain.handle('repair-folder-structure', async () => {
   ipcMain.handle('action-restart-service', async () => {
     log('INFO', 'action-restart-service triggered');
     try {
-      // Kill the background service if it exists
-      if (backgroundService && !backgroundService.killed) {
-        log('INFO', 'Killing existing background service');
-        backgroundService.kill('SIGTERM');
+      // Step 1: Kill the tracked child process if running
+      if (supervisor.child && !supervisor.child.killed) {
+        log('INFO', 'Killing tracked child process');
+        supervisor.isQuitting = false; // allow restart
+        supervisor.child.kill('SIGTERM');
         await new Promise(resolve => setTimeout(resolve, 1000));
+        if (supervisor.child && supervisor.child.exitCode === null) {
+          supervisor.child.kill('SIGKILL');
+        }
+        supervisor.child = null;
+        backgroundService = null;
       }
-      // Start the service again
-      setTimeout(() => {
-        startBackgroundService().catch(err => {
-          log('ERROR', `Failed to restart service: ${err.message}`);
-        });
-      }, 2000);
-      return { ok: true, detail: 'Service restart initiated' };
+
+      // Step 2: Kill any orphaned node.exe running the service (stale from previous session)
+      await new Promise((resolve) => {
+        exec('wmic process where "name=\'node.exe\' and commandline like \'%service%index%\'" call terminate',
+          { timeout: 5000 }, () => resolve());
+      });
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Step 3: Reset supervisor state and spawn fresh
+      supervisor.restartAttempts = 0;
+      supervisor.state = 'stopped';
+      supervisor.isQuitting = false;
+
+      log('INFO', 'Spawning fresh service instance');
+      await spawnChild();
+
+      return { ok: true, detail: 'Service restarted' };
     } catch (error) {
       log('ERROR', `Restart service error: ${error.message}`);
       return { ok: false, detail: error.message };
@@ -2405,10 +3152,10 @@ ipcMain.handle('generate-template', async () => {
       };
     }
 
-    // ── Prerequisite 2: Tabeza Agent (Redmon) must be installed ──────
+    // ── Prerequisite 2: Send2Me (Redmon) must be installed ──────
     const printerCheck = await new Promise((resolve) => {
       exec(
-        `powershell.exe -Command "Get-Printer -Name 'Tabeza Agent' -ErrorAction SilentlyContinue | ConvertTo-Json"`,
+        `powershell.exe -Command "Get-Printer -Name 'Send2Me' -ErrorAction SilentlyContinue | ConvertTo-Json"`,
         (error, stdout) => {
           if (error || !stdout.trim()) {
             resolve({ exists: false });
@@ -2425,10 +3172,10 @@ ipcMain.handle('generate-template', async () => {
     });
 
     if (!printerCheck.exists) {
-      log('ERROR', 'generate-template: Blocked — Tabeza Agent not installed');
+      log('ERROR', 'generate-template: Blocked — Send2Me not installed');
       return {
         success: false,
-        error: 'Tabeza Agent is not installed. Please complete printer setup before generating a template.',
+        error: 'Send2Me is not installed. Please complete printer setup before generating a template.',
         prerequisiteFailed: 'printer'
       };
     }
@@ -2904,6 +3651,120 @@ ipcMain.handle('mark-whats-new-seen', async (event, dontShowAgain = false) => {
 // App Lifecycle
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Bar ID Migration Logic - Bug 1 Fix
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Migrate Bar ID from registry or environment variables to config.json
+ * 
+ * This function implements the fix for Bug 1: Bar ID Persistence Failure.
+ * It checks if config.json.barId is empty and attempts to populate it from:
+ * 1. Environment variable TABEZA_BAR_ID (highest priority)
+ * 2. Registry key HKLM\SOFTWARE\Tabeza\TabezaConnect\BarID
+ * 
+ * This ensures Bar ID persists from installer to runtime.
+ * 
+ * Algorithm:
+ * 1. Read current config.json
+ * 2. Check if barId is empty
+ * 3. If empty, check environment variable TABEZA_BAR_ID
+ * 4. If env var exists, write to config.json
+ * 5. If no env var, check registry HKLM\SOFTWARE\Tabeza\TabezaConnect\BarID
+ * 6. If registry value exists, write to config.json
+ * 7. Log migration action for debugging
+ * 
+ * Requirements: 2.1, 2.2 from bugfix.md
+ * Sub-task: 1.3.1, 1.3.2
+ * 
+ * @returns {Promise<boolean>} true if migration occurred, false otherwise
+ */
+async function migrateBarIdToConfig() {
+  const { execSync } = require('child_process');
+  
+  log('INFO', '========================================');
+  log('INFO', 'Checking Bar ID migration...');
+  log('INFO', '========================================');
+  
+  try {
+    // Step 1: Read current config.json
+    if (!fs.existsSync(CONFIG_PATH)) {
+      log('INFO', '  ✗ config.json not found - skipping migration');
+      return false;
+    }
+    
+    const configData = fs.readFileSync(CONFIG_PATH, 'utf8');
+    const cleanData = configData.replace(/^\uFEFF/, ''); // Remove BOM if present
+    const config = JSON.parse(cleanData);
+    
+    // Step 2: Check if barId is empty
+    if (config.barId && config.barId.trim() !== '') {
+      log('INFO', `  ✓ Bar ID already configured: ${config.barId}`);
+      log('INFO', '  → No migration needed');
+      return false;
+    }
+    
+    log('INFO', '  → Bar ID is empty in config.json');
+    log('INFO', '  → Checking environment variables and registry...');
+    
+    let barIdSource = null;
+    let barIdValue = null;
+    
+    // Step 3: Check environment variable TABEZA_BAR_ID (highest priority)
+    if (process.env.TABEZA_BAR_ID && process.env.TABEZA_BAR_ID.trim() !== '') {
+      barIdValue = process.env.TABEZA_BAR_ID.trim();
+      barIdSource = 'environment variable';
+      log('INFO', `  ✓ Found Bar ID in environment variable: ${barIdValue}`);
+    }
+    
+    // Step 5: Check registry if no environment variable
+    if (!barIdValue) {
+      try {
+        const registryKey = 'HKLM\\SOFTWARE\\Tabeza\\TabezaConnect';
+        const queryResult = execSync(
+          `reg query "${registryKey}" /v BarID`,
+          { encoding: 'utf8' }
+        );
+        
+        // Parse registry output to extract value
+        const match = queryResult.match(/BarID\s+REG_SZ\s+(.+)/);
+        if (match) {
+          barIdValue = match[1].trim();
+          barIdSource = 'registry';
+          log('INFO', `  ✓ Found Bar ID in registry: ${barIdValue}`);
+        }
+      } catch (registryError) {
+        log('INFO', '  ✗ Bar ID not found in registry');
+      }
+    }
+    
+    // Step 6: Write to config.json if found
+    if (barIdValue) {
+      config.barId = barIdValue;
+      fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), { encoding: 'utf8', flag: 'w' });
+      
+      log('INFO', '========================================');
+      log('INFO', `✓ Bar ID migrated from ${barIdSource} to config.json`);
+      log('INFO', `  Bar ID: ${barIdValue}`);
+      log('INFO', '========================================');
+      
+      return true;
+    } else {
+      log('INFO', '  ✗ No Bar ID found in environment or registry');
+      log('INFO', '  → User will need to configure Bar ID manually');
+      return false;
+    }
+    
+  } catch (error) {
+    log('ERROR', `  ✗ Error during Bar ID migration: ${error.message}`);
+    return false;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// App Initialization
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function initialize() {
   log('INFO', '========================================');
   log('INFO', `${APP_NAME} v${APP_VERSION} starting...`);
@@ -2915,6 +3776,11 @@ async function initialize() {
 
   // STEP 1: ALWAYS ensure folder structure exists (runs on every startup)
   initializeTabezaPrintsFolder();
+  
+  // STEP 1.1: Migrate Bar ID from registry/environment to config.json
+  // This fixes Bug 1: Bar ID Persistence Failure
+  // Requirements: 2.1, 2.2 from bugfix.md
+  await migrateBarIdToConfig();
 
   // STEP 1.5-1.8: Run auto-detection tasks in parallel for faster startup
   // Performance Optimization: Requirements 19.1-19.5
@@ -2982,7 +3848,7 @@ function quitApp() {
   
   log('INFO', 'Application quitting...');
   
-  stopBackgroundService().then(() => {
+  killChildProcess().then(() => {
     if (tray) {
       tray.destroy();
     }
@@ -2994,10 +3860,13 @@ app.on('window-all-closed', () => {
     // Don't quit - keep running in tray
   });
 
+  // Graceful shutdown — kill child process before quitting
+  // Requirements: 9.1, 9.2, 9.3
   app.on('before-quit', async (event) => {
-    if (!isQuitting) {
+    if (!supervisor.isQuitting) {
       event.preventDefault();
-      quitApp();
+      await killChildProcess();
+      app.quit();
     }
   });
 

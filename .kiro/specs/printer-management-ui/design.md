@@ -102,7 +102,7 @@
         <h2>Change Physical Printer</h2>
         <p class="help-text">
           Select a different printer if you've replaced your hardware.
-          Your POS will continue printing to "Tabeza POS Connect" - no POS changes needed.
+          Your POS will continue printing to "TabezaConnect" - no POS changes needed.
         </p>
         
         <select id="printerSelect">

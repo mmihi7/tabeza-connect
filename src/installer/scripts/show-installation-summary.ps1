@@ -46,7 +46,7 @@ try {
         Write-Host "   ✓ INSTALLATION COMPLETE!" -ForegroundColor Green
         Write-Host "========================================" -ForegroundColor Green
         Write-Host ""
-        Write-Host "Your Tabeza POS Connect is ready to use." -ForegroundColor White
+        Write-Host "Your TabezaConnect is ready to use." -ForegroundColor White
         Write-Host ""
         Write-Host "Next steps:" -ForegroundColor White
         Write-Host "  1. Check the Tabeza staff app" -ForegroundColor Gray

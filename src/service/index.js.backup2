@@ -1,5 +1,5 @@
 /***
- * Tabeza POS Connect - RedMon Capture Service v1.7.0
+ * TabezaConnect - RedMon Capture Service v1.7.0
  *
  * Architecture: RedMon Port Monitor Capture
  * ─────────────────────────────────────────────────
@@ -974,7 +974,7 @@ class IntegratedCaptureService {
 
   async start() {
     info('========================================');
-    info('Tabeza POS Connect - RedMon Capture Service v1.7.0');
+    info('TabezaConnect - RedMon Capture Service v1.7.0');
     info('*** REDMON PORT MONITOR VERSION ***');
     info('========================================');
     
@@ -1146,7 +1146,7 @@ class IntegratedCaptureService {
   }
 
   async stop() {
-    info('Stopping Tabeza POS Connect RedMon Service...');
+    info('Stopping TabezaConnect RedMon Service...');
     this.isRunning = false;
 
     // Stop SpoolWatcher
@@ -1228,7 +1228,7 @@ class IntegratedCaptureService {
 
 // Signal ready to Windows SCM BEFORE anything else (guards against slow startup)
 if (process.send) {
-  process.send({ type: 'started', message: 'Tabeza POS Connect starting' });
+  process.send({ type: 'started', message: 'TabezaConnect starting' });
 }
 
 const service = new IntegratedCaptureService();

@@ -449,7 +449,7 @@ Windows Registry: HKLM\SOFTWARE\Tabeza\TabezaConnect
 └── WatchFolder
 
 Windows Service: TabezaConnect
-├── Display Name:  Tabeza POS Connect
+├── Display Name:  TabezaConnect
 ├── Account:       LocalService
 ├── Startup:       Automatic
 └── Environment:   TABEZA_BAR_ID, TABEZA_API_URL, TABEZA_WATCH_FOLDER

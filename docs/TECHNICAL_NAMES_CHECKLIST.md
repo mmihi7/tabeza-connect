@@ -1,7 +1,7 @@
 # TabezaConnect Technical Names Verification Checklist
 
 ## Purpose
-This checklist ensures all technical names use "TabezaConnect" (no space) while user-facing names use "Tabeza POS Connect" (with spaces).
+This checklist ensures all technical names use "TabezaConnect" (no space) while user-facing names use "TabezaConnect" (with spaces).
 
 ## Requirement Reference
 **Requirement 3.2**: Technical names must remain "TabezaConnect" (no space)
@@ -45,26 +45,26 @@ Run the automated verification script:
   - Expected: `TabezaConnect` (if applicable)
   - Current: _______________
 
-#### User-Facing Names (WITH SPACES - "Tabeza POS Connect")
+#### User-Facing Names (WITH SPACES - "TabezaConnect")
 
 - [ ] **Application Name**
   - Location: `AppName`
-  - Expected: `Tabeza POS Connect`
+  - Expected: `TabezaConnect`
   - Current: _______________
 
 - [ ] **Service Display Name**
   - Location: PowerShell scripts or service configuration
-  - Expected: `Tabeza POS Connect Service`
+  - Expected: `TabezaConnect Service`
   - Current: _______________
 
 - [ ] **Start Menu Group**
   - Location: `DefaultGroupName`
-  - Expected: `Tabeza POS Connect`
+  - Expected: `TabezaConnect`
   - Current: _______________
 
 - [ ] **Uninstall Display Name**
   - Location: `UninstallDisplayName`
-  - Expected: `Tabeza POS Connect`
+  - Expected: `TabezaConnect`
   - Current: _______________
 
 ### ✅ PowerShell Scripts
@@ -73,7 +73,7 @@ Check all scripts in `src/installer/scripts/`:
 
 - [ ] **register-service.ps1**
   - Service Name: `TabezaConnect` (no space)
-  - Display Name: `Tabeza POS Connect Service` (with spaces)
+  - Display Name: `TabezaConnect Service` (with spaces)
 
 - [ ] **configure-firewall.ps1**
   - Rule names can use either format (document which is used)
@@ -93,7 +93,7 @@ Check all scripts in `src/installer/scripts/`:
 
 - [ ] **README.md**
   - Technical references: `TabezaConnect`
-  - User-facing references: `Tabeza POS Connect`
+  - User-facing references: `TabezaConnect`
 
 - [ ] **BUILD-AND-DEPLOY.md**
   - Build commands: `TabezaConnect-Setup-v1.3.0.exe`
@@ -104,17 +104,17 @@ Check all scripts in `src/installer/scripts/`:
 After building and installing, verify:
 
 - [ ] **Windows Programs List**
-  - Shows: `Tabeza POS Connect` ✓
+  - Shows: `TabezaConnect` ✓
 
 - [ ] **Start Menu**
-  - Shows: `Tabeza POS Connect` ✓
+  - Shows: `TabezaConnect` ✓
 
 - [ ] **Installation Directory**
   - Path: `C:\Program Files\TabezaConnect` ✓
 
 - [ ] **Windows Services**
   - Service Name: `TabezaConnect` ✓
-  - Display Name: `Tabeza POS Connect Service` ✓
+  - Display Name: `TabezaConnect Service` ✓
 
 - [ ] **Registry**
   - Key: `HKLM\Software\Tabeza\Connect` ✓
@@ -142,10 +142,10 @@ Software\Tabeza\Connect                           ✓
 
 ### ✅ CORRECT - Spaces in User-Facing Names
 ```
-AppName=Tabeza POS Connect                        ✓
-DefaultGroupName=Tabeza POS Connect               ✓
-UninstallDisplayName=Tabeza POS Connect           ✓
-DisplayName "Tabeza POS Connect Service"          ✓
+AppName=TabezaConnect                        ✓
+DefaultGroupName=TabezaConnect               ✓
+UninstallDisplayName=TabezaConnect           ✓
+DisplayName "TabezaConnect Service"          ✓
 ```
 
 ## Automated Testing

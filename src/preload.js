@@ -255,6 +255,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'mark-step-complete', 'reset-setup-state', 'get-window-state',
       'save-active-section', 'check-printer-status', 'check-printer-setup',
       'launch-printer-setup', 'setup-printer', 'get-printers',
+      'check-admin-password', 'save-printer-selection', 'show-input-dialog',
       'check-template-status', 'check-template-exists', 'launch-template-generator',
       'save-template', 'generate-template', 'get-template-status',
       'test-print', 'test-template', 'save-api-settings',

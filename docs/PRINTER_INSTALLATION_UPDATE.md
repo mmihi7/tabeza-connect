@@ -13,7 +13,7 @@ Updated the `configure-printer.ps1` script to install a virtual printer that wor
 - **Problem**: TabezaConnect monitors Windows spooler, not files
 
 ### After (Spooler-based)
-- Printer name: "Tabeza POS Connect"
+- Printer name: "TabezaConnect"
 - Port: `NULL:` (built-in Windows null port)
 - Output: Goes through Windows spooler, then discarded
 - **Solution**: TabezaConnect captures from spooler before discard
@@ -21,7 +21,7 @@ Updated the `configure-printer.ps1` script to install a virtual printer that wor
 ## How It Works Now
 
 ```
-POS prints to "Tabeza POS Connect"
+POS prints to "TabezaConnect"
          ↓
 Windows Print Spooler
   ├─> Creates .SPL/.SHD files temporarily
@@ -42,7 +42,7 @@ After installing TabezaConnect:
 
 1. Open Notepad
 2. Type some text
-3. File → Print → Select "Tabeza POS Connect"
+3. File → Print → Select "TabezaConnect"
 4. Click Print
 5. Watch TabezaConnect console for: `📄 New print file detected`
 
@@ -73,7 +73,7 @@ After installing TabezaConnect:
 If upgrading from a previous version:
 
 1. Old printer ("Tabeza Virtual Printer") will be left in place
-2. New printer ("Tabeza POS Connect") will be installed
+2. New printer ("TabezaConnect") will be installed
 3. Users should switch to the new printer
 4. Old printer can be manually removed if desired
 
@@ -81,7 +81,7 @@ If upgrading from a previous version:
 
 ### Printer Configuration
 ```powershell
-$PrinterName = 'Tabeza POS Connect'
+$PrinterName = 'TabezaConnect'
 $DriverName  = 'Generic / Text Only'
 $PortName    = 'NULL:'
 
@@ -94,7 +94,7 @@ Add-Printer `
 ### Verification
 ```powershell
 # Check if printer exists
-Get-Printer -Name 'Tabeza POS Connect'
+Get-Printer -Name 'TabezaConnect'
 
 # Check port
 Get-PrinterPort -Name 'NULL:'

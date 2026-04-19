@@ -21,13 +21,13 @@ function updateTrayIcon(isRunning) {
     path.join(__dirname, '../../assets/icon-green.ico') : 
     path.join(__dirname, '../../assets/icon-grey.ico');
   tray.setImage(iconPath);
-  tray.setToolTip(isRunning ? 'Tabeza POS Connect - Connected' : 'Tabeza POS Connect - Disconnected');
+  tray.setToolTip(isRunning ? 'TabezaConnect - Connected' : 'TabezaConnect - Disconnected');
 }
 
 function createTray() {
   const iconPath = path.join(__dirname, '../../assets/icon-grey.ico');
   tray = new Tray(iconPath);
-  tray.setToolTip('Tabeza POS Connect - Starting...');
+  tray.setToolTip('TabezaConnect - Starting...');
   
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -65,7 +65,7 @@ function showStatusWindow() {
     webPreferences: { nodeIntegration: true, contextIsolation: false },
     icon: path.join(__dirname, '../../assets/icon-green.ico'),
     show: false,
-    title: 'Tabeza POS Connect Status'
+    title: 'TabezaConnect Status'
   });
   
   statusWindow.loadURL('http://localhost:8765');

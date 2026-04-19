@@ -1,17 +1,17 @@
-# Tabeza POS Connect v1.1.1 - Initial Release
+# TabezaConnect v1.1.1 - Initial Release
 
 ## Release Title
-**Tabeza POS Connect v1.1.1 - Bridge Your POS to Any Printer**
+**TabezaConnect v1.1.1 - Bridge Your POS to Any Printer**
 
 ## Release Description
 ```
-🖨️ Tabeza POS Connect v1.1.1
+🖨️ TabezaConnect v1.1.1
 
 Finally! A universal bridge between your Tabeza POS system and any thermal printer.
 
-### ❓ What is Tabeza POS Connect?
+### ❓ What is TabezaConnect?
 
-Tabeza POS Connect is a Windows application that seamlessly connects your Tabeza Point of Sale system to any thermal printer. It acts as a universal translator, ensuring your receipts print perfectly every time.
+TabezaConnect is a Windows application that seamlessly connects your Tabeza Point of Sale system to any thermal printer. It acts as a universal translator, ensuring your receipts print perfectly every time.
 
 ### 🎯 What It Does For You
 
@@ -90,13 +90,13 @@ Tabeza POS Connect is a Windows application that seamlessly connects your Tabeza
 
 ### 🎉 Why This Matters
 
-**Before Tabeza POS Connect:**
+**Before TabezaConnect:**
 - Expensive printer-specific solutions
 - Complex setup and configuration
 - Limited printer compatibility
 - No real-time status monitoring
 
-**After Tabeza POS Connect:**
+**After TabezaConnect:**
 - Universal printer compatibility
 - 2-minute installation
 - Automatic everything
@@ -106,17 +106,17 @@ Tabeza POS Connect is a Windows application that seamlessly connects your Tabeza
 
 ## GitHub Release Copy-Paste Content
 
-**Title**: Tabeza POS Connect v1.1.1 - Bridge Your POS to Any Printer
+**Title**: TabezaConnect v1.1.1 - Bridge Your POS to Any Printer
 
 **Body**:
 ```
-🖨️ Tabeza POS Connect v1.1.1
+🖨️ TabezaConnect v1.1.1
 
 Finally! A universal bridge between your Tabeza POS system and any thermal printer.
 
-### ❓ What is Tabeza POS Connect?
+### ❓ What is TabezaConnect?
 
-Tabeza POS Connect is a Windows application that seamlessly connects your Tabeza Point of Sale system to any thermal printer. It acts as a universal translator, ensuring your receipts print perfectly every time.
+TabezaConnect is a Windows application that seamlessly connects your Tabeza Point of Sale system to any thermal printer. It acts as a universal translator, ensuring your receipts print perfectly every time.
 
 ### 🎯 What It Does For You
 
@@ -195,13 +195,13 @@ Tabeza POS Connect is a Windows application that seamlessly connects your Tabeza
 
 ### 🎉 Why This Matters
 
-**Before Tabeza POS Connect:**
+**Before TabezaConnect:**
 - Expensive printer-specific solutions
 - Complex setup and configuration
 - Limited printer compatibility
 - No real-time status monitoring
 
-**After Tabeza POS Connect:**
+**After TabezaConnect:**
 - Universal printer compatibility
 - 2-minute installation
 - Automatic everything

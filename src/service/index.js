@@ -1,9 +1,9 @@
 /***
- * Tabeza POS Connect - RedMon Capture Service v1.7.0
+ * TabezaConnect - RedMon Capture Service v1.7.0
  *
  * Architecture: RedMon Port Monitor Capture
  * ─────────────────────────────────────────────────
- * POS prints to "Tabeza Agent"
+ * POS prints to "Send2Me"
  *   → RedMon port monitor intercepts print job
  *   → RedMon pipes raw ESC/POS bytes to capture.exe via stdin
  *   → Capture script processes and forwards to physical printer
@@ -455,13 +455,13 @@ class SimpleHTTPServer {
     // Printer status endpoint
     this.app.get('/api/printer/status', async (req, res) => {
       try {
-        // Check if Tabeza Agent exists using PowerShell
+        // Check if Send2Me exists using PowerShell
         const { exec } = require('child_process');
         const util = require('util');
         const execPromise = util.promisify(exec);
         
         try {
-          const { stdout } = await execPromise('powershell -Command "Get-Printer -Name \'Tabeza Agent\' -ErrorAction SilentlyContinue | Select-Object Name, DriverName, PortName | ConvertTo-Json"');
+          const { stdout } = await execPromise('powershell -Command "Get-Printer -Name \'Send2Me\' -ErrorAction SilentlyContinue | Select-Object Name, DriverName, PortName | ConvertTo-Json"');
           
           if (stdout && stdout.trim()) {
             const printerInfo = JSON.parse(stdout);
@@ -478,7 +478,7 @@ class SimpleHTTPServer {
             res.json({
               success: true,
               status: 'not_configured',
-              message: 'Tabeza Agent not found'
+              message: 'Send2Me not found'
             });
           }
         } catch (psError) {
@@ -1097,7 +1097,12 @@ function rotateLogIfNeeded() {
     }
   } catch (err) {
     // If rotation fails, continue without logging to avoid infinite loops
-    console.error('Log rotation failed:', err.message);
+    // CRITICAL: Don't use console.error here as it may cause EPIPE cascade
+    try {
+      fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}][WARN] Log rotation failed: ${err.message}\n`, 'utf8');
+    } catch (_) {
+      // Give up silently if file write also fails
+    }
   }
 }
 
@@ -1267,7 +1272,7 @@ class IntegratedCaptureService {
     this.isRunning = true; // Set running flag immediately
 
     info('========================================');
-    info('Tabeza POS Connect - RedMon Capture Service v1.7.0');
+    info('TabezaConnect - RedMon Capture Service v1.7.0');
     info('*** REDMON PORT MONITOR VERSION ***');
     info('========================================');
     
@@ -1508,7 +1513,7 @@ class IntegratedCaptureService {
   }
 
   async stop() {
-    info('Stopping Tabeza POS Connect RedMon Service...');
+    info('Stopping TabezaConnect RedMon Service...');
     this.isRunning = false;
 
     // Stop SpoolWatcher
@@ -1657,23 +1662,116 @@ class IntegratedCaptureService {
 
 // ─── Entry Point ──────────────────────────────────────────────────────────────
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// SINGLE INSTANCE LOCK - Prevents multiple service instances from running
+// ═══════════════════════════════════════════════════════════════════════════════
+const LOCK_FILE = path.join(process.env.TABEZA_WATCH_FOLDER || 'C:\\TabezaPrints', 'service.lock');
+const LOCK_CHECK_INTERVAL = 5000; // Check lock every 5 seconds
+let lockFileHandle = null;
+
+function acquireLock() {
+  try {
+    // Try to open the lock file exclusively (fails if another process has it open)
+    lockFileHandle = fs.openSync(LOCK_FILE, 'wx');
+    
+    // Write our PID to the lock file
+    fs.writeSync(lockFileHandle, `${process.pid}\n${new Date().toISOString()}\n`);
+    
+    console.log(`[LOCK] Acquired single-instance lock (PID: ${process.pid})`);
+    return true;
+  } catch (err) {
+    if (err.code === 'EEXIST') {
+      // Lock file exists - check if the process is still running
+      try {
+        const lockContent = fs.readFileSync(LOCK_FILE, 'utf8');
+        const lockPid = parseInt(lockContent.split('\n')[0]);
+        
+        // Check if the process is still running
+        try {
+          process.kill(lockPid, 0); // Signal 0 checks if process exists without killing it
+          console.error(`[LOCK] Another TabezaConnect instance is already running (PID: ${lockPid})`);
+          console.error(`[LOCK] This instance will exit to prevent conflicts.`);
+          return false;
+        } catch (killErr) {
+          // Process doesn't exist - stale lock file
+          console.log(`[LOCK] Stale lock file detected (PID ${lockPid} not running) - removing`);
+          fs.unlinkSync(LOCK_FILE);
+          return acquireLock(); // Try again
+        }
+      } catch (readErr) {
+        console.error(`[LOCK] Could not read lock file: ${readErr.message}`);
+        return false;
+      }
+    } else {
+      console.error(`[LOCK] Failed to acquire lock: ${err.message}`);
+      return false;
+    }
+  }
+}
+
+function releaseLock() {
+  try {
+    if (lockFileHandle !== null) {
+      fs.closeSync(lockFileHandle);
+      lockFileHandle = null;
+    }
+    if (fs.existsSync(LOCK_FILE)) {
+      fs.unlinkSync(LOCK_FILE);
+    }
+    console.log(`[LOCK] Released single-instance lock`);
+  } catch (err) {
+    console.error(`[LOCK] Error releasing lock: ${err.message}`);
+  }
+}
+
+// Periodically refresh the lock file timestamp to prove we're still alive
+function refreshLock() {
+  if (lockFileHandle !== null) {
+    try {
+      fs.ftruncateSync(lockFileHandle, 0);
+      fs.writeSync(lockFileHandle, `${process.pid}\n${new Date().toISOString()}\n`, 0);
+    } catch (err) {
+      console.error(`[LOCK] Failed to refresh lock: ${err.message}`);
+    }
+  }
+}
+
+// Acquire lock before starting service
+if (!acquireLock()) {
+  console.error('[LOCK] Exiting due to another running instance');
+  process.exit(1);
+}
+
+// Refresh lock periodically
+const lockRefreshTimer = setInterval(refreshLock, LOCK_CHECK_INTERVAL);
+
+// Release lock on exit
+process.on('exit', () => {
+  clearInterval(lockRefreshTimer);
+  releaseLock();
+});
+
 // Signal ready to Windows SCM BEFORE anything else (guards against slow startup)
 if (process.send) {
-  process.send({ type: 'started', message: 'Tabeza POS Connect starting' });
+  process.send({ type: 'started', message: 'TabezaConnect starting' });
 }
 
 const service = new IntegratedCaptureService();
 service.start().catch(err => {
   error(`Failed to start service: ${err.message}`);
+  releaseLock();
   process.exit(1);
 });
 
 const shutdown = (sig) => {
   info(`${sig} received — shutting down`);
+  clearInterval(lockRefreshTimer);
   service.stop().then(() => {
+    releaseLock();
     process.exit(0);
   }).catch(err => {
     error(`Error during shutdown: ${err.message}`);
+    releaseLock();
     process.exit(1);
   });
 };
@@ -1682,14 +1780,36 @@ process.on('SIGINT',  () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
 process.on('uncaughtException', (err) => {
-  error(`Uncaught exception: ${err.message}\n${err.stack}`);
+  // CRITICAL: Don't use error() here as it may cause EPIPE cascade
+  // Write directly to file only, skip console logging
+  try {
+    const ts = new Date().toISOString();
+    const line = `[${ts}][ERROR] Uncaught exception: ${err.message}\n${err.stack}`;
+    ensureLogDir();
+    fs.appendFileSync(LOG_FILE, line + '\n', 'utf8');
+  } catch (_) {
+    // If file logging fails, give up silently to prevent cascade
+  }
+  
+  // Attempt graceful shutdown without logging
   service.stop().then(() => {
+    process.exit(1);
+  }).catch(() => {
     process.exit(1);
   });
 });
 
 process.on('unhandledRejection', (reason) => {
-  error(`Unhandled rejection: ${reason}`);
+  // CRITICAL: Don't use error() here as it may cause EPIPE cascade
+  // Write directly to file only, skip console logging
+  try {
+    const ts = new Date().toISOString();
+    const line = `[${ts}][ERROR] Unhandled rejection: ${reason}`;
+    ensureLogDir();
+    fs.appendFileSync(LOG_FILE, line + '\n', 'utf8');
+  } catch (_) {
+    // If file logging fails, give up silently to prevent cascade
+  }
 });
 
 

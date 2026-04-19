@@ -15,7 +15,7 @@ Improved Windows compatibility with better handling of administrator privileges 
 Added required acceptance of Terms of Service and Privacy Policy during installation, with scroll-to-accept functionality.
 
 ### Consistent Branding
-Updated all user-facing elements to display "Tabeza POS Connect" for professional consistency.
+Updated all user-facing elements to display "TabezaConnect" for professional consistency.
 
 ### Improved Configuration
 Enhanced Bar ID input with validation to prevent common setup errors.
@@ -119,7 +119,7 @@ Email support@tabeza.co.ke with your Bar ID and error details.
 
 ## 🙏 Thank You
 
-Thank you for using Tabeza POS Connect. We're committed to making your venue operations smoother and more efficient.
+Thank you for using TabezaConnect. We're committed to making your venue operations smoother and more efficient.
 
 ---
 

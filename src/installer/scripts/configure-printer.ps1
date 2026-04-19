@@ -28,7 +28,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$PrinterName   = 'Tabeza POS Connect'
+$PrinterName   = 'TabezaConnect'
 $DriverName    = 'Generic / Text Only'   # Built-in Windows driver — no download needed
 $PortName      = 'NULL:'                 # NULL port - goes through spooler but doesn't print
 

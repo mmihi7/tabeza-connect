@@ -9,7 +9,7 @@
 ; - Added Step 7: Launch TabezaConnect.exe after install so tray appears immediately
 
 [Setup]
-AppName=Tabeza POS Connect
+AppName=TabezaConnect
 AppVersion=1.7.0
 AppPublisher=Tabeza
 AppPublisherURL=https://tabeza.co.ke
@@ -18,7 +18,7 @@ AppUpdatesURL=https://tabeza.co.ke/downloads
 AppCopyright=Copyright (C) 2026 Tabeza
 
 DefaultDirName={autopf}\TabezaConnect
-DefaultGroupName=Tabeza POS Connect
+DefaultGroupName=TabezaConnect
 DisableProgramGroupPage=yes
 
 OutputDir=dist
@@ -42,14 +42,14 @@ WizardStyle=modern
 DisableWelcomePage=no
 LicenseFile=LICENSE.txt
 
-UninstallDisplayName=Tabeza POS Connect
+UninstallDisplayName=TabezaConnect
 UninstallFilesDir={app}\uninstall
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Messages]
-WelcomeLabel2=This will install Tabeza POS Connect on your computer.%n%nTabeza POS Connect captures receipt data from your POS system and syncs it with the Tabeza staff app.%n%nIMPORTANT: Tabeza works ALONGSIDE your existing printer. Your current printer setup will NOT change.
+WelcomeLabel2=This will install TabezaConnect on your computer.%n%nTabezaConnect captures receipt data from your POS system and syncs it with the Tabeza staff app.%n%nIMPORTANT: Tabeza works ALONGSIDE your existing printer. Your current printer setup will NOT change.
 
 [CustomMessages]
 BarIdPrompt=Enter your Bar ID from the Tabeza staff dashboard:
@@ -97,8 +97,8 @@ Name: "{commonappdata}\Tabeza\TabezaPrints\failed"; Permissions: users-modify
 
 [Icons]
 ; Start menu shortcut
-Name: "{group}\Tabeza POS Connect"; Filename: "{app}\TabezaConnect.exe"; IconFilename: "{app}\icon-green.ico"
-Name: "{group}\Uninstall Tabeza POS Connect"; Filename: "{uninstallexe}"
+Name: "{group}\TabezaConnect"; Filename: "{app}\TabezaConnect.exe"; IconFilename: "{app}\icon-green.ico"
+Name: "{group}\Uninstall TabezaConnect"; Filename: "{uninstallexe}"
 
 [Registry]
 ; Store installation path for updates and service
@@ -237,7 +237,7 @@ Filename: "powershell.exe"; \
 ; ============================================================================
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\register-service-pkg.ps1"" -InstallPath ""{app}"" -BarId ""{code:GetBarId}"" -ApiUrl ""{code:GetApiUrl}"" -WatchFolder ""C:\ProgramData\Tabeza\TabezaPrints"""; \
-  StatusMsg: "Registering Tabeza POS Connect service..."; \
+  StatusMsg: "Registering TabezaConnect service..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
@@ -246,7 +246,7 @@ Filename: "powershell.exe"; \
 ; ============================================================================
 Filename: "sc.exe"; \
   Parameters: "start TabezaConnect"; \
-  StatusMsg: "Starting Tabeza POS Connect service..."; \
+  StatusMsg: "Starting TabezaConnect service..."; \
   Flags: runhidden waituntilterminated; \
   Components: core
 
@@ -267,7 +267,7 @@ Filename: "powershell.exe"; \
 ; ============================================================================
 Filename: "{app}\TabezaConnect.exe"; \
   StatusMsg: "Starting Tabeza system tray..."; \
-  Description: "Start Tabeza POS Connect now"; \
+  Description: "Start TabezaConnect now"; \
   Flags: postinstall nowait skipifsilent; \
   Components: core
 

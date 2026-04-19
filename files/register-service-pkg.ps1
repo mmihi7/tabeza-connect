@@ -28,7 +28,7 @@ if (-not $isAdmin) {
 }
 
 $serviceName = "TabezaConnect"
-$displayName = "Tabeza POS Connect"
+$displayName = "TabezaConnect"
 $description = "Captures receipt data from POS and syncs with Tabeza staff app"
 
 # Check if service exists
@@ -138,6 +138,32 @@ if (Test-Path $regPath) {
     Write-Host "  [SUCCESS] Environment variables configured" -ForegroundColor Green
     Write-Host "    TABEZA_BAR_ID      = $BarId" -ForegroundColor Gray
     Write-Host "    TABEZA_WATCH_FOLDER = $WatchFolder" -ForegroundColor Gray
+}
+
+# Bug 1 Fix - Sub-task 1.3.4: Update config.json with Bar ID
+Write-Host "  Updating config.json with Bar ID..." -ForegroundColor Gray
+
+$configPath = "C:\ProgramData\Tabeza\config.json"
+try {
+    if (Test-Path $configPath) {
+        # Read existing config
+        $configContent = Get-Content $configPath -Raw -Encoding UTF8
+        $config = $configContent | ConvertFrom-Json
+        
+        # Update Bar ID
+        $config.barId = $BarId
+        
+        # Write back to file
+        $config | ConvertTo-Json -Depth 10 | Set-Content $configPath -Encoding UTF8
+        
+        Write-Host "  [SUCCESS] config.json updated with Bar ID" -ForegroundColor Green
+        Write-Host "    Bar ID: $BarId" -ForegroundColor Gray
+    } else {
+        Write-Host "  [WARNING] config.json not found at $configPath" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "  [WARNING] Failed to update config.json: $_" -ForegroundColor Yellow
+    Write-Host "  (Non-fatal - service will migrate from registry on startup)" -ForegroundColor Gray
 }
 
 Write-Host ""

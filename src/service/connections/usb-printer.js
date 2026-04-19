@@ -1,11 +1,15 @@
 // usb-printer.js
 
 // USB Printer Connection - Forwards print jobs to USB thermal printers
+// NOTE: usb native module is optional — if not available (e.g. wrong ABI),
+// this class degrades gracefully. Redmon-based capture does not require USB.
 
-
-
-const usb = require('usb');
-
+let usb = null;
+try {
+  usb = require('usb');
+} catch (e) {
+  // Native module not available for this runtime — USB printing disabled
+}
 
 
 class USBPrinterConnection {

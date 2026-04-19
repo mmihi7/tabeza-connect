@@ -62,7 +62,7 @@ Write-Log "Executable: $ServiceExe"
 $scResult = & sc.exe create $ServiceName `
     binPath= "`"$ServiceExe`"" `
     start= auto `
-    DisplayName= "Tabeza POS Connect" `
+    DisplayName= "TabezaConnect" `
     obj= LocalSystem
 
 if ($LASTEXITCODE -ne 0) {
